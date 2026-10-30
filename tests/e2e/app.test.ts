@@ -319,21 +319,34 @@ describe("application", () => {
         await loadExample(page, "patch_light.json");
         const read = () => page.evaluate(() => {
             const m = (globalThis as any).faustPlayground.scene.getModuleById("3");
-            return { left: m.moduleView.fModuleContainer.style.left, volume: m.moduleFaust.getDSP().getParamValue(m.moduleControles[0].itemParam.address) };
+            const slider = m.moduleView.fModuleContainer.querySelector("input[type=range]") as HTMLInputElement;
+            const r = slider.getBoundingClientRect();
+            return {
+                left: m.moduleView.fModuleContainer.style.left,
+                fraction: (Number(slider.value) - Number(slider.min)) / (Number(slider.max) - Number(slider.min)),
+                volume: m.moduleFaust.getDSP().getParamValue(m.moduleControles[0].itemParam.address),
+                x: r.left, y: r.top + r.height / 2, width: r.width,
+            };
         });
         const before = await read();
-        const slider = await page.evaluate(() => {
-            const r = (globalThis as any).faustPlayground.scene.getModuleById("3").moduleView.fModuleContainer.querySelector("input[type=range]").getBoundingClientRect();
-            return { x: r.left, y: r.top + r.height / 2, width: r.width };
-        });
+        expect(before.volume).toBeCloseTo(0.75);
+        // the finger starts on the thumb and moves left in small steps, with pauses (real touches take time)
         const cdp = await page.context().newCDPSession(page);
-        const touch = (type: "touchStart" | "touchMove", x: number) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: [{ x: Math.round(x), y: Math.round(slider.y), id: 0 }] });
-        await touch("touchStart", slider.x + slider.width * 0.75);
-        for (let k = 1; k <= 10; k++) await touch("touchMove", slider.x + slider.width * (0.75 - k * 0.05));
+        const touch = (type: "touchStart" | "touchMove", x: number) =>
+            cdp.send("Input.dispatchTouchEvent", { type, touchPoints: [{ x: Math.round(x), y: Math.round(before.y), id: 0 }] });
+        const start = before.x + before.width * before.fraction;
+        await touch("touchStart", start);
+        for (let k = 1; k <= 20; k++) {
+            await touch("touchMove", start - k * before.width * 0.025);
+            await page.waitForTimeout(16);
+        }
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await page.waitForFunction(() => {
+            const m = (globalThis as any).faustPlayground.scene.getModuleById("3");
+            return m.moduleFaust.getDSP().getParamValue(m.moduleControles[0].itemParam.address) < 0.5;
+        }, null, { timeout: 5_000 });
         const after = await read();
         expect(after.left).toBe(before.left);
-        expect(before.volume).toBeCloseTo(0.75);
         expect(after.volume).toBeLessThan(0.5);
         expect(errors).toEqual([]);
         await page.close();
