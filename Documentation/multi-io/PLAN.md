@@ -153,12 +153,15 @@ Classées par risque décroissant.
 
 ### 2.1 Ergonomie : la disparition du mixage implicite (risque élevé)
 
-C'est la difficulté principale, et elle n'est pas technique. Le public d'origine
-est constitué d'enfants. Aujourd'hui, un câble suffit pour relier un générateur
-mono à la sortie stéréo. Avec un port par canal, il faut 2 câbles, sinon le son
-ne sort qu'à gauche. 37 des 40 générateurs sont concernés. Il faut donc :
-- une **connexion « bus »** (un seul geste qui crée plusieurs câbles) avec une
-  règle d'adaptation explicite, déterministe et conforme à Faust ;
+Le public d'origine est constitué d'enfants. Aujourd'hui, un câble suffit pour
+relier un générateur mono à la sortie stéréo. Avec un port par canal, il faut
+2 câbles, sinon le son ne sort qu'à gauche. 37 des 40 générateurs sont concernés.
+**Décision (§5.1) : la nouvelle version vise des utilisateurs avancés ; tous les
+ports sont exposés et le câble unitaire est le geste principal.** Il faut tout de
+même :
+- une **connexion « bus »** (un seul geste qui crée plusieurs câbles), comme
+  accélérateur secondaire, avec une règle d'adaptation explicite, déterministe et
+  conforme à Faust. Elle sert aussi à convertir les patchs v1 (§2.8) ;
 - un affichage lisible jusqu'à 32 ports (cibles tactiles d'environ 20 px minimum,
   numérotation, hauteur de module adaptative).
 
@@ -179,8 +182,8 @@ code Faust exporté :
 
 Seule divergence inévitable : le retard de rétroaction vaut 128 échantillons en
 Web Audio (mesuré, quantum de rendu) contre 1 échantillon pour `~` en Faust.
-Choix possibles : l'accepter et le documenter, ou ajouter `@(127)` sur les arcs
-de retour à l'export pour une équivalence exacte. Ce point est à trancher (§5).
+**Décision (§5.3) : l'écart est accepté et documenté** ; l'export conserve la
+sémantique naturelle de `~`, sans `@(127)`.
 Le choix des arcs retardés doit être **le même** des deux côtés : on prend les
 arcs arrière d'un parcours en profondeur dans un ordre déterministe.
 
@@ -208,8 +211,9 @@ Un nœud faustwasm n'expose qu'un port Web Audio multicanal. Deux options :
   amont et ne couvre pas le repli `ScriptProcessorNode`.
 
 Limite : **32 canaux** par port (merger/splitter, `channelCount` de
-l'AudioWorklet). Un module à plus de 32 E/S sera refusé avec un message, ou il
-faudra passer à (B).
+l'AudioWorklet). **Décision (§5.6) : limite acceptée.** Un module à plus de
+32 entrées ou 32 sorties est refusé avec un message explicite ; (B) n'est pas
+retenu.
 
 ### 2.5 Cycles en Web Audio (risque moyen)
 
@@ -242,9 +246,9 @@ La conversion d'une connexion v1 A→B en câbles se fait avec la règle cycliqu
 Les seules arités rencontrées en pratique (§1.6) sont 1→1, 1→2, 2→1 et 2→2.
 La règle cyclique reproduit exactement le comportement live v1, **sauf en 2→1** :
 v1 donnait ½(L+R), la règle donne L+R, soit **+6 dB**. Ce cas est fréquent
-(21 « combined » stéréo vers des effets mono). Options : l'accepter, ajouter un
-gain par câble (ce qui complique le modèle et l'export), ou normaliser la
-connexion bus en fusion (gain 1/k). À trancher (§5).
+(21 « combined » stéréo vers des effets mono). **Décision (§5.2) : somme
+simple, sans gain par câble.** Les patchs v1 concernés sonneront 6 dB plus fort ;
+cette conséquence sera signalée dans les notes de version.
 
 Les connexions v1 doivent être créées **après** la compilation de tous les
 modules, car les arités ne sont connues qu'à ce moment-là. L'ordre actuel le
@@ -261,8 +265,9 @@ permet déjà, sauf pour les patchs précompilés où l'arité est lisible dans
   l'autorisation, voire jamais si elle est refusée). Le module d'entrée doit donc
   pouvoir changer d'arité après coup (§2.6).
 - Export : une application exportée vers Android ou d'autres plateformes aura
-  E_in entrées et E_out sorties. Il faut décider si l'on garde une option
-  « forcer la stéréo » (§5).
+  E_in entrées et E_out sorties. **Décision (§5.5) : arité native par défaut,
+  avec une option « forcer la stéréo »** qui adapte les E/S externes par la
+  règle cyclique.
 
 ### 2.10 Dette technique transverse (risque faible, mais coût réel)
 
@@ -296,11 +301,11 @@ permet déjà, sauf pour les patchs précompilés où l'arité est lisible dans
    - `FaustExporter` : fonction pure `Patch → string`.
 3. Sérialisation **v2** (`{ version: 2, sceneName, modules: [...], connections: [...] }`)
    et un **lecteur v1** qui convertit vers le modèle (§2.8).
-4. Interface :
-   - ports numérotés ;
-   - glisser depuis un port pour un câble unitaire ;
-   - glisser depuis la poignée « bus » du module (ou lâcher sur le corps du
-     module cible) pour une connexion bus selon la règle cyclique ;
+4. Interface (utilisateurs avancés, §5.1) :
+   - tous les ports visibles et numérotés ;
+   - glisser depuis un port pour un câble unitaire (geste principal) ;
+   - accélérateur secondaire : lâcher un câble sur le corps du module cible
+     (et non sur un port) crée une connexion bus selon la règle cyclique ;
    - clic sur un câble pour le supprimer (comme aujourd'hui).
 5. Outillage : `tsconfig.json` (non strict au départ), `tsc --noEmit` et
    **Vitest** en CI. Tests unitaires pour le modèle, la migration et l'export
@@ -352,8 +357,8 @@ branche de travail.
   mini/maxi.
 - Réécriture du glisser (module et câble) en Pointer Events, cibles par
   attributs `data-*` ; suppression de `Dragging.ts` / `Connect.ts`.
-- Câbles par port avec géométrie recalculée ; connexion bus (poignée et lâcher
-  sur le corps du module) ; surlignage des cibles compatibles.
+- Câbles par port avec géométrie recalculée ; connexion bus (lâcher sur le
+  corps du module) ; surlignage des cibles compatibles.
 - Recompilation avec changement d'arité (§2.6) et message à l'utilisateur.
 - Vérification tactile (tablette) et en multi-touch.
 
@@ -372,10 +377,12 @@ suppression, sauvegarde/rappel).
      uniques (corrige D2).
 
   Exemple validé : `probes/export-scheme.mjs`.
-- Option « forcer la stéréo » à l'export si elle est retenue (§5).
+- Modules sans chemin vers une sortie physique : ignorés (§5.4).
+- Option « forcer la stéréo » à l'export (§5.5).
+- Refus explicite des modules à plus de 32 entrées ou sorties (§5.6).
 - Tests : compilation de l'export de chaque exemple et arités attendues ; test
-  différentiel live/export (≤ 1e-6 sur graphes acycliques) ; rétroaction selon
-  la décision §2.2.
+  différentiel live/export (≤ 1e-6 sur graphes acycliques) ; sur les graphes
+  bouclés, test de l'export seul (retard de 1 échantillon, §5.3).
 
 ### Phase 5 — Finitions (≈ 1–2 j)
 - Migration des exemples `public/json/` en v2 (le lecteur v1 reste).
@@ -388,19 +395,13 @@ suppression, sauvegarde/rappel).
 
 ---
 
-## 5. Décisions à prendre
+## 5. Décisions (arrêtées le 2026-10-30)
 
-1. **Public visé** : garder la simplicité « enfants » (connexion bus par défaut,
-   ports unitaires en mode avancé) ou exposer d'emblée tous les ports ?
-2. **Fusion n→m (n > m)** : somme simple, conforme à `:>` (+6 dB par rapport au
-   v1 en 2→1), ou normalisation 1/k (gain par câble à introduire dans le modèle
-   et l'export) ?
-3. **Retard de rétroaction** : accepter 128 échantillons en live contre 1 à
-   l'export, ou aligner l'export avec `@(127)` ?
-4. **Modules non connectés** à l'export : les ignorer, ce qui est cohérent avec
-   le live où ils sont muets, ou conserver le routage automatique vers la sortie
-   de la v1 ?
-5. **Arité de l'export** : arité native du patch, ou option « forcer la stéréo »
-   pour les cibles mobiles ?
-6. **Limite de 32 canaux** par module : acceptable, ou faut-il prévoir
-   l'option (B) dans faustwasm ?
+| # | Question | Décision |
+|---|---|---|
+| 1 | Public visé | **Utilisateurs avancés** : tous les ports exposés, câble unitaire comme geste principal ; connexion bus en accélérateur secondaire |
+| 2 | Fusion n→m (n > m) | **Somme simple**, conforme à `:>` ; pas de gain par câble ; +6 dB en 2→1 pour les patchs v1, signalé dans les notes de version |
+| 3 | Retard de rétroaction | **Écart accepté** : 128 échantillons en live, 1 échantillon (`~`) à l'export ; documenté |
+| 4 | Modules non connectés à l'export | **Ignorés** (cohérent avec le live, où ils sont muets) |
+| 5 | Arité de l'export | **Arité native** du patch par défaut, **option « forcer la stéréo »** (règle cyclique sur les E/S externes) |
+| 6 | Limite de canaux | **32 entrées et 32 sorties** par module au maximum ; au-delà, refus avec message ; pas de modification de faustwasm |
