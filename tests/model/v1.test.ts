@@ -1,13 +1,13 @@
-// Migration of the version 1 example patches (public/json/) to the multi-I/O model.
+// Migration of version 1 patches (the 1.x examples, kept in tests/fixtures/v1/) to the multi-I/O model.
 import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import { busPairs } from "../../src/model/Patch";
 import { parsePatchV2, serializePatch } from "../../src/model/PatchFormat";
-import { Arity, isPatchFileV1, migrateV1, precompiledArity, readV1, V1Draft } from "../../src/model/PatchFormatV1";
+import { Arity, isPatchFileV1, matchParamPath, migrateV1, precompiledArity, readV1, V1Draft } from "../../src/model/PatchFormatV1";
 import { compileJson } from "../helpers/faust";
 
-const examplesDir = path.resolve(__dirname, "../../public/json");
+const examplesDir = path.resolve(__dirname, "../fixtures/v1");
 const examples = fs.readdirSync(examplesDir).filter((f) => f.endsWith(".json")).sort();
 const load = (file: string) => JSON.parse(fs.readFileSync(path.join(examplesDir, file), "utf8"));
 
@@ -112,6 +112,22 @@ describe.each(examples)("migration of %s", (file) => {
         const v2 = serializePatch(patch, draft.sceneName, true);
         expect(serializePatch(parsePatchV2(JSON.parse(JSON.stringify(v2))).patch, draft.sceneName, true)).toEqual(v2);
     }, 120_000);
+});
+
+describe("parameter paths of older Faust versions", () => {
+    it("are matched to the current paths of the DSP", async () => {
+        const draft = readV1(load("Big_Exemple.json"));
+        const kisana = draft.modules.find((m) => m.name == "Kisana")!;
+        const json = await compileJson(kisana.name, kisana.code);
+        const known: string[] = [];
+        const walk = (items: any[]) => items.forEach((w) => w.items ? walk(w.items) : known.push(w.address));
+        walk(json.ui);
+        const saved = Object.keys(kisana.params);
+        expect(saved.filter((p) => known.indexOf(p) < 0)).toContain("/Kisana/Kisana/Instrument_Hands/1_(Note_48)");
+        expect(saved.map((p) => matchParamPath(p, known))).not.toContain(undefined);
+        expect(matchParamPath("/Kisana/Kisana/Instrument_Hands/1_(Note_48)", known)).toBe("/Kisana/Kisana/Instrument_Hands/1__Note_48_");
+        expect(matchParamPath("/Kisana/unknown", known)).toBeUndefined();
+    });
 });
 
 describe("migration edge cases", () => {

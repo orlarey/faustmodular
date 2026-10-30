@@ -51,8 +51,9 @@ function state(page: Page): Promise<PageState> {
     });
 }
 
+// Loads a version 1 patch of tests/fixtures/v1/ (served by Vite, like the application).
 async function loadExample(page: Page, file: string): Promise<void> {
-    const json = await page.evaluate(async (f) => (await fetch("json/" + f)).text(), file);
+    const json = await page.evaluate(async (f) => (await fetch("/tests/fixtures/v1/" + f)).text(), file);
     await page.evaluate((j) => (globalThis as any).faustPlayground.scene.recallScene(j), json);
 }
 
@@ -170,6 +171,46 @@ describe("application", () => {
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
+
+    it("opens every example of the Load menu (version 2 files)", async () => {
+        const fs = await import("fs");
+        for (const [anchor, file] of [["aLightExemple", "Small_Exemple"], ["aLightPreExemple", "Small_Exemple_Precompile"],
+            ["aBigExemple", "Big_Exemple"], ["aBigPreExemple", "Big_Exemple_Precompile"], ["aMultichannelExemple", "Multichannel_Example"]]) {
+            const saved = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../public/json", file + ".json"), "utf8"));
+            const { page, errors } = await openApp();
+            await page.locator("#loadButtonMenu").click();
+            await page.locator("#" + anchor).click();
+            const faust = saved.modules.filter((m: any) => m.kind == "faust");
+            await page.waitForFunction((n) => (globalThis as any).faustPlayground.scene.getModules().length == n, faust.length, { timeout: 60_000 });
+            await page.waitForFunction(() => document.getElementById("loadingPage")!.style.visibility == "hidden");
+            const s = await state(page);
+            expect(s.modules, file).toEqual(faust.map((m: any) => `${m.id}:${m.name}:${m.inputs}x${m.outputs}`));
+            expect(s.connections, file).toEqual(saved.connections.map((c: any) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort());
+            expect(s.wires, file).toBe(saved.connections.length);
+            if (file == "Multichannel_Example") {
+                // sound out of the stereo mixer and of the 4 echoes
+                const rms = await page.evaluate(async () => {
+                    const scene = (globalThis as any).faustPlayground.scene;
+                    const context = scene.audioGraph.getNode("output").context;
+                    await context.resume();
+                    const analysers = ["2", "3"].map((id) => {
+                        const analyser = context.createAnalyser();
+                        scene.audioGraph.getNode(id).connect(analyser);
+                        return analyser;
+                    });
+                    await new Promise((r) => setTimeout(r, 1000));
+                    return analysers.map((a: AnalyserNode) => {
+                        const buffer = new Float32Array(a.fftSize);
+                        a.getFloatTimeDomainData(buffer);
+                        return Math.sqrt(buffer.reduce((sum, x) => sum + x * x, 0) / buffer.length);
+                    });
+                });
+                rms.forEach((r: number) => expect(r).toBeGreaterThan(1e-3));
+            }
+            expect(errors, file).toEqual([]);
+            await page.close();
+        }
+    }, 300_000);
 
     it("drops the modules that no longer compile, with a warning", async () => {
         const { page, errors } = await openApp();

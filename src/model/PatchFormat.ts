@@ -46,6 +46,17 @@ export interface PatchFileV2 {
 
 export class PatchFormatError extends Error { }
 
+// Base64 encoding of the wasm code of a factory. By chunks: converting a large module in one
+// String.fromCharCode call (as faustwasm's ab2str does) exceeds the call stack.
+export function encodeFactoryCode(code: Uint8Array | ArrayBuffer): string {
+    const bytes = code instanceof Uint8Array ? code : new Uint8Array(code);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+}
+
 // `precompiled`: also save the precompiled factories, when the modules have one.
 export function serializePatch(patch: Patch, sceneName: string, precompiled: boolean = false): PatchFileV2 {
     return {

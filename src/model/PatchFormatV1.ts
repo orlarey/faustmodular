@@ -173,6 +173,14 @@ export function connectV1Links(patch: Patch, links: V1Draft["links"], mapId: (id
     return warnings;
 }
 
+// Path of a saved parameter among the parameters of a DSP. Older Faust versions kept characters such
+// as parentheses in the paths ("1_(Note_48)"), now replaced by "_" ("1__Note_48_").
+export function matchParamPath(path: string, known: string[]): string | undefined {
+    if (known.indexOf(path) >= 0) return path;
+    const normalized = path.replace(/[^A-Za-z0-9_\/]/g, "_");
+    return known.find((k) => k == normalized);
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value == "object" && value !== null && !Array.isArray(value);
 }

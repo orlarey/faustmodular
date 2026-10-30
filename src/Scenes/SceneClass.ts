@@ -14,8 +14,8 @@ import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PrecompiledFactory } from "../model/Patch";
-import { isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
-import { connectV1Links, isPatchFileV1, readV1 } from "../model/PatchFormatV1";
+import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
+import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
@@ -251,12 +251,12 @@ export class Scene {
                 var slider = controler.accelerometerSlider;
                 return { address: slider.address, axis: slider.axis, curve: slider.curve, amin: slider.amin, amid: slider.amid, amax: slider.amax, enabled: slider.isEnabled };
             });
-            var container = module.moduleView.getModuleContainer();
+            // exact coordinates (style.left/top are read back rounded to 3 decimals)
             this.patch.updateModule(module.moduleId, {
                 name: module.moduleFaust.getName(),
                 code: module.moduleFaust.getSource(),
-                x: parseFloat(container.style.left) || 0,
-                y: parseFloat(container.style.top) || 0,
+                x: module.moduleView.x,
+                y: module.moduleView.y,
                 params,
                 acc,
                 factory: isPrecompiled ? this.exportFactory(module.moduleFaust.factory) : undefined,
@@ -266,7 +266,7 @@ export class Scene {
 
     private exportFactory(factory: FaustDspFactory): PrecompiledFactory {
         const { code, json, poly, shaKey } = factory;
-        return { code: btoa(faustWasmEnv.ab2str(code)), json: JSON.parse(json), poly, shaKey };
+        return { code: encodeFactoryCode(code), json: JSON.parse(json), poly, shaKey };
     }
 
     // Saves the scene as a version 2 patch file (JSON string).
@@ -385,8 +385,14 @@ export class Scene {
             module.deleteModule();
             return null;
         }
+        var known: string[] = module.moduleFaust.getDSP().getParams() ?? [];
         for (var path in description.params) {
-            module.addInterfaceParam(path, description.params[path]);
+            var current = matchParamPath(path, known);
+            if (current !== undefined) {
+                module.addInterfaceParam(current, description.params[path]);
+            } else {
+                console.warn(`module ${description.id} (${description.name}): unknown parameter ${path} ignored`);
+            }
         }
         module.recallInterfaceParams();
         module.setFaustInterfaceControles();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Patch } from "../../src/model/Patch";
-import { isPatchFileV2, parsePatchV2, PatchFormatError, serializePatch } from "../../src/model/PatchFormat";
+import { encodeFactoryCode, isPatchFileV2, parsePatchV2, PatchFormatError, serializePatch } from "../../src/model/PatchFormat";
 import { isPatchFileV1 } from "../../src/model/PatchFormatV1";
 
 function samplePatch(): Patch {
@@ -18,6 +18,16 @@ function samplePatch(): Patch {
     patch.connect({ module: "1", port: 0 }, { module: "1", port: 0 });
     return patch;
 }
+
+describe("factory code encoding", () => {
+    it("encodes large wasm modules in base64", () => {
+        // larger than what String.fromCharCode.apply accepts in one call
+        const bytes = Uint8Array.from({ length: 1_000_003 }, (_, i) => (i * 7919) % 256);
+        const encoded = encodeFactoryCode(bytes);
+        expect(encoded).toBe(Buffer.from(bytes).toString("base64"));    // Node's reference encoder
+        expect(encodeFactoryCode(bytes.buffer)).toBe(encoded);
+    });
+});
 
 describe("patch file v2", () => {
     it("round-trips through JSON", () => {

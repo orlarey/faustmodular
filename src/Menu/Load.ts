@@ -19,6 +19,7 @@ export class Load {
         this.loadView.aLightExemple.addEventListener("click", (e) => { this.getEx(e) })
         this.loadView.aBigPreExemple.addEventListener("click", (e) => { this.getEx(e) })
         this.loadView.aLightPreExemple.addEventListener("click", (e) => { this.getEx(e) })
+        this.loadView.aMultichannelExemple.addEventListener("click", (e) => { this.getEx(e) })
 
         this.loadView.buttonChangeAccount.addEventListener("click", (e) => { this.logOut() })
     }
