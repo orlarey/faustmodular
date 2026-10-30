@@ -6,15 +6,32 @@
     - drag from a port to start a cable, then release
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
+        - on a widget (from an output): after a short delay, a palette shows the modulation types
+          allowed for this widget; releasing on one of them modulates the widget
+          (Documentation/widget-modulation/PLAN.md);
     - click on a cable to delete it.
 
     Each pointer is tracked separately (pointerId), so several cables can be drawn at once
     on a touch screen. Cables are redrawn when a module moves or changes size; cables closing
-    a cycle (delayed in the audio graph) are dashed.
+    a cycle (delayed in the audio graph) are dashed. Modulation cables end on their widget, with a
+    badge showing the modulation type.
 */
 
-import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent } from "../model/Patch";
+import type { ModulationMode } from "../model/Modulation";
+import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
+import { Utilitary } from "../Utilitary";
+
+// Hovering time of a widget before its modulation palette opens.
+export const PALETTE_DELAY = 250;
+
+export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", scale: "×", drive: "⇐" };
+
+// What the view needs from the scene to modulate widgets.
+export interface ModulationHandler {
+    allowedModes(module: ModuleId, widget: string): ModulationMode[];
+    modulate(from: PortRef, module: ModuleId, widget: string, mode: ModulationMode): Promise<boolean>;
+}
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -27,7 +44,20 @@ interface Point {
 
 type DropTarget =
     | { kind: "port"; element: HTMLElement; module: ModuleId; port: number }
-    | { kind: "bus"; element: HTMLElement; module: ModuleId };
+    | { kind: "bus"; element: HTMLElement; module: ModuleId }
+    | { kind: "widget"; element: HTMLElement; module: ModuleId; widget: string }
+    | { kind: "palette"; element: HTMLElement }
+    | { kind: "mode"; element: HTMLElement; module: ModuleId; widget: string; mode: ModulationMode };
+
+const TARGET_CLASSES: Record<DropTarget["kind"], string | undefined> = {
+    port: "port-target", bus: "bus-target", widget: "widget-target", palette: undefined, mode: "mode-target",
+};
+
+interface Palette {
+    element: HTMLElement;
+    module: ModuleId;
+    widget: string;
+}
 
 interface CableDrag {
     module: ModuleClass;
@@ -36,6 +66,8 @@ interface CableDrag {
     element: HTMLElement;
     path: SVGPathElement;
     target?: DropTarget;
+    palette?: Palette;
+    hover?: { module: ModuleId; widget: string; timer: number };
 }
 
 interface ModuleDrag {
@@ -51,12 +83,14 @@ const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .
 
 export class PatchView {
     private fCables = new Map<ConnectionId, SVGPathElement>();
+    private fBadges = new Map<ConnectionId, SVGTextElement>();
     private fContainers = new Map<HTMLElement, ModuleId>();
     private fCableDrags = new Map<number, CableDrag>();
     private fModuleDrags = new Map<number, ModuleDrag>();
     private fResizeObserver?: ResizeObserver;
 
-    constructor(private fPatch: Patch, private fSvg: SVGSVGElement, private fLookup: (id: ModuleId) => ModuleClass | undefined) {
+    constructor(private fPatch: Patch, private fSvg: SVGSVGElement, private fLookup: (id: ModuleId) => ModuleClass | undefined,
+        private fModulation?: ModulationHandler) {
         fPatch.subscribe((event) => this.onPatchEvent(event));
         if (typeof ResizeObserver != "undefined") {
             this.fResizeObserver = new ResizeObserver((entries) => {
@@ -78,6 +112,7 @@ export class PatchView {
         container.addEventListener("pointerup", (e) => this.onPointerUp(e, true));
         container.addEventListener("pointercancel", (e) => this.onPointerUp(e, false));
         this.fResizeObserver?.observe(container);
+        this.markWidgets(module.moduleId);
         this.redrawModule(module.moduleId);
     }
 
@@ -106,12 +141,16 @@ export class PatchView {
             case "connectionRemoved":
                 this.fCables.get(event.connection.id)?.remove();
                 this.fCables.delete(event.connection.id);
+                this.fBadges.get(event.connection.id)?.remove();
+                this.fBadges.delete(event.connection.id);
                 this.updateFeedbackStyle();
                 break;
-            case "arityChanged": {
+            case "arityChanged":
+            case "modulationsChanged": {
                 const module = this.fLookup(event.module.id);
                 if (module && this.isShown(module)) {
                     this.renderPorts(module);
+                    this.markWidgets(event.module.id);
                     this.redrawModule(event.module.id);
                 }
                 break;
@@ -142,7 +181,15 @@ export class PatchView {
 
     private addCable(connection: Connection): void {
         const path = document.createElementNS(SVG_NS, "path") as SVGPathElement;
-        path.setAttribute("class", "cable");
+        const modulation = this.fPatch.modulationAt(connection.to.module, connection.to.port);
+        path.setAttribute("class", modulation ? `cable modulation modulation-${modulation.spec.mode}` : "cable");
+        if (modulation) {
+            const badge = document.createElementNS(SVG_NS, "text") as SVGTextElement;
+            badge.setAttribute("class", "cable-badge");
+            badge.textContent = MODE_SYMBOLS[modulation.spec.mode];
+            this.fSvg.appendChild(badge);
+            this.fBadges.set(connection.id, badge);
+        }
         path.dataset.connection = connection.id;
         path.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -158,9 +205,46 @@ export class PatchView {
     private redrawCable(connection: Connection): void {
         const path = this.fCables.get(connection.id);
         const from = this.fLookup(connection.from.module)?.moduleView.getPort("out", connection.from.port);
+        if (!path || !from) return;
+        const modulation = this.fPatch.getModule(connection.to.module) && this.fPatch.modulationAt(connection.to.module, connection.to.port);
+        if (modulation) {
+            // ends on the left border of the module, at the height of the widget (of the title when
+            // the widget is hidden), like a side port: the badge stays visible outside the module
+            const view = this.fLookup(connection.to.module)?.moduleView;
+            if (!view) return;
+            const widget = this.widgetElement(connection.to.module, modulation.widget);
+            const rect = widget?.getBoundingClientRect();
+            const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
+            const border = view.getModuleContainer().getBoundingClientRect().left;
+            const end = this.toCanvas(border, anchor.top + anchor.height / 2);
+            path.setAttribute("d", PatchView.curve(this.center(from), end));
+            const badge = this.fBadges.get(connection.id);
+            if (badge) {
+                badge.setAttribute("x", String(end.x - 16));
+                badge.setAttribute("y", String(end.y - 6));
+            }
+            return;
+        }
         const to = this.fLookup(connection.to.module)?.moduleView.getPort("in", connection.to.port);
-        if (path && from && to) {
+        if (to) {
             path.setAttribute("d", PatchView.curve(this.center(from), this.center(to)));
+        }
+    }
+
+    private widgetElement(module: ModuleId, widget: string): HTMLElement | null {
+        const container = this.fLookup(module)?.moduleView.getModuleContainer();
+        return container ? container.querySelector(`[data-widget="${CSS.escape(widget)}"]`) : null;
+    }
+
+    // Marks the modulated widgets of a module (class "modulated" and the type of modulation).
+    private markWidgets(id: ModuleId): void {
+        const container = this.fLookup(id)?.moduleView.getModuleContainer();
+        const state = this.fPatch.getModule(id);
+        if (!container || !state) return;
+        container.querySelectorAll("[data-widget]").forEach((element) =>
+            element.classList.remove("modulated", "modulated-modulate", "modulated-scale", "modulated-drive"));
+        for (const modulation of state.modulations) {
+            this.widgetElement(id, modulation.widget)?.classList.add("modulated", "modulated-" + modulation.spec.mode);
         }
     }
 
@@ -232,6 +316,8 @@ export class PatchView {
                 this.connect(cableDrag);
             }
             this.setTarget(cableDrag, undefined);
+            this.cancelHover(cableDrag);
+            this.closePalette(cableDrag);
             cableDrag.path.remove();
         }
     }
@@ -263,7 +349,81 @@ export class PatchView {
         const start = this.center(drag.element);
         const pointer = this.toCanvas(e.clientX, e.clientY);
         drag.path.setAttribute("d", drag.dir == "out" ? PatchView.curve(start, pointer) : PatchView.curve(pointer, start));
-        this.setTarget(drag, this.findTarget(drag, e));
+        const target = this.findTarget(drag, e);
+        this.setTarget(drag, target);
+        this.updatePalette(drag, target);
+    }
+
+    /******************** MODULATION PALETTE ********************/
+
+    // Opens the palette of a widget after a short hovering, keeps it while the pointer is on the
+    // widget or on the palette, closes it elsewhere.
+    private updatePalette(drag: CableDrag, target: DropTarget | undefined): void {
+        if (target?.kind == "mode" || target?.kind == "palette") {
+            return;
+        }
+        if (target?.kind == "widget") {
+            if (drag.palette?.module == target.module && drag.palette.widget == target.widget) return;
+            if (drag.hover?.module == target.module && drag.hover.widget == target.widget) return;
+            this.closePalette(drag);
+            this.cancelHover(drag);
+            drag.hover = {
+                module: target.module, widget: target.widget,
+                timer: window.setTimeout(() => this.openPalette(drag, target.module, target.widget, target.element), PALETTE_DELAY),
+            };
+            return;
+        }
+        this.cancelHover(drag);
+        this.closePalette(drag);
+    }
+
+    private openPalette(drag: CableDrag, module: ModuleId, widget: string, anchor: HTMLElement): void {
+        drag.hover = undefined;
+        const modes = this.fModulation?.allowedModes(module, widget) ?? [];
+        if (modes.length == 0 || !this.fCableDrags.has(this.pointerOf(drag))) return;
+        const labels: Record<ModulationMode, string> = {
+            modulate: Utilitary.messageResource.modulationModulate,
+            scale: Utilitary.messageResource.modulationScale,
+            drive: Utilitary.messageResource.modulationDrive,
+        };
+        const palette = document.createElement("div");
+        palette.className = "modulation-palette";
+        for (const mode of modes) {
+            const item = document.createElement("div");
+            item.className = "modulation-mode";
+            item.dataset.mode = mode;
+            const symbol = document.createElement("span");
+            symbol.className = "symbol";
+            symbol.textContent = MODE_SYMBOLS[mode];
+            const label = document.createElement("span");
+            label.className = "name";
+            label.textContent = labels[mode];
+            item.appendChild(symbol);
+            item.appendChild(label);
+            palette.appendChild(item);
+        }
+        document.body.appendChild(palette);
+        // against the right side of the widget (left side if there is no room), vertically centered
+        const rect = anchor.getBoundingClientRect();
+        const left = rect.right + palette.offsetWidth <= window.innerWidth ? rect.right : rect.left - palette.offsetWidth;
+        palette.style.left = Math.max(0, left) + "px";
+        palette.style.top = Math.max(0, rect.top + rect.height / 2 - palette.offsetHeight / 2) + "px";
+        drag.palette = { element: palette, module, widget };
+    }
+
+    private closePalette(drag: CableDrag): void {
+        drag.palette?.element.remove();
+        drag.palette = undefined;
+    }
+
+    private cancelHover(drag: CableDrag): void {
+        if (drag.hover) window.clearTimeout(drag.hover.timer);
+        drag.hover = undefined;
+    }
+
+    private pointerOf(drag: CableDrag): number {
+        for (const [pointer, d] of this.fCableDrags) if (d === drag) return pointer;
+        return -1;
     }
 
     // What is under the pointer: a port of the other direction, or the body of another module
@@ -271,11 +431,25 @@ export class PatchView {
     private findTarget(drag: CableDrag, e: PointerEvent): DropTarget | undefined {
         const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
         if (!element) return undefined;
+        if (drag.palette && drag.palette.element.contains(element)) {
+            const item = element.closest("[data-mode]") as HTMLElement | null;
+            return item
+                ? { kind: "mode", element: item, module: drag.palette.module, widget: drag.palette.widget, mode: item.dataset.mode as ModulationMode }
+                : { kind: "palette", element: drag.palette.element };
+        }
         const port = element.closest(".port") as HTMLElement | null;
         if (port) {
             return port.dataset.dir != drag.dir
                 ? { kind: "port", element: port, module: port.dataset.module!, port: Number(port.dataset.port) }
                 : undefined;
+        }
+        if (drag.dir == "out") {
+            const widget = element.closest("[data-widget]") as HTMLElement | null;
+            const owner = widget?.closest(".moduleFaust") as HTMLElement | null;
+            const module = owner ? this.fContainers.get(owner) : undefined;
+            if (widget && module !== undefined && (this.fModulation?.allowedModes(module, widget.dataset.widget!).length ?? 0) > 0) {
+                return { kind: "widget", element: widget, module, widget: widget.dataset.widget! };
+            }
         }
         const container = element.closest(".moduleFaust") as HTMLElement | null;
         const id = container ? this.fContainers.get(container) : undefined;
@@ -287,11 +461,13 @@ export class PatchView {
     }
 
     private setTarget(drag: CableDrag, target: DropTarget | undefined): void {
-        if (drag.target && drag.target.element !== target?.element) {
-            drag.target.element.classList.remove(drag.target.kind == "port" ? "port-target" : "bus-target");
+        const before = drag.target && TARGET_CLASSES[drag.target.kind];
+        if (drag.target && before && drag.target.element !== target?.element) {
+            drag.target.element.classList.remove(before);
         }
-        if (target) {
-            target.element.classList.add(target.kind == "port" ? "port-target" : "bus-target");
+        const after = target && TARGET_CLASSES[target.kind];
+        if (target && after) {
+            target.element.classList.add(after);
         }
         drag.target = target;
     }
@@ -300,6 +476,13 @@ export class PatchView {
         const target = drag.target;
         if (!target) return;
         const self = drag.module.moduleId;
+        if (target.kind == "mode") {
+            this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, target.mode);
+            return;
+        }
+        if (target.kind == "widget" || target.kind == "palette") {
+            return;     // a modulation type must be chosen in the palette
+        }
         try {
             if (target.kind == "port") {
                 const here = { module: self, port: drag.port };

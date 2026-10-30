@@ -35,6 +35,10 @@ export class Resources {
     connectionsRemovedByArity: string;
     modulationFailed: string;
     modulationsRemoved: string;
+    modulationModulate: string;
+    modulationScale: string;
+    modulationDrive: string;
+    modulationDepth: string;
     forceStereoExport: string;
     modulesNotExported: string;
     errorLocalStorage: string;

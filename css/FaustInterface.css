@@ -680,3 +680,72 @@ span.titleAcc {
 	stroke: rgb(0, 150, 220);
 	pointer-events: none;
 }
+
+/*	---------------------------------------------------------------------------
+ *	:: Widget modulation (see src/view/PatchView.ts)
+ *	-------------------------------------------------------------------------*/
+.widget.widget-target {
+	outline: 3px solid rgb(255, 150, 0);
+	outline-offset: 2px;
+}
+.widget.modulated {
+	box-shadow: -4px 0 0 rgb(255, 150, 0);
+}
+.widget.modulated-drive input {
+	opacity: .35;
+	pointer-events: none;		/* the signal drives the parameter: the control has no effect */
+}
+.widget.modulation-depth {
+	margin: -0.6em 0 0.4em 1.5em;
+	font-size: .8em;
+	opacity: .85;
+}
+.modulation-palette {
+	position: fixed;
+	z-index: 1000;
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	border-radius: 6px;
+	background: rgba(255, 255, 255, .95);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+	pointer-events: auto;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.modulation-mode {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 56px;
+	padding: 6px 4px;
+	border-radius: 4px;
+	color: #2c3e50;
+	cursor: copy;
+}
+.modulation-mode .symbol {
+	font: bold 22px/1 sans-serif;
+}
+.modulation-mode .name {
+	font-size: 11px;
+	margin-top: 3px;
+}
+.modulation-mode.mode-target {
+	background: rgb(255, 150, 0);
+	color: #fff;
+}
+.cable.modulation {
+	stroke: rgb(255, 150, 0);
+	stroke-width: 3;
+}
+.cable.modulation:hover {
+	stroke: #ff3030;
+}
+.cable-badge {
+	fill: rgb(200, 100, 0);
+	font: bold 16px sans-serif;
+	pointer-events: none;
+}
+.moduleFaust.compiling {
+	box-shadow: 0 0 0 3px rgba(255, 150, 0, .6), 0 5px 10px rgba(0, 0, 0, 0.4);
+}

@@ -13,7 +13,7 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
-import { listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
+import { allowedModes, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
@@ -67,7 +67,10 @@ export class Scene {
         this.integrateSceneInBody();
         this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
         var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
-        this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id));
+        this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
+            allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),
+            modulate: (from, moduleId, widget, mode) => this.modulate(from, moduleId, widget, mode),
+        });
         this.integrateOutput();
         this.integrateInput();
         Utilitary.hideFullPageLoading();
@@ -384,10 +387,30 @@ export class Scene {
     // See model/Modulation.ts and Documentation/widget-modulation/PLAN.md.
 
     private fRecompilations = new Map<ModuleId, Promise<boolean>>();
+    private fWidgets = new WeakMap<object, WidgetDescription[]>();
 
-    // Widgets of the current DSP of a module.
+    // Widgets of the current DSP of a module (cached per DSP: asked at every move of a cable).
     widgetsOf(module: ModuleClass): WidgetDescription[] {
-        return listWidgets(JSON.parse(module.moduleFaust.getDSP().getJSON()).ui);
+        var dsp = module.moduleFaust.getDSP();
+        var widgets = this.fWidgets.get(dsp);
+        if (!widgets) {
+            widgets = listWidgets(JSON.parse(dsp.getJSON()).ui);
+            this.fWidgets.set(dsp, widgets);
+        }
+        return widgets;
+    }
+
+    // Modulation types a cable may choose for a widget: those allowed for its kind, or the type of
+    // its modulation if it has one (one type per widget); none beyond 32 inputs.
+    allowedModesOf(moduleId: ModuleId, widget: string): ModulationMode[] {
+        var state = this.patch.getModule(moduleId);
+        var module = this.getModuleById(moduleId);
+        if (!state || !module || state.kind != "faust") return [];
+        var existing = state.modulations.find((m) => m.widget == widget);
+        if (existing) return [existing.spec.mode];
+        var description = this.widgetsOf(module).find((w) => w.address == widget);
+        if (!description || !isModulable(description) || totalInputs(state) >= MAX_CHANNELS) return [];
+        return allowedModes(description);
     }
 
     // Connects an output to a widget of a module. The first cable creates the modulation (the module

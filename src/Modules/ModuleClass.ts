@@ -12,6 +12,7 @@ import { CompileFaust, IfDSP, Utilitary } from "../Utilitary";
 import { AccelerometerHandler } from "../Accelerometer";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
+import { DEPTH_METADATA } from "../model/Modulation";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 
 interface DSPCallback { (): void; }
@@ -255,7 +256,18 @@ export class ModuleClass {
             var faustInterfaceControler = this.moduleControles[i];
             faustInterfaceControler.setParams();
             faustInterfaceControler.faustInterfaceView = new FaustInterfaceView(faustInterfaceControler.itemParam.type)
-            this.moduleView.getInterfaceContainer().appendChild(faustInterfaceControler.createFaustInterfaceElement()!);
+            var element = faustInterfaceControler.createFaustInterfaceElement()!;
+            // widgets are drop targets of modulation cables (PatchView), designated by their address
+            element.dataset.widget = faustInterfaceControler.itemParam.address;
+            element.classList.add("widget");
+            if ((faustInterfaceControler.itemParam.meta ?? []).some((m: any) => DEPTH_METADATA in m)) {
+                // depth of a widget modulation: shown as a compact control next to the widget
+                element.classList.add("modulation-depth");
+                if (faustInterfaceControler.faustInterfaceView.label) {
+                    faustInterfaceControler.faustInterfaceView.label.textContent = Utilitary.messageResource.modulationDepth;
+                }
+            }
+            this.moduleView.getInterfaceContainer().appendChild(element);
             faustInterfaceControler.interfaceCallback = this.interfaceSliderCallback.bind(this);
             faustInterfaceControler.updateFaustCodeCallback = this.updateCodeFaust.bind(this);
             faustInterfaceControler.setEventListener();

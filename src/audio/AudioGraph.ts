@@ -101,13 +101,15 @@ export class AudioGraph {
 
     private buildPorts(node: AudioNode, numInputs: number, numOutputs: number): ModulePorts {
         const ports: ModulePorts = { node, numInputs, numOutputs };
+        // the node may not have the ports yet: a module without audio input gets its first input with
+        // a modulation, before its new DSP replaces the node (setNode)
         if (numInputs > 0) {
             ports.merger = this.fContext.createChannelMerger(numInputs);
-            ports.merger.connect(node);
+            if (node.numberOfInputs > 0) ports.merger.connect(node);
         }
         if (numOutputs > 0) {
             ports.splitter = this.fContext.createChannelSplitter(numOutputs);
-            node.connect(ports.splitter);
+            if (node.numberOfOutputs > 0) node.connect(ports.splitter);
         }
         return ports;
     }
@@ -120,7 +122,7 @@ export class AudioGraph {
         if (ports.merger) {
             ports.merger.disconnect();
         }
-        if (ports.splitter) {
+        if (ports.splitter && ports.node.numberOfOutputs > 0) {
             safely(() => ports.node.disconnect(ports.splitter!));
         }
     }

@@ -113,4 +113,17 @@ describe("AudioGraph", () => {
         expect(s.graph.getWireCount()).toEqual({ wires: 1, delayed: 0 });
         expect(at(await render(s), 200)).toEqual([1]);
     });
+
+    it("survives a module without input getting a modulation input before its new node", async () => {
+        const s = setup(1);
+        await s.add("lfo", "process = 0.5;");
+        await s.add("osc", "process = 1;");             // 0 input
+        s.patch.connect(port("osc", 0), port("output", 0));
+        s.patch.addModulation("osc", "/osc/x", { target: "x", mode: "scale", min: 0, max: 1, exponential: false });
+        s.patch.connect(port("lfo", 0), port("osc", 0));    // the modulation port, waiting for the new node
+        const { node } = await faustNode(s.context, "process = *(1);");
+        s.graph.setNode("osc", node);                       // its new DSP: 1 input
+        expect(s.graph.getWireCount()).toEqual({ wires: 2, delayed: 0 });
+        expect(at(await render(s), 200)).toEqual([0.5]);
+    });
 });

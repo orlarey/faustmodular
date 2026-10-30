@@ -518,3 +518,152 @@ describe("widget modulation (scene API)", () => {
         await page.close();
     }, 180_000);
 });
+
+describe("widget modulation (interface)", () => {
+    async function addModule(page: Page, name: string, code: string, x: number, y = 250): Promise<string> {
+        return page.evaluate(async ([n, c, xx, yy]) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const before = scene.getModules().length;
+            await app.compileFaust({ name: n, sourceCode: c, x: xx, y: yy, callback: (f: any) => app.createModule(f, n, c, xx, yy) });
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[before].moduleId;
+        }, [name, code, x, y] as [string, string, number, number]);
+    }
+
+    const widget = async (page: Page, module: string, label: string) => {
+        const container = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, module);
+        return `#${container} [data-widget$="/${label}"]`;
+    };
+    const modulations = (page: Page, module: string) => page.evaluate((m) =>
+        (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.map((x: any) => `${x.widget}:${x.spec.mode}`), module);
+    const inputsOf = (page: Page, module: string) => page.evaluate((m) =>
+        (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs(), module);
+
+    async function setup() {
+        const { page, errors } = await openApp();
+        const lfo = await addModule(page, "LFO", 'import("stdfaust.lib"); process = vgroup("LFO", os.osc(hslider("rate[unit:Hz]", 1, 0.1, 10, 0.1)));', 200);
+        const osc = await addModule(page, "Osc", 'import("stdfaust.lib"); process = vgroup("Osc", os.osc(hslider("freq[unit:Hz]", 440, 50, 2000, 1)) * hslider("gain", 0.5, 0, 1, 0.01) * (button("gate") + 0.5));', 650);
+        return { page, errors, lfo, osc, from: await centerOf(page, portSelector(lfo, "out", 0)) };
+    }
+
+    it("opens the palette after a short hover and modulates the widget with the chosen type", async () => {
+        const { page, errors, lfo, osc, from } = await setup();
+        const freq = await centerOf(page, await widget(page, osc, "freq"));
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(freq.x, freq.y, { steps: 10 });
+        expect(await page.locator(".modulation-palette").count()).toBe(0);           // not yet
+        await page.waitForSelector(".modulation-palette");
+        expect(await page.locator(".modulation-palette [data-mode]").evaluateAll((items) => items.map((i) => (i as HTMLElement).dataset.mode)))
+            .toEqual(["modulate", "scale", "drive"]);
+        await page.mouse.move(...Object.values(await centerOf(page, '.modulation-palette [data-mode="scale"]')) as [number, number], { steps: 4 });
+        await page.mouse.up();
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 1, osc);
+        expect(await modulations(page, osc)).toEqual(["/Osc/freq:scale"]);
+        expect(await page.locator(".modulation-palette").count()).toBe(0);
+        expect(await page.locator(`${await widget(page, osc, "freq")}.modulated-scale`).count()).toBe(1);
+        expect(await page.locator(".cable.modulation").count()).toBe(1);
+        expect(await page.locator(".cable-badge").textContent()).toBe("×");
+        // the cable ends on the left border of the module, at the height of the widget
+        const end = await page.evaluate(([m, sel]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const path = document.querySelector(".cable.modulation") as SVGPathElement;
+            const p = path.getPointAtLength(path.getTotalLength());
+            const svg = path.ownerSVGElement!.getBoundingClientRect();
+            const box = s.getModuleById(m).moduleView.fModuleContainer.getBoundingClientRect();
+            const w = document.querySelector(sel)!.getBoundingClientRect();
+            return [p.x + svg.left - box.left, p.y + svg.top - (w.top + w.height / 2)];
+        }, [osc, await widget(page, osc, "freq")] as [string, string]);
+        end.forEach((d: number) => expect(Math.abs(d)).toBeLessThan(1));
+        expect(lfo).toBeDefined();
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("does nothing when the cable is released on the widget or after leaving it", async () => {
+        const { page, errors, osc, from } = await setup();
+        const gain = await centerOf(page, await widget(page, osc, "gain"));
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(gain.x, gain.y, { steps: 10 });
+        await page.waitForSelector(".modulation-palette");
+        await page.mouse.move(gain.x - 300, gain.y + 300, { steps: 6 });            // leaves: closes
+        expect(await page.locator(".modulation-palette").count()).toBe(0);
+        await page.mouse.move(gain.x, gain.y, { steps: 6 });
+        await page.waitForSelector(".modulation-palette");
+        await page.mouse.up();                                                      // on the widget, no type chosen
+        expect(await page.locator(".modulation-palette").count()).toBe(0);
+        expect(await modulations(page, osc)).toEqual([]);
+        expect((await state(page)).connections).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("offers drive only for a button, the existing type for a modulated widget, and removes a modulation with its last cable", async () => {
+        const { page, errors, lfo, osc, from } = await setup();
+        const drag = async (label: string, mode: string | null) => {
+            const target = await centerOf(page, await widget(page, osc, label));
+            await page.mouse.move(from.x, from.y);
+            await page.mouse.down();
+            await page.mouse.move(target.x, target.y, { steps: 10 });
+            await page.waitForSelector(".modulation-palette");
+            const modes = await page.locator(".modulation-palette [data-mode]").evaluateAll((items) => items.map((i) => (i as HTMLElement).dataset.mode));
+            if (mode) await page.mouse.move(...Object.values(await centerOf(page, `.modulation-palette [data-mode="${mode}"]`)) as [number, number], { steps: 4 });
+            await page.mouse.up();
+            return modes;
+        };
+        expect(await drag("gate", "drive")).toEqual(["drive"]);
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 1, osc);
+        expect(await page.locator(`${await widget(page, osc, "gate")}.modulated-drive`).count()).toBe(1);
+
+        // a second source for the same widget: only its type, one more cable on the same modulation
+        const second = await addModule(page, "Two", 'process = vgroup("Two", 0.5);', 200, 550);
+        const secondFrom = await centerOf(page, portSelector(second, "out", 0));
+        const gate = await centerOf(page, await widget(page, osc, "gate"));
+        await page.mouse.move(secondFrom.x, secondFrom.y);
+        await page.mouse.down();
+        await page.mouse.move(gate.x, gate.y, { steps: 10 });
+        await page.waitForSelector(".modulation-palette");
+        expect(await page.locator(".modulation-palette [data-mode]").count()).toBe(1);
+        await page.mouse.move(...Object.values(await centerOf(page, '.modulation-palette [data-mode="drive"]')) as [number, number], { steps: 4 });
+        await page.mouse.up();
+        expect(await modulations(page, osc)).toEqual(["/Osc/gate:drive"]);
+        expect((await state(page)).connections).toEqual([`${lfo}:0>${osc}:0`, `${second}:0>${osc}:0`]);
+        expect(await inputsOf(page, osc)).toBe(1);
+
+        // deleting the cables one by one: the modulation goes with the last one
+        for (const source of [lfo, second]) {
+            await page.mouse.click(...Object.values(await cableMiddle(page, `${source}:0>${osc}:0`)) as [number, number]);
+        }
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 0, osc);
+        expect(await modulations(page, osc)).toEqual([]);
+        expect(await page.locator(".cable.modulation, .cable-badge, .widget.modulated").count()).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("works with a finger", async () => {
+        const { page, errors, osc } = await (async () => {
+            const { page, errors } = await openApp({ hasTouch: true });
+            await addModule(page, "LFO", 'import("stdfaust.lib"); process = vgroup("LFO", os.osc(1));', 200);
+            const osc = await addModule(page, "Osc", 'import("stdfaust.lib"); process = vgroup("Osc", os.osc(hslider("freq[unit:Hz]", 440, 50, 2000, 1)));', 650);
+            return { page, errors, osc };
+        })();
+        const lfo = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules()[0].moduleId);
+        const from = await centerOf(page, portSelector(lfo, "out", 0));
+        const freq = await centerOf(page, await widget(page, osc, "freq"));
+        const cdp = await page.context().newCDPSession(page);
+        const touch = (type: "touchStart" | "touchMove", p: Point) =>
+            cdp.send("Input.dispatchTouchEvent", { type, touchPoints: [{ x: Math.round(p.x), y: Math.round(p.y), id: 0 }] });
+        await touch("touchStart", from);
+        for (let k = 1; k <= 10; k++) await touch("touchMove", { x: from.x + (freq.x - from.x) * k / 10, y: from.y + (freq.y - from.y) * k / 10 });
+        await page.waitForSelector(".modulation-palette");
+        const item = await centerOf(page, '.modulation-palette [data-mode="modulate"]');
+        for (let k = 1; k <= 5; k++) await touch("touchMove", { x: freq.x + (item.x - freq.x) * k / 5, y: freq.y + (item.y - freq.y) * k / 5 });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 1, osc);
+        expect(await modulations(page, osc)).toEqual(["/Osc/freq:modulate"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});

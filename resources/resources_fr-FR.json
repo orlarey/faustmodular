@@ -25,6 +25,10 @@
   "connectionsRemovedByArity": "Le module {name} a maintenant {inputs} entrée(s) et {outputs} sortie(s) : {count} connexion(s) vers des ports disparus ont été supprimées",
   "modulationFailed": "La modulation n'a pas pu être créée : {reason}",
   "modulationsRemoved": "Modulations supprimées, leurs widgets n'existent plus dans le nouveau code : {widgets}",
+  "modulationModulate": "moduler",
+  "modulationScale": "doser",
+  "modulationDrive": "piloter",
+  "modulationDepth": "± profondeur",
   "errorLocalStorage": "Votre navigateur ne permet pas la sauvegarde locale",
   "errorConnectionCloud": "Connexion à Google Drive impossible",
   
