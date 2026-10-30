@@ -1,0 +1,155 @@
+# Modulation de widgets — principe, mesures, difficultés, plan
+
+Extension de FaustPlayground 2.0.0 : connecter une **sortie audio** à un **widget** (slider, bouton,
+case à cocher) d'un module, pour moduler ce paramètre au taux audio.
+
+Principe retenu :
+- **Geste** : on tire un câble depuis un port de sortie et on le lâche sur un widget.
+- **Choix du type** : pendant le glisser, au survol d'un widget, une **palette** s'ouvre à côté de
+  lui et montre les types de modulation possibles. On lâche le câble sur le type voulu.
+- **Mise en œuvre** : le module est recompilé à la volée avec la construction Faust de modulation
+  de widgets, `["label" : circuit -> expression]`.
+
+Les mesures de la section 1 sont figées dans `tests/faust/widget-modulation.test.ts`
+(libfaust 2.90.17).
+
+---
+
+## 1. Ce que fait Faust (mesuré)
+
+| Construction | Effet |
+|---|---|
+| `["w" -> e]` | une entrée ajoutée ; chaque widget de label `w` devient `w * m` |
+| `["w" : c -> e]`, `c` à 2 entrées | une entrée ajoutée ; le widget devient `c(w, m)` (le widget est le 1er opérande : `-` donne `w - m`) |
+| `c` à 1 entrée | pas d'entrée ajoutée ; le widget devient `c(w)` |
+| `c` à 0 entrée | pas d'entrée ajoutée ; le widget est remplacé par `c`, et il **disparaît** de l'interface |
+| `c = (!, _)` | le widget est remplacé par `m`, et il **disparaît** de l'interface |
+| `c = (ro.cross(2) : attach)` | le widget est remplacé par `m`, et il **reste** dans l'interface |
+
+Règles de correspondance et d'ordre :
+- **Position des entrées** : les entrées de modulation sont ajoutées **en tête**, avant celles de
+  l'expression, une par label, dans l'ordre d'écriture. La forme groupée
+  `["a": +, "b": * -> e]` est acceptée.
+- **Correspondance** : le label est celui du **source**, sans ses métadonnées
+  (`"Volume"` correspond à `Volume[acc:…]`) et avec ses espaces. La forme des adresses
+  (`Echo_Delay`) ne correspond pas. Le JSON de la factory fournit ce label dans le champ `label`.
+- **Plusieurs widgets du même label** : un label seul les module **tous**. Un suffixe de chemin
+  (`"A/gain"`) en sélectionne un ; `"Echo/Delay"` marche avec le groupe qui enveloppe chaque module
+  du playground.
+- **Modulations imbriquées** : la plus externe s'applique au plus près du widget :
+  `["w": + -> ["w": * -> e]]` donne `(w + m₁) · m₂`.
+- **Piège** : un label qui ne correspond à rien ajoute **quand même** une entrée, ignorée sans
+  avertissement.
+- **Boutons et cases à cocher** : avec `*`, la modulation est nulle tant que le contrôle vaut 0.
+
+---
+
+## 2. Conception proposée
+
+### 2.1 Types de modulation (contenu de la palette)
+
+| Type | Circuit Faust | Usage |
+|---|---|---|
+| **×** multiplier | `*` | trémolo, modulation d'amplitude d'un paramètre |
+| **+** ajouter | `+` | décalage autour de la valeur du slider |
+| **±** balayer | `(_, *(k) : + : max(min) : min(max))`, avec `k = (max − min)/2` | un LFO dans [−1, 1] balaie toute la plage du widget autour du slider ; résultat borné à [min, max] |
+| **⇐** remplacer | `(ro.cross(2) : attach)` | le signal pilote seul le paramètre ; le widget reste visible mais inopérant (grisé) |
+
+`min` et `max` viennent du JSON de la factory. Pour un bouton ou une case à cocher, la palette ne
+propose que **+** et **⇐**, puisque **×** y est nul tant que le contrôle vaut 0.
+
+### 2.2 Modèle
+
+- **Modulations d'un module** : chaque module reçoit une liste ordonnée
+  `modulations: { id, widget: { label, chemin }, type }`. Le **code de base** (celui que l'utilisateur
+  édite) reste séparé.
+- **Ports** : chaque modulation ajoute un **port d'entrée**. Le module a ses `n` entrées audio,
+  puis `k` entrées de modulation, aux indices `n … n+k−1`.
+- **Connexions** : les câbles vers une modulation sont des connexions ordinaires du patch.
+  Le moteur audio (`AudioGraph`), l'analyse des cycles et l'exporteur n'ont donc **rien de nouveau
+  à traiter** : il suffit que le DSP du module soit compilé à partir du **code effectif** et qu'il
+  ait `n + k` entrées.
+- **Code effectif** : il est généré à partir du code de base et des modulations.
+
+  ```faust
+  process = route(n+k, n+k, …)            // nos ports de modulation (en fin) passent en tête
+          : ["chemin₁" : c₁, …, "cheminₖ" : cₖ -> environment{ <code de base> }.process];
+  ```
+
+- **Partage et ordre** : plusieurs câbles vers le même widget et le même type partagent une seule
+  modulation (somme des sources, comme pour les ports audio). Deux types différents sur un même
+  widget sont deux modulations, composées dans l'ordre de création.
+- **Fin d'une modulation** : quand on supprime le dernier câble d'une modulation, elle disparaît,
+  le module est recompilé, et les ports de modulation suivants sont renumérotés par le modèle.
+
+### 2.3 Recompilation dynamique
+
+Créer ou supprimer une modulation recompile le code effectif du module. Le nouveau DSP remplace
+l'ancien comme lors d'une édition du code : l'ancien joue jusqu'à ce que le nouveau soit prêt, les
+valeurs des paramètres sont conservées et les connexions existantes sont gardées
+(`setArity` / `AudioGraph.setNode`).
+
+### 2.4 Interface
+
+- **Cibles** : pendant le glisser d'un câble depuis une sortie, les widgets des modules deviennent
+  des cibles (rangées `control-group`), y compris ceux du module d'origine ; ce cas est une
+  rétroaction, retardée comme les autres.
+- **Palette** : au survol d'un widget, elle s'ouvre à côté de lui avec les types permis. Lâcher sur
+  une case crée la modulation. Quitter la zone du widget et de la palette la referme. Lâcher
+  ailleurs ne fait rien.
+- **Câble de modulation** : il va du port de sortie au bord gauche de la rangée du widget, avec un
+  badge du type (×, +, ±, ⇐). Il est en pointillés s'il ferme un cycle ; un clic le supprime.
+- **Repères** : un widget modulé porte un liseré coloré, car le curseur ne montre pas la valeur
+  modulée au taux audio.
+- **Module réduit** : les câbles de modulation aboutissent à la barre de titre.
+
+### 2.5 Fichiers et export
+
+- **Format** : les modules portent `modulations` et leurs ports de modulation. Un fichier sans
+  modulation reste en **version 2**. Un fichier avec modulations passe en **version 3** : une 2.0.0
+  ne doit pas le lire en ignorant le champ, car les connexions vers des ports de modulation y
+  seraient invalides.
+- **Export** : il utilise le code effectif de chaque module ; la modulation de widgets fait partie
+  du programme Faust exporté, sans code spécifique.
+
+---
+
+## 3. Difficultés
+
+| # | Difficulté | Traitement prévu | Risque |
+|---|---|---|---|
+| W1 | Désigner le widget dans le source : le chemin du JSON contient des noms de groupes générés (`0x00` pour `h:[1]`), absents du source | plus court suffixe de chemin qui soit unique dans le module et ne contienne pas de nom généré ; refus avec message dans le cas, rare, où il n'y en a pas | moyen |
+| W2 | Un label sans correspondance ajoute une entrée en silence | vérifier, après compilation, que le nombre d'entrées vaut `n + k` et que chaque cible est unique dans le JSON | faible |
+| W3 | Latence de recompilation (de 0,1 à plus d'1 s pour les gros modules) et remise à zéro de l'état interne du module (queues de réverbération, lignes à retard) | inhérent à la compilation ; indicateur sur le module pendant la compilation, l'ancien DSP joue jusqu'à l'échange | moyen |
+| W4 | Renumérotation des ports de modulation quand une modulation disparaît | portée par le modèle (API `addModulation` / `removeModulation`), testée | faible |
+| W5 | Palette au toucher : le doigt masque la cible, pas de survol avant contact | palette décalée hors du doigt, délai d'ouverture court ; une palette par pointeur en multi-touch | moyen |
+| W6 | Slider d'un widget remplacé (⇐) : sa valeur n'a plus d'effet | widget grisé tant que la modulation existe | faible |
+| W7 | Limite de 32 entrées | les entrées de modulation comptent dans la limite ; la palette refuse au-delà | faible |
+| W8 | Accéléromètre sur un slider modulé | il continue de piloter la valeur de base (×, +, ±), ce qui est cohérent | faible |
+
+---
+
+## 4. Plan
+
+| Phase | Contenu | Validation | Estimation |
+|---|---|---|---|
+| M0 | Générateur du code effectif (`modulatedCode`) : choix du suffixe de chemin, circuits des 4 types, remise en ordre des entrées | tests libfaust : arité `n + k`, valeur de chaque type, widgets homonymes, groupes sans nom | 1 j |
+| M1 | Modèle et format : modulations, ports, création et suppression avec renumérotation, version 3 | tests unitaires, aller-retour du format | 1 j |
+| M2 | Moteur : recompilation dynamique à chaque création ou suppression de modulation | test navigateur : un LFO module un gain, le signal rendu correspond à la formule | 1 j |
+| M3 | Interface : widgets cibles, palette, câbles de modulation et badges, suppression, repères | tests de bout en bout à la souris et au toucher (palette, choix, annulation) | 2–3 j |
+| M4 | Export (test différentiel avec modulations), modules LFO dans la bibliothèque, exemple « modulation », documentation | test différentiel direct/export ≤ 1e-5 | 1 j |
+
+**Estimation totale : 6 à 7 jours.**
+
+---
+
+## 5. Décisions à prendre
+
+1. **Types de la palette** : les quatre proposés (×, +, ±, ⇐) ? En ajouter, par exemple
+   `w · (1 + m)` pour une modulation d'amplitude autour de la valeur du slider ?
+2. **Ouverture de la palette** : immédiate au survol du widget, ou après un court délai (200 ms par
+   exemple) pour ne pas gêner un câble qui ne fait que passer ?
+3. **Plusieurs types sur un même widget** : autorisés (composés dans l'ordre de création) ou un seul
+   type par widget ?
+4. **Bibliothèque** : ajouter des sources de modulation (LFO sinus, triangle et carré ; aléatoire
+   échantillonné-bloqué ; suiveur d'enveloppe) ?
