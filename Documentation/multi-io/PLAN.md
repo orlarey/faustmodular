@@ -144,6 +144,7 @@ tous compilent) :
 | D4 | Les cycles n'ont pas de rétroaction en live (pas de `DelayNode`) alors que l'export utilise `~` | D1 aggravé pour les patchs bouclés |
 | D5 | `App.compileFaust` passe les paramètres par des champs `temp*` partagés, puis `await` | course probable si plusieurs fichiers sont déposés à la fois (positions/noms mélangés) |
 | D6 | Positions sauvegardées via `getBoundingClientRect()` (coordonnées viewport) | décalage si la scène est défilée |
+| D7 | Exemples `patch_big.json` et `patch_big_precompile.json` : 4 modules sur 10 (SAtonalSoftHarp, SBlowhistleBottle, SBouncyHarp, Granulator) importent `instrument.lib` ou `reduce.lib`, supprimées de Faust ; les factories de `patch_*_precompile.json` sont au format asm.js obsolète | exemples déjà inutilisables en 1.x (relevé en phase 1, `tests/model/v1.test.ts`) |
 
 ---
 
@@ -346,6 +347,28 @@ tests navigateur de la phase 2.
   l'arité.
 
 **Validation** : tests unitaires ; aucune modification visible.
+
+**État : fait.** Trois fichiers sans DOM ni Web Audio, sous `src/model/` :
+- `Patch.ts` : modules à ports numérotés (au plus 32 de chaque côté), connexions
+  port à port, événements pour les observateurs, `connectBus` (règle cyclique
+  `busPairs`), `setArity` (élagage des câbles devenus invalides) et `analyze()`.
+  Cette dernière renvoie les arcs de rétroaction (arcs arrière d'un DFS
+  déterministe, partant des modules sans entrée) et un ordre topologique du
+  graphe privé de ces arcs. Le module `input` n'a que des sorties et `output`
+  que des entrées.
+- `PatchFormat.ts` : format v2 (`format`, `version`, `modules`, `connections`)
+  et lecture validée qui localise les erreurs (`modules[2].code: string expected`).
+- `PatchFormatV1.ts` : lecture tolérante du v1 (nombres en chaînes, champs
+  absents, factories asm.js ignorées), puis migration une fois les arités
+  connues. Chaque lien v1 devient une connexion bus ; les modules d'arité
+  inconnue (non compilables) sont écartés avec un avertissement.
+
+Tests (`tests/model/`, 49 tests) : invariants du modèle ; règle cyclique comparée
+à `<:` et `:>` ; arcs de rétroaction sur 200 graphes aléatoires (le graphe privé
+de ces arcs est acyclique et ordonné par `order`) ; indépendance vis-à-vis de
+l'ordre de création des câbles ; aller-retour v2 ; messages d'erreur ; migration
+des 8 exemples, avec arités obtenues par compilation libfaust et comparées à
+celles des factories précompilées.
 
 ### Phase 2 — Moteur audio multicanal (≈ 2–3 j)
 - `AudioGraph` piloté par le modèle (merger/splitter, `disconnect` sélectif,
