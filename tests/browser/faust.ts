@@ -32,3 +32,10 @@ export async function renderCode(code: string, inputs: Float32Array[], length: n
     if (!processor) throw new Error("cannot create offline processor");
     return processor.render(inputs, length);
 }
+
+// JSON description of the factory of a Faust program (no node created).
+export async function compileJson(code: string): Promise<any> {
+    const generator = new fw.FaustMonoDspGenerator();
+    await generator.compile(await getCompiler(), `json${counter++}`, code, FAUST_COMPILE_OPTIONS);
+    return JSON.parse(generator.factory!.json);
+}

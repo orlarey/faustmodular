@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.1.0 (2026-10-30)
+
+Widget modulation: an audio output can now be connected to a widget (slider, button, checkbox) of a
+module, as in modular synthesizers. See
+[Documentation/widget-modulation/PLAN.md](Documentation/widget-modulation/PLAN.md).
+
+- Drag a cable from an output onto a widget: after a short hover, a palette shows the modulation types;
+  release the cable on the one you want:
+  - **± modulate** (default): `w + depth · m · (max − min)/2`, kept within the range of the widget; an LFO
+    in [−1, 1] at depth 1 sweeps the whole range around the slider. Frequency widgets (`[unit:Hz]`,
+    `[scale:log]`) are modulated exponentially, `w · 2^(depth · m · N)`, N being half their range in
+    octaves. The depth (−1 to 1) is a small control under the widget, adjusted live;
+  - **× scale**: `w · m` (VCA-like);
+  - **⇐ drive**: the signal replaces the widget (greyed); the only type for buttons and checkboxes.
+- One type per widget; several sources reaching a widget are summed. Deleting the last cable removes
+  the modulation.
+- The module is recompiled on the fly with Faust's widget modulation (`["label" : circuit -> e]`); the
+  sound keeps playing, the parameter values are kept, and the exported program includes the modulations.
+- New "Modulation" library category: LFO (sine, triangle, square, sawtooth), Quad LFO, Random (sample and
+  hold), Clock (gates), ADSR, Envelope Follower; bipolar sources in [−1, 1], unipolar ones in [0, 1].
+- New "Modulation example" in the Load menu.
+- Patch files with modulations are saved in format version 3 (still 2 otherwise).
+- Fix: after editing the code of a module, its parameter values were applied to the old DSP; they are
+  now given back to the new one.
+- Fix: loading a patch containing a module with a button or a checkbox failed (the accelerometer
+  settings of these controls were restored as if they were sliders).
+
 ## 2.0.0 (2026-10-30)
 
 FaustPlayground becomes multichannel: a module has as many ports as its Faust program has inputs

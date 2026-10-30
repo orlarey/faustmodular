@@ -132,6 +132,13 @@ describe("effective code", () => {
         expect(r.widgets.filter((w) => w.meta.modulation).map((w) => w.label)).toEqual(["depth 1"]);
     });
 
+    it("matches labels written with spaces before their metadata (library modules)", async () => {
+        // as in SOscillator: "Frequency [unit:Hz] [acc:0 1 -10 0 10]"
+        const osc = wrap("Oscillator", `process = hslider("Frequency [unit:Hz] [acc:0 1 -10 0 10]", 300, 70, 2400, 0.01);`);
+        const code = await modulated(osc, 0, [["/Frequency", "drive"]]);
+        close((await run(code, [500])).out[0], 500);
+    });
+
     it("leaves a module without modulation unchanged", () => {
         expect(modulatedCode(MODULE, 2, [])).toBe(MODULE);
     });

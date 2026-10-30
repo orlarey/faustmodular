@@ -155,6 +155,44 @@ valeurs des paramètres sont conservées et les connexions existantes sont gard�
 
 **Estimation totale : 6 à 7 jours.**
 
+### État (2026-10-30) : M0 à M4 faits
+
+- **M0** — `src/model/Modulation.ts`, avec 11 tests libfaust (`tests/model/modulation.test.ts`).
+  - Valeurs des trois types, profondeur réglée en direct, ordre des ports, plusieurs
+    modulations, gates, widgets homonymes, labels avec espace avant les métadonnées.
+  - Le circuit exponentiel s'écrit `(2.0, _ : pow)` : `pow(2.0)` vaudrait x², car l'application
+    partielle d'une primitive fixe son second argument.
+- **M1** — Modèle, format et export (`tests/model/modulation-model.test.ts`, 8 tests).
+  - Modèle : ports de modulation après les ports audio, renumérotation, limite de 32 entrées,
+    rétroaction par une modulation.
+  - Format version 3.
+  - Export du code effectif.
+- **M2** — Recompilation à la volée (`Scene.modulate`, `recompileModulations`).
+  - Recompilations en file d'attente par module, sans couper le son.
+  - Une modulation disparaît avec son dernier câble.
+  - L'édition du code d'un module modulé garde les modulations valides.
+  - `ModuleClass.replaceDSP` conserve les valeurs des paramètres. Le chemin d'édition du code
+    les réappliquait à l'ancien DSP : c'est corrigé.
+  - Test de bout en bout aux valeurs exactes.
+- **M3** — Interface (`PatchView`) : widgets cibles, palette après 250 ms, une palette par
+  pointeur, câbles au bord du module à la hauteur du widget avec badge, repères des widgets
+  modulés, réglage de profondeur compact.
+  - Défaut trouvé par l'essai réel : un module sans entrée audio en reçoit une avec sa première
+    modulation, avant son nouveau DSP. Le moteur ne relie plus le merger à un nœud sans entrée.
+  - Tests de bout en bout à la souris et au toucher.
+- **M4** — Sources, exemple et vérification de l'export.
+  - Sources de modulation de la bibliothèque (nouvelle colonne « Modulation ») : LFO (4 formes),
+    Quad LFO, Random (échantillonné-bloqué), Clock, ADSR, Envelope Follower. Leurs plages
+    normalisées sont vérifiées par `tests/library/modulation-sources.test.ts`.
+  - Exemple `Modulation_Example.json` : vibrato exponentiel, enveloppe rythmique sur le volume.
+  - Test différentiel direct/export avec modulations (les trois types et le cas exponentiel).
+    L'écart est d'au plus 2,2·10⁻⁵ pendant le transitoire initial, et sous 10⁻⁷ ensuite : ce
+    sont des arrondis float32, différents entre module compilé seul et module inclus dans
+    l'export. D'où les seuils : < 10⁻⁴ partout, < 10⁻⁶ sur la seconde moitié.
+- **W2** — Le contrôle du nombre d'entrées ne détecte pas un label sans correspondance (Faust
+  ajoute l'entrée quand même). Le risque est réduit parce que les cibles sont tirées du JSON
+  produit par le même compilateur ; le cas des labels de la bibliothèque est testé.
+
 ---
 
 ## 5. Décisions (arrêtées le 2026-10-30)

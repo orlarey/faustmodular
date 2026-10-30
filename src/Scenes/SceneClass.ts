@@ -558,7 +558,8 @@ export class Scene {
     recallAccValues(mappings: AccMapping[], module: ModuleClass) {
         for (var controle of mappings) {
             for (var moduleControle of module.moduleControles) {
-                if (moduleControle.itemParam.address == controle.address) {
+                // only sliders have an accelerometer mapping shown (buttons and checkboxes have no group)
+                if (moduleControle.itemParam.address == controle.address && moduleControle.faustInterfaceView.group && moduleControle.faustInterfaceView.slider) {
                     var group = moduleControle.faustInterfaceView.group;
                     var slider = moduleControle.faustInterfaceView.slider;
                     var acc = moduleControle.accelerometerSlider;

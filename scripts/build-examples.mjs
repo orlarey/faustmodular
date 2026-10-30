@@ -2,7 +2,7 @@
 // - the 1.x examples (tests/fixtures/v1/) are loaded and saved again; the "_Precompile" variants are
 //   the same patches saved with their factories, compiled again from the source code (with the
 //   current libfaust and options of src/FaustOptions.ts, not reused from the 1.x files);
-// - the multichannel example is assembled from modules of the library.
+// - the multichannel and modulation examples are assembled from modules of the library.
 // Usage: node scripts/build-examples.mjs   (needs Chromium for Playwright)
 import fs from "fs";
 import path from "path";
@@ -67,6 +67,42 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
         return scene.saveScene(false);
     });
     write("Multichannel_Example", saved);
+    await page.close();
+}
+
+// Modulation example: an LFO modulates the frequency of an oscillator (exponential vibrato), a
+// clock triggers an ADSR envelope that scales the volume.
+{
+    const page = await openApp();
+    const saved = await page.evaluate(async () => {
+        const { app, scene } = globalThis.faustPlayground;
+        const add = async (file, x, y) => {
+            const name = file.split("/").pop().replace(".dsp", "");
+            const code = `process = vgroup("${name}",environment{${await (await fetch("faust-modules/" + file)).text()}}.process);`;
+            const before = scene.getModules().length;
+            await app.compileFaust({ name, sourceCode: code, x, y, callback: (f) => app.createModule(f, name, code, x, y) });
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 50));
+            return scene.getModules()[before].moduleId;
+        };
+        const oscillator = await add("generators/SOscillator.dsp", 480, 120);
+        const lfo = await add("modulation/LFO.dsp", 120, 90);
+        const clock = await add("modulation/Clock.dsp", 120, 420);
+        const adsr = await add("modulation/ADSR.dsp", 450, 400);
+        const volume = await add("effects/Volume.dsp", 850, 250);
+        const widget = (id, label) => scene.widgetsOf(scene.getModuleById(id)).find((w) => w.label.startsWith(label)).address;
+        const setParam = (id, label, value) => scene.getModuleById(id).moduleFaust.getDSP().setParamValue(widget(id, label), value);
+        scene.patch.connect({ module: oscillator, port: 0 }, { module: volume, port: 0 });
+        scene.patch.connect({ module: oscillator, port: 0 }, { module: volume, port: 1 });
+        scene.patch.connectBus(volume, "output");
+        scene.patch.connect({ module: clock, port: 0 }, { module: adsr, port: 0 });
+        await scene.modulate({ module: lfo, port: 0 }, oscillator, widget(oscillator, "Frequency"), "modulate");
+        await scene.modulate({ module: adsr, port: 0 }, volume, widget(volume, "Volume"), "scale");
+        setParam(lfo, "Rate", 5);
+        setParam(oscillator, "depth", 0.02);        // ±0.05 octave
+        scene.sceneName = "Modulation_Example";
+        return scene.saveScene(false);
+    });
+    write("Modulation_Example", saved);
     await page.close();
 }
 

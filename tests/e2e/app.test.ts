@@ -175,7 +175,8 @@ describe("application", () => {
     it("opens every example of the Load menu (version 2 files)", async () => {
         const fs = await import("fs");
         for (const [anchor, file] of [["aLightExemple", "Small_Exemple"], ["aLightPreExemple", "Small_Exemple_Precompile"],
-            ["aBigExemple", "Big_Exemple"], ["aBigPreExemple", "Big_Exemple_Precompile"], ["aMultichannelExemple", "Multichannel_Example"]]) {
+            ["aBigExemple", "Big_Exemple"], ["aBigPreExemple", "Big_Exemple_Precompile"], ["aMultichannelExemple", "Multichannel_Example"],
+            ["aModulationExemple", "Modulation_Example"]]) {
             const saved = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../public/json", file + ".json"), "utf8"));
             const { page, errors } = await openApp();
             await page.locator("#loadButtonMenu").click();
@@ -187,6 +188,13 @@ describe("application", () => {
             expect(s.modules, file).toEqual(faust.map((m: any) => `${m.id}:${m.name}:${m.inputs}x${m.outputs}`));
             expect(s.connections, file).toEqual(saved.connections.map((c: any) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort());
             expect(s.wires, file).toBe(saved.connections.length);
+            if (file == "Modulation_Example") {
+                // the modulations are recalled (modules compiled with their effective code)
+                const modulated = await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.getModules()
+                    .flatMap((m: any) => m.modulations.map((x: any) => `${m.name}:${x.spec.mode}${x.spec.exponential ? ":exp" : ""}`)));
+                expect(modulated).toEqual(["SOscillator:modulate:exp", "Volume:scale"]);
+                expect(await page.locator(".cable.modulation").count()).toBe(2);
+            }
             if (file == "Multichannel_Example") {
                 // sound out of the stereo mixer and of the 4 echoes
                 const rms = await page.evaluate(async () => {

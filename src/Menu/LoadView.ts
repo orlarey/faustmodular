@@ -14,6 +14,7 @@ export class LoadView {
     aBigPreExemple: HTMLAnchorElement;
     aLightPreExemple: HTMLAnchorElement;
     aMultichannelExemple: HTMLAnchorElement;
+    aModulationExemple: HTMLAnchorElement;
     cloudSelectFile: HTMLSelectElement;
     driveContainer: HTMLElement;
 
@@ -89,6 +90,14 @@ export class LoadView {
         aMultichannelExemple.draggable = false;
         this.aMultichannelExemple = aMultichannelExemple;
 
+        var aModulationExemple = document.createElement("a");
+        aModulationExemple.id = "aModulationExemple";
+        aModulationExemple.className = "exempleAnchor"
+        aModulationExemple.textContent = "Modulation example";
+        aModulationExemple.href = "json/Modulation_Example.json"
+        aModulationExemple.draggable = false;
+        this.aModulationExemple = aModulationExemple;
+
         var loadFileButton: HTMLButtonElement = document.createElement("button");
         loadFileButton.type = "button";
         loadFileButton.id = "loadFileButton";
@@ -103,6 +112,7 @@ export class LoadView {
         loadFileContainer.appendChild(aBigExemple);
         loadFileContainer.appendChild(aBigPreExemple);
         loadFileContainer.appendChild(aMultichannelExemple);
+        loadFileContainer.appendChild(aModulationExemple);
 
         loadFileBottomButtonContainer.appendChild(loadFileButton)
 

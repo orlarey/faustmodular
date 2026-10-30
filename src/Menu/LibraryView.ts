@@ -8,6 +8,7 @@ export class LibraryView {
     effetLibrarySelect: HTMLUListElement
     exempleLibrarySelect: HTMLUListElement
     multichannelLibrarySelect: HTMLUListElement
+    modulationLibrarySelect: HTMLUListElement
     intrumentLibrary: HTMLElement
     effetLibrary: HTMLElement
     exempleLibrary: HTMLElement
@@ -105,6 +106,27 @@ export class LibraryView {
         libraryContent.appendChild(effetLibraryContent)
         libraryContent.appendChild(exempleLibraryContent)
         libraryContent.appendChild(multichannelLibraryContent)
+
+        /////////////Modulation sources (LFO, envelopes...)
+
+        var modulationLibraryContent: HTMLElement = document.createElement("div");
+        modulationLibraryContent.id = "modulationLibraryContent";
+        modulationLibraryContent.className = "submenuLibraryContent";
+
+        var modulationLibraryTitle: HTMLSpanElement = document.createElement("span");
+        modulationLibraryTitle.id = "modulationLibraryTitle";
+        modulationLibraryTitle.className = "libraryTitles";
+        modulationLibraryTitle.appendChild(document.createTextNode(Utilitary.messageResource.titleModulation));
+
+        var modulationLibrarySelect: HTMLUListElement = document.createElement("ul");
+        modulationLibrarySelect.id = "modulationLibrarySelect";
+        modulationLibrarySelect.className = "librarySelects";
+        Ps.initialize(modulationLibrarySelect, { suppressScrollX: true, theme: 'my-theme-name' });
+        this.modulationLibrarySelect = modulationLibrarySelect;
+
+        modulationLibraryContent.appendChild(modulationLibraryTitle);
+        modulationLibraryContent.appendChild(modulationLibrarySelect);
+        libraryContent.appendChild(modulationLibraryContent)
 
         return libraryContent;
     }

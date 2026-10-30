@@ -1,0 +1,313 @@
+{
+ "format": "faustplayground-patch",
+ "version": 3,
+ "sceneName": "Modulation_Example",
+ "modules": [
+  {
+   "id": "output",
+   "kind": "output",
+   "name": "output",
+   "code": "",
+   "x": 0,
+   "y": 0,
+   "inputs": 2,
+   "outputs": 0,
+   "params": {},
+   "acc": []
+  },
+  {
+   "id": "input",
+   "kind": "input",
+   "name": "input",
+   "code": "",
+   "x": 0,
+   "y": 0,
+   "inputs": 0,
+   "outputs": 2,
+   "params": {},
+   "acc": []
+  },
+  {
+   "id": "1",
+   "kind": "faust",
+   "name": "SOscillator",
+   "code": "process = vgroup(\"SOscillator\",environment{declare name \t\t\"os.osc\";\ndeclare version \t\"1.0\";\ndeclare author \t\t\"Grame\";\ndeclare license \t\"BSD\";\ndeclare copyright \t\"(c)GRAME 2009\";\n\n//-----------------------------------------------\n// \t\t\tSinusoidal Oscillator\n//-----------------------------------------------\n\n/* =========== DESCRIPTION =============\n\n- Simple sine wave oscillator\n- Left = low frequencies\n- Right = high frequencies\n- Front = around 300Hz\n- Rocking = from low to high\n*/ \n\nimport(\"stdfaust.lib\");\n\nfreq \t\t\t= hslider(\"Frequency [unit:Hz] [acc:0 1 -10 0 10]\", 300, 70, 2400, 0.01):si.smooth(0.999);\nprocess \t\t= vgroup(\"Oscillator\", os.osc(freq));\n\n}.process);",
+   "x": 480,
+   "y": 120,
+   "inputs": 0,
+   "outputs": 1,
+   "params": {
+    "/SOscillator/Oscillator/Frequency": 300,
+    "/SOscillator/Oscillator/depth_1": 1
+   },
+   "acc": [
+    {
+     "address": "/SOscillator/Oscillator/Frequency",
+     "axis": 0,
+     "curve": 1,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": true
+    },
+    {
+     "address": "/SOscillator/Oscillator/depth_1",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    }
+   ],
+   "modulations": [
+    {
+     "widget": "/SOscillator/Oscillator/Frequency",
+     "target": "Frequency",
+     "mode": "modulate",
+     "min": 70,
+     "max": 2400,
+     "exponential": true
+    }
+   ]
+  },
+  {
+   "id": "2",
+   "kind": "faust",
+   "name": "LFO",
+   "code": "process = vgroup(\"LFO\",environment{declare name \"LFO\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- Low frequency oscillator, bipolar output in [-1, 1]: a modulation source\n- Shape: 0 sine, 1 triangle, 2 square, 3 sawtooth\n- Connect the output to a widget of another module and choose \"modulate\" in the palette\n\n*/\n\nprocess = vgroup(\"LFO\", select4(shape, os.osc(rate), os.lf_triangle(rate), os.lf_squarewave(rate), os.lf_saw(rate)));\n\nrate = hslider(\"Rate[unit:Hz][scale:log]\", 1, 0.01, 20, 0.01);\nshape = hslider(\"Shape (sine, triangle, square, saw)\", 0, 0, 3, 1);\nselect4(s, a, b, c, d) = select2(s >= 2, select2(s >= 1, a, b), select2(s >= 3, c, d));\n}.process);",
+   "x": 120,
+   "y": 90,
+   "inputs": 0,
+   "outputs": 1,
+   "params": {
+    "/LFO/LFO/Rate": 1,
+    "/LFO/LFO/Shape__sine__triangle__square__saw_": 0
+   },
+   "acc": [
+    {
+     "address": "/LFO/LFO/Rate",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/LFO/LFO/Shape__sine__triangle__square__saw_",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    }
+   ]
+  },
+  {
+   "id": "3",
+   "kind": "faust",
+   "name": "Clock",
+   "code": "process = vgroup(\"Clock\",environment{declare name \"Clock\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- Gate signal: 1 during a fraction of each period, 0 otherwise\n- Tempo in beats per minute, Length: fraction of the period where the gate is on\n- To trigger envelopes (ADSR) or drive buttons (\"drive\" in the palette)\n\n*/\n\nprocess = vgroup(\"Clock\", (os.phasor(1, tempo / 60) < length) : float);\n\ntempo = hslider(\"Tempo[unit:BPM]\", 120, 20, 600, 1);\nlength = hslider(\"Length\", 0.5, 0.01, 0.99, 0.01);\n}.process);",
+   "x": 120,
+   "y": 420,
+   "inputs": 0,
+   "outputs": 1,
+   "params": {
+    "/Clock/Clock/Length": 0.5,
+    "/Clock/Clock/Tempo": 120
+   },
+   "acc": [
+    {
+     "address": "/Clock/Clock/Length",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/Clock/Clock/Tempo",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    }
+   ]
+  },
+  {
+   "id": "4",
+   "kind": "faust",
+   "name": "ADSR",
+   "code": "process = vgroup(\"ADSR\",environment{declare name \"ADSR\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- Envelope generator, unipolar output in [0, 1]\n- Triggered by its input (a gate: on while above 0, e.g. from Clock) or by its Gate button\n- To shape a level: connect the output to a gain and choose \"scale\" in the palette\n\n*/\n\nprocess = vgroup(\"ADSR\", _ > 0 : max(button(\"Gate\")) : en.adsr(a, d, s, r));\n\na = hslider(\"[1]Attack[unit:s]\", 0.01, 0.001, 2, 0.001);\nd = hslider(\"[2]Decay[unit:s]\", 0.2, 0.001, 2, 0.001);\ns = hslider(\"[3]Sustain\", 0.5, 0, 1, 0.01);\nr = hslider(\"[4]Release[unit:s]\", 0.3, 0.001, 5, 0.001);\n}.process);",
+   "x": 450,
+   "y": 400,
+   "inputs": 1,
+   "outputs": 1,
+   "params": {
+    "/ADSR/ADSR/Gate": 0,
+    "/ADSR/ADSR/Attack": 0.009999999776482582,
+    "/ADSR/ADSR/Decay": 0.20000000298023224,
+    "/ADSR/ADSR/Sustain": 0.5,
+    "/ADSR/ADSR/Release": 0.30000001192092896
+   },
+   "acc": [
+    {
+     "address": "/ADSR/ADSR/Gate",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/ADSR/ADSR/Attack",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/ADSR/ADSR/Decay",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/ADSR/ADSR/Sustain",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    },
+    {
+     "address": "/ADSR/ADSR/Release",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
+    }
+   ]
+  },
+  {
+   "id": "5",
+   "kind": "faust",
+   "name": "Volume",
+   "code": "process = vgroup(\"Volume\",environment{declare name \"Volume\";\ndeclare author \"GRAME\";\n\n/* ========== DESCRITPION ===========\n\n- Simple volume slider\n- Head = Silence\n- Bottom = Max volume\n\n*/\n\nimport(\"stdfaust.lib\");\n\nprocess = par(i,2,*(hslider(\"Volume[acc:1 0 -10 0 10]\", 0.75, 0, 1, 0.01):si.smooth(0.999)));\n}.process);",
+   "x": 850,
+   "y": 250,
+   "inputs": 2,
+   "outputs": 2,
+   "params": {
+    "/Volume/Volume": 0.75
+   },
+   "acc": [
+    {
+     "address": "/Volume/Volume",
+     "axis": 1,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": true
+    }
+   ],
+   "modulations": [
+    {
+     "widget": "/Volume/Volume",
+     "target": "Volume",
+     "mode": "scale",
+     "min": 0,
+     "max": 1,
+     "exponential": false
+    }
+   ]
+  }
+ ],
+ "connections": [
+  {
+   "from": {
+    "module": "1",
+    "port": 0
+   },
+   "to": {
+    "module": "5",
+    "port": 0
+   }
+  },
+  {
+   "from": {
+    "module": "1",
+    "port": 0
+   },
+   "to": {
+    "module": "5",
+    "port": 1
+   }
+  },
+  {
+   "from": {
+    "module": "5",
+    "port": 0
+   },
+   "to": {
+    "module": "output",
+    "port": 0
+   }
+  },
+  {
+   "from": {
+    "module": "5",
+    "port": 1
+   },
+   "to": {
+    "module": "output",
+    "port": 1
+   }
+  },
+  {
+   "from": {
+    "module": "3",
+    "port": 0
+   },
+   "to": {
+    "module": "4",
+    "port": 0
+   }
+  },
+  {
+   "from": {
+    "module": "2",
+    "port": 0
+   },
+   "to": {
+    "module": "1",
+    "port": 0
+   }
+  },
+  {
+   "from": {
+    "module": "4",
+    "port": 0
+   },
+   "to": {
+    "module": "5",
+    "port": 2
+   }
+  }
+ ]
+}

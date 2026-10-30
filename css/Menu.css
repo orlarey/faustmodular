@@ -90,7 +90,7 @@ div#contentsMenu {
 .submenuLibraryContent {
     float: left;
     height: 300px;
-    width: 25%;
+    width: 20%;
 }
 .librarySelects {
     overflow-y: auto;
