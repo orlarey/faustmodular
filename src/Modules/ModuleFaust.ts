@@ -14,8 +14,6 @@ export class ModuleFaust {
     fTempName: string;
     fOutputConnections: Connector[] = [];
     fInputConnections: Connector[] = [];
-    recallOutputsDestination: string[] = [];
-    recallInputsSource: string[] = [];
     constructor(name: string) {
         this.fName = name;
     }

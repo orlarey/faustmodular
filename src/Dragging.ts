@@ -5,6 +5,7 @@
     --> Things could probably be easier...
 */
 import { Connector, ConnectorShape } from "./Connect";
+import { ConnectionId } from "./model/Patch";
 import { ModuleClass } from "./Modules/ModuleClass";
 import { HTMLInterfaceContainer, Utilitary } from "./Utilitary";
 
@@ -171,7 +172,7 @@ export class Drag {
         document.getElementById("svgCanvas")!.appendChild(curve);
     }
 
-    stopDraggingConnection(sourceModule: ModuleClass, destination: ModuleClass, target?: HTMLElement): void {
+    stopDraggingConnection(sourceModule: ModuleClass, destination: ModuleClass, target?: HTMLElement, existing?: ConnectionId[]): void {
 
         if (sourceModule.moduleView.getInterfaceContainer().lastLit) {
             sourceModule.moduleView.getInterfaceContainer().lastLit.className = sourceModule.moduleView.getInterfaceContainer().lastLit.unlitClassname;
@@ -241,7 +242,7 @@ export class Drag {
 
             if (src && dst) {
                 var connector: Connector = new Connector();
-                connector.connectModules(src, dst);
+                connector.connectModules(src, dst, existing);
 
                 dst.moduleFaust.addInputConnection(connector);
                 src.moduleFaust.addOutputConnection(connector);

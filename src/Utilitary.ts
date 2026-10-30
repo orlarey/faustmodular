@@ -114,12 +114,6 @@ export class PositionModule implements IPositionModule {
     y: number;
 }
 
-export interface IHTMLDivElementSrc extends HTMLDivElement {
-    audioNode: MediaStreamAudioSourceNode;
-}
-export interface IHTMLDivElementOut extends HTMLDivElement {
-    audioNode: AudioDestinationNode;
-}
 export interface HTMLInterfaceContainer extends HTMLDivElement {
     unlitClassname: string;
     lastLit: any;

@@ -34,7 +34,7 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { Menu, MenuChoices } from "./Menu/Menu";
 import { CompileFaust, PositionModule, Utilitary } from "./Utilitary";
-import { IJsonParamsSave, Scene } from "./Scenes/SceneClass";
+import { Scene } from "./Scenes/SceneClass";
 import { SceneView } from "./Scenes/SceneView";
 import { faustWasmEnv } from "./Main";
 import { Message } from "./Messages";
@@ -45,19 +45,6 @@ import { ModuleClass } from "./Modules/ModuleClass";
 export class App {
     menu: Menu;
     scenes: Scene[];
-
-    tempModuleName: string;
-    tempPatchId: string;
-    tempModuleSourceCode: string;
-    tempModuleX: number;
-    tempModuleY: number;
-    tempParams: IJsonParamsSave;
-
-    inputs: any[];
-    outputs: any[];
-    params: any[];
-
-    factory: FaustDspFactory;
 
     createAllScenes(): void {
         var sceneView: SceneView = new SceneView();
@@ -96,13 +83,9 @@ export class App {
     ****************  CREATE FAUST FACTORIES AND MODULES ****************
     ********************************************************************/
 
-    async compileFaust(compileFaust: CompileFaust) {
-
-        //  Temporarily Saving parameters of compilation
-        this.tempModuleName = compileFaust.name;
-        this.tempModuleSourceCode = compileFaust.sourceCode;
-        this.tempModuleX = compileFaust.x;
-        this.tempModuleY = compileFaust.y;
+    // Compiles compileFaust.sourceCode and passes the factory to compileFaust.callback.
+    // Does not use `this`: it is passed around as a plain function (scene, modules).
+    async compileFaust(compileFaust: CompileFaust): Promise<void> {
 
         var currentScene: Scene = Utilitary.currentScene;
 
@@ -117,8 +100,7 @@ export class App {
             const faustMonoDspGenerator = new faustWasmEnv.FaustMonoDspGenerator();
             await faustMonoDspGenerator.compile(faustWasmEnv.faustCompiler, "FaustDSP", compileFaust.sourceCode, "-ftz 2");
             if (!faustMonoDspGenerator.factory) throw new Error("Faust DSP is not compiled");
-            this.factory = faustMonoDspGenerator.factory;
-            compileFaust.callback(this.factory);
+            compileFaust.callback(faustMonoDspGenerator.factory);
         } catch (error) {
             new Message(String(error))
         }
@@ -128,15 +110,15 @@ export class App {
 
     //create Module, set the source faust code to its moduleFaust, set the faust interface , add the input output connection nodes
     //
-    private createModule(factory: FaustDspFactory): void {
+    private createModule(factory: FaustDspFactory, name: string, sourceCode: string, x: number, y: number): void {
         if (!factory) {
             new Message(Utilitary.messageResource.errorFactory /*+ faust.getErrorMessage() */);
             Utilitary.hideFullPageLoading();
             return;
         }
 
-        var module: ModuleClass = new ModuleClass(Utilitary.idX++, this.tempModuleX, this.tempModuleY, this.tempModuleName, document.getElementById("modules")!, (module) => { Utilitary.currentScene.removeModule(module) }, this.compileFaust);
-        module.moduleFaust.setSource(this.tempModuleSourceCode);
+        var module: ModuleClass = new ModuleClass(Utilitary.idX++, x, y, name, document.getElementById("modules")!, (module) => { Utilitary.currentScene.removeModule(module) }, this.compileFaust);
+        module.moduleFaust.setSource(sourceCode);
 
         module.createDSP(factory, () => {
             module.setFaustInterfaceControles();
@@ -144,7 +126,7 @@ export class App {
             module.addInputOutputNodes();
 
             //set listener to recompile when dropping faust code on the module
-            if (this.tempModuleName != "input" && this.tempModuleName != "output") {
+            if (name != "input" && name != "output") {
                 module.moduleView.fModuleContainer.ondrop = (e) => {
                     e.stopPropagation();
                     this.styleOnDragEnd()
@@ -273,7 +255,7 @@ export class App {
             var dsp_code: string = "process = vgroup(\"" + filename + "\",environment{" + codeFaust + "}.process);";
 
             if (module == null) {
-                app.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory) } });
+                app.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, filename, dsp_code, x, y) } });
             } else {
                 module.update(filename, dsp_code);
             }
@@ -284,7 +266,7 @@ export class App {
     uploadCodeFaust(app: App, module: ModuleClass | null, x: number, y: number, e: DragEvent, dsp_code: string) {
         dsp_code = "process = vgroup(\"" + "TEXT" + "\",environment{" + dsp_code + "}.process);";
         if (!module) {
-            app.compileFaust({ name: "TEXT", sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory) } });
+            app.compileFaust({ name: "TEXT", sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, "TEXT", dsp_code, x, y) } });
         } else {
             module.update("TEXT", dsp_code);
         }
@@ -319,7 +301,7 @@ export class App {
             dsp_code = "process = vgroup(\"" + filename + "\",environment{" + reader.result + "}.process);";
 
             if (!module && type == "dsp") {
-                this.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { this.createModule(factory) } });
+                this.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { this.createModule(factory, filename, dsp_code, x, y) } });
             } else if (type == "dsp") {
                 module!.update(filename, dsp_code);
             } else if (type == "json") {

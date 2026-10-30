@@ -153,14 +153,24 @@ export function migrateV1(draft: V1Draft, arityOf: (module: V1DraftModule) => Ar
         }
     }
 
-    for (const link of draft.links) {
-        if (!patch.getModule(link.from) || !patch.getModule(link.to)) {
+    warnings.push(...connectV1Links(patch, draft.links, (id) => id));
+    return { patch, sceneName: draft.sceneName, warnings };
+}
+
+// Turns v1 links into bus connections of `patch`; `mapId` translates the module ids of the
+// file into ids of the patch (undefined if the module is absent). Returns the warnings.
+export function connectV1Links(patch: Patch, links: V1Draft["links"], mapId: (id: ModuleId) => ModuleId | undefined): string[] {
+    const warnings: string[] = [];
+    for (const link of links) {
+        const from = mapId(link.from);
+        const to = mapId(link.to);
+        if (from === undefined || to === undefined || !patch.getModule(from) || !patch.getModule(to)) {
             warnings.push(`link ${link.from} -> ${link.to}: unknown module, link dropped`);
-        } else if (patch.connectBus(link.from, link.to).length == 0) {
+        } else if (patch.connectBus(from, to).length == 0 && patch.connectionsFrom(from).every((c) => c.to.module != to)) {
             warnings.push(`link ${link.from} -> ${link.to}: no compatible ports, link dropped`);
         }
     }
-    return { patch, sceneName: draft.sceneName, warnings };
+    return warnings;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

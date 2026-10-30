@@ -14,6 +14,7 @@ import { AccelerometerHandler } from "../Accelerometer";
 import { Connector } from "../Connect";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
+import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 
 interface DSPCallback { (): void; }
 
@@ -22,8 +23,10 @@ export class ModuleClass {
     //drag object to handle dragging of module and connection
     drag: Drag = new Drag()
     dragList: Drag[] = [];
-    //used only for save or recall
+    //used only by the Faust export (EquivalentFaust)
     patchID: string;
+    //id of the module in the patch model (set when the module is added to the scene)
+    moduleId: ModuleId;
 
     moduleView: ModuleView;
     moduleFaust: ModuleFaust;
@@ -36,9 +39,9 @@ export class ModuleClass {
     eventConnectorHandler: (event: Event) => void;
     eventOpenEditHandler: () => void;
     eventCloseEditHandler: (event: Event) => void;
-    compileFaust: (conpileFaust: CompileFaust) => void;
+    compileFaust: (conpileFaust: CompileFaust) => Promise<void>;
 
-    constructor(id: number, x: number, y: number, name: string, htmlElementModuleContainer: HTMLElement, removeModuleCallBack: (m: ModuleClass) => void, compileFaust: (compileFaust: CompileFaust) => void) {
+    constructor(id: number, x: number, y: number, name: string, htmlElementModuleContainer: HTMLElement, removeModuleCallBack: (m: ModuleClass) => void, compileFaust: (compileFaust: CompileFaust) => Promise<void>) {
         this.eventConnectorHandler = (event: Event) => { this.dragCnxCallback(event as MouseEvent, this) };
         this.eventCloseEditHandler = (event: Event) => { this.recompileSource(event as MouseEvent, this) }
         this.eventOpenEditHandler = () => { this.edit() }
@@ -178,6 +181,12 @@ export class ModuleClass {
         this.moduleFaust.factory = factory;
         try {
             if (factory != null) {
+                const { inputs, outputs } = JSON.parse(factory.json);
+                if (inputs > MAX_CHANNELS || outputs > MAX_CHANNELS) {
+                    new Message(`${Utilitary.messageResource.errorCreateDSP} : ${inputs} inputs and ${outputs} outputs, the maximum is ${MAX_CHANNELS}`);
+                    Utilitary.hideFullPageLoading();
+                    return;
+                }
                 var moduleFaust = this.moduleFaust;
                 const faustMonoDspGenerator = new faustWasmEnv.FaustMonoDspGenerator();
                 const dsp = typeof AudioWorklet !== "undefined"
@@ -225,6 +234,7 @@ export class ModuleClass {
             module.createFaustInterface();
             module.addInputOutputNodes();
 
+            Utilitary.currentScene.updateModuleDSP(module);
             module.deleteDSP(toDelete);
 
             // Recall Cnx
@@ -432,8 +442,10 @@ export class ModuleClass {
     }
 
     /******************* GET/SET INPUT/OUTPUT NODES **********************/
-    addInputOutputNodes(): void {
-        if (this.moduleFaust.fDSP.getNumInputs() > 0 && this.moduleView.fName != "input") {
+    // One graphical node per side for now, whatever the number of channels.
+    // The physical input and output modules, which have no DSP, give their number of channels.
+    addInputOutputNodes(numInputs: number = this.moduleFaust.fDSP.getNumInputs(), numOutputs: number = this.moduleFaust.fDSP.getNumOutputs()): void {
+        if (numInputs > 0) {
             this.moduleView.setInputNode();
             this.moduleView.fInputNode.addEventListener("mousedown", this.eventConnectorHandler);
             this.moduleView.fInputNode.addEventListener("touchstart", this.eventConnectorHandler);
@@ -441,7 +453,7 @@ export class ModuleClass {
             this.moduleView.fInputNode.addEventListener("touchend", this.eventConnectorHandler);
         }
 
-        if (this.moduleFaust.fDSP.getNumOutputs() > 0 && this.moduleView.fName != "output") {
+        if (numOutputs > 0) {
             this.moduleView.setOutputNode();
             this.moduleView.fOutputNode.addEventListener("mousedown", this.eventConnectorHandler);
             this.moduleView.fOutputNode.addEventListener("touchstart", this.eventConnectorHandler);

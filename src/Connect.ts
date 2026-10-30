@@ -1,11 +1,16 @@
 /*				CONNECT.JS
     Handles Audio/Graphical Connection/Deconnection of modules
     This is a historical file from Chris Wilson, modified for Faust ModuleClass needs.
+
+    A Connector is the graphical link drawn between two modules (one port per module in the
+    current view). It stands for the port-to-port connections of the patch model listed in
+    patchConnections; audio is handled by the model and its AudioGraph.
 */
 
 import { Drag } from "./Dragging";
+import { ConnectionId } from "./model/Patch";
 import { ModuleClass } from "./Modules/ModuleClass";
-import { IfDSP, IHTMLDivElementOut, IHTMLDivElementSrc } from "./Utilitary";
+import { Utilitary } from "./Utilitary";
 
 /**************************************************/
 /******* WEB AUDIO CONNECTION/DECONNECTION*********/
@@ -23,54 +28,30 @@ export class Connector {
     connectorShape: ConnectorShape | null;
     source: ModuleClass;
     destination: ModuleClass;
+    // connections of the patch model represented by this connector
+    patchConnections: ConnectionId[] = [];
 
-    // connect input node to device input
-    connectInput(inputModule: ModuleClass, divSrc: IHTMLDivElementSrc): void {
-        divSrc.audioNode.connect(inputModule.moduleFaust.getDSP());
-    }
-
-    //connect output to device output
-    connectOutput(outputModule: ModuleClass, divOut: IHTMLDivElementOut): void {
-        outputModule.moduleFaust.getDSP().connect(divOut.audioNode);
-    }
-    // Connect Nodes in Web Audio Graph
-    connectModules(source: ModuleClass, destination: ModuleClass): void {
-        var sourceDSP: IfDSP | undefined = undefined;
-        var destinationDSP: IfDSP | undefined = undefined;
-        if (destination != null && destination.moduleFaust.getDSP) {
-            destinationDSP = destination.moduleFaust.getDSP();
-        }
-        if (source.moduleFaust.getDSP) {
-            sourceDSP = source.moduleFaust.getDSP();
-        }
-
-        if (sourceDSP && destinationDSP) {
-            sourceDSP.connect(destinationDSP)
+    // Creates the patch connections: the given ones if any, otherwise a bus connection
+    // between all the outputs of source and all the inputs of destination (cyclic rule).
+    connectModules(source: ModuleClass, destination: ModuleClass, existing?: ConnectionId[]): void {
+        if (existing) {
+            this.patchConnections = existing;
+        } else {
+            this.patchConnections = Utilitary.currentScene.patch.connectBus(source.moduleId, destination.moduleId).map((c) => c.id);
         }
         source.setDSPValue();
         destination.setDSPValue();
     }
 
-    // Disconnect Nodes in Web Audio Graph
-    disconnectModules(source: ModuleClass, destination: ModuleClass): void {
-
-        // We want to be dealing with the audio node elements from here on
-        var sourceCopy: ModuleClass = source;
-        var sourceCopyDSP: IfDSP;
-        // Searching for src/dst DSP if existing
-
-        if (sourceCopy != undefined && sourceCopy.moduleFaust.getDSP) {
-            sourceCopyDSP = sourceCopy.moduleFaust.getDSP();
-            sourceCopyDSP.disconnect();
-        }
-
-        // Reconnect all disconnected connections (because disconnect API cannot break a single connection)
-        if (source != undefined && source.moduleFaust.getOutputConnections()) {
-            for (var i = 0; i < source.moduleFaust.getOutputConnections().length; i++) {
-                if (source.moduleFaust.getOutputConnections()[i].destination != destination)
-                    this.connectModules(source, source.moduleFaust.getOutputConnections()[i].destination);
+    // Removes the patch connections represented by a connector (some may already be gone).
+    disconnectModules(connector: Connector): void {
+        var patch = Utilitary.currentScene.patch;
+        for (var id of connector.patchConnections) {
+            if (patch.getConnection(id)) {
+                patch.disconnect(id);
             }
         }
+        connector.patchConnections = [];
     }
 
     /**************************************************/
@@ -88,10 +69,11 @@ export class Connector {
     /**************** Create/Break Connection(s) *******************/
     /***************************************************************/
 
-    createConnection(source: ModuleClass, outtarget: HTMLElement, destination: ModuleClass, intarget: HTMLElement): void {
+    // Draws a connector; `existing`: patch connections it stands for (by default, a new bus connection).
+    createConnection(source: ModuleClass, outtarget: HTMLElement, destination: ModuleClass, intarget: HTMLElement, existing?: ConnectionId[]): void {
         var drag: Drag = new Drag();
         drag.startDraggingConnection(source, outtarget);
-        drag.stopDraggingConnection(source, destination);
+        drag.stopDraggingConnection(source, destination, undefined, existing);
     }
 
     deleteConnection(event: MouseEvent, drag: Drag): boolean {
@@ -102,7 +84,7 @@ export class Connector {
 
     breakSingleInputConnection(source: ModuleClass, destination: ModuleClass, connector: Connector) {
 
-        this.disconnectModules(source, destination);
+        this.disconnectModules(connector);
 
         // delete connection from src .outputConnections,
         if (source != undefined && source.moduleFaust.getOutputConnections()) {

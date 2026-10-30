@@ -145,6 +145,7 @@ tous compilent) :
 | D5 | `App.compileFaust` passe les paramètres par des champs `temp*` partagés, puis `await` | course probable si plusieurs fichiers sont déposés à la fois (positions/noms mélangés) |
 | D6 | Positions sauvegardées via `getBoundingClientRect()` (coordonnées viewport) | décalage si la scène est défilée |
 | D7 | Exemples `patch_big.json` et `patch_big_precompile.json` : 4 modules sur 10 (SAtonalSoftHarp, SBlowhistleBottle, SBouncyHarp, Granulator) importent `instrument.lib` ou `reduce.lib`, supprimées de Faust ; les factories de `patch_*_precompile.json` sont au format asm.js obsolète | exemples déjà inutilisables en 1.x (relevé en phase 1, `tests/model/v1.test.ts`) |
+| D8 | `Scene.unstyleNode` ajoutait les modules d'E/S à la liste des modules de la scène à chaque fin de glisser tactile (`getModules()` renvoie la liste elle-même) ; `Scene.removeModule` supprimait le dernier module quand le module à retirer n'était pas dans la liste (`splice(-1, 1)`) | corrigés en phase 2 |
 
 ---
 
@@ -383,6 +384,49 @@ celles des factories précompilées.
 
 **Validation** : patchs d'exemple écoutés, test Playwright du graphe
 (rendu hors ligne de patchs simples).
+
+**État : fait.**
+- `src/audio/AudioGraph.ts` observe le patch. Pour chaque module, il place
+  `ChannelMergerNode(nIn) → nœud → ChannelSplitterNode(nOut)` ; le nœud est le
+  DSP Faust, la source micro ou la destination. Chaque connexion devient un lien
+  mono splitter[i] → merger[j]. Les connexions de rétroaction passent par un
+  `DelayNode`. Le câblage est recalculé par réconciliation après chaque
+  modification du patch, ce qui couvre aussi le cas où une connexion se met à
+  fermer un cycle et doit recevoir le retard.
+- E/S physiques sans compilation Faust :
+  - la sortie a `destination.maxChannelCount` entrées (au plus 32) ;
+  - l'entrée est stéréo jusqu'à l'autorisation du micro, puis prend le nombre de
+    canaux de la piste ; les connecteurs déjà tracés depuis l'entrée sont alors
+    complétés selon la règle cyclique.
+- `Scene` possède le `Patch` et l'`AudioGraph`. Chaque `ModuleClass` est lié à un
+  module du patch par `moduleId`. Chaque `Connector` (le trait unique de la vue
+  actuelle) garde la liste des connexions du patch qu'il représente : à sa
+  création, une connexion bus ; à sa suppression, ces connexions sont retirées.
+  La recompilation d'un module met à jour son nombre de ports (`setArity`) et
+  son nœud, puis recrée les connecteurs avec le nouveau bus.
+- Sauvegarde au format v2 : positions lues dans `style.left/top` (corrige D6),
+  noms, code, paramètres, accéléromètre, factories si « précompilé ».
+  Chargement v1 et v2, ajouté à la scène existante, avec renumérotation des
+  modules. Les modules impossibles à créer et les connexions invalides (port
+  absent sur cette machine, par exemple) sont écartés, avec un message qui les
+  liste.
+- `App.compileFaust` n'utilise plus de champs `temp*` et ne dépend plus de `this`
+  (corrige D5) ; `Scene` n'a plus de champs `temp*`.
+- Corrigés au passage : D8.
+- Non modifié : l'export (`EquivalentFaust`, phase 4). Il lit toujours les
+  `Connector` et reste stéréo ; son effet de bord D3 crée maintenant des
+  connexions bus dans le patch.
+
+Tests : `tests/browser/audiograph.test.ts` (6 tests, vrais nœuds faustwasm dans
+un `OfflineAudioContext`) vérifie le routage par canal, la somme des entrées,
+le partage d'une sortie, le silence des entrées non connectées, la
+déconnexion, la rétroaction (0,5 puis 0,75 à partir de l'échantillon 128, puis
+0,875), le déplacement du retard, le changement de ports et la suppression d'un
+module. `tests/e2e/app.test.ts` (6 tests, application servie par Vite et pilotée
+par Playwright) couvre le démarrage, le chargement v1 avec son mesuré en
+sortie, l'aller-retour v2 avec factories précompilées, l'exemple aux modules
+cassés, la suppression d'un connecteur par clic et sa recréation à la souris,
+la recompilation avec changement de ports et la suppression d'un module.
 
 ### Phase 3 — Interface multi-ports (≈ 4–5 j, la plus longue)
 - `ModuleView` : colonnes de ports, hauteur adaptative, numéros, état

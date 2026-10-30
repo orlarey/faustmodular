@@ -80,6 +80,9 @@ export function resumeInit(app: App) {
     app.menu.setDriveApi(Utilitary.driveApi);
     Utilitary.driveApi.checkAuth();
 
+    // Access point for debugging and end-to-end tests (browser console: faustPlayground.scene.patch)
+    (globalThis as any).faustPlayground = { app, get scene() { return Utilitary.currentScene; } };
+
     //error catcher
     window.addEventListener("error", (e: ErrorEvent) => {
         if (e.message == "Uncaught Error: workerError" || e.message == "Error: workerError") {

@@ -39,7 +39,15 @@ python -m http.server
 npm run typecheck
 npm test
 ```
-Tests use [Vitest](https://vitest.dev/) and run libfaust under Node.js (see `tests/helpers/faust.ts`).
+Tests use [Vitest](https://vitest.dev/), in three projects (`vitest.config.mjs`):
+- `node`: unit tests, with libfaust running under Node.js (see `tests/helpers/faust.ts`);
+- `browser`: Web Audio tests inside Chromium (`tests/browser/`);
+- `e2e`: the application served by Vite and driven by Playwright (`tests/e2e/`).
+
+Run one project with `npx vitest run --project node`. The browser and e2e projects need Chromium for
+Playwright (`npx playwright install chromium`). In the browser console, `faustPlayground.scene.patch`
+gives access to the patch model.
+
 The library test compiles every module listed in `public/faust-modules/index.json` and snapshots its
 number of inputs and outputs: after an intended change, update the snapshot with `npx vitest run -u`.
 

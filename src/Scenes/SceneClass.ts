@@ -1,23 +1,45 @@
 ﻿/*				SCENECLASS.JS
     HAND-MADE JAVASCRIPT CLASS CONTAINING THE API OF A GENERIC SCENE
+
+    The scene owns the patch model (model/Patch.ts) and its Web Audio rendering
+    (audio/AudioGraph.ts). ModuleClass objects are the views/controllers of the modules;
+    each one is bound to a module of the patch by its moduleId.
 */
 
 import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { AccelerometerHandler, Axis } from "../Accelerometer";
+import { AudioGraph } from "../audio/AudioGraph";
 import { Connector } from "../Connect";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
+import { AccMapping, ConnectionId, MAX_CHANNELS, ModuleId, Patch, PrecompiledFactory } from "../model/Patch";
+import { isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
+import { connectV1Links, isPatchFileV1, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
-import { CompileFaust, IHTMLDivElementOut, IHTMLDivElementSrc, PositionModule, Utilitary } from "../Utilitary";
+import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { SceneView } from "./SceneView";
 
-export class Scene {
-    //temporary arrays used to recall a scene from a jfaust file
-    arrayRecalScene: JsonSaveModule[] = [];
-    arrayRecalledModule: ModuleClass[] = [];
+export const INPUT_ID: ModuleId = "input";
+export const OUTPUT_ID: ModuleId = "output";
 
+// What is needed to recreate a module from a patch file (v1 or v2).
+interface ModuleDescription {
+    id: ModuleId;
+    name: string;
+    code: string;
+    x: number;
+    y: number;
+    params: Record<string, number>;
+    acc: AccMapping[];
+    factory?: PrecompiledFactory;
+}
+
+export class Scene {
     isMute: boolean = false;
+    //-- Patch model and its audio rendering
+    patch: Patch = new Patch();
+    audioGraph: AudioGraph;
     //-- Audio Input/Output
     fAudioOutput: ModuleClass;
     fAudioInput: ModuleClass;
@@ -30,23 +52,19 @@ export class Scene {
     isInitLoading: boolean = true;
     isOutputTouch: boolean = false;
 
-    //used to store value of module being created
-    tempModuleName: string;
-    tempPatchId: string;
-    tempModuleSourceCode: string;
-    tempModuleX: number;
-    tempModuleY: number;
-    tempParams: IJsonParamsSave;
-
     //callback function to compile faust code from App
-    compileFaust: (compile: CompileFaust) => void
+    compileFaust: (compile: CompileFaust) => Promise<void>
 
-    constructor(identifiant: string, compileFaust: (compileFaust: CompileFaust) => void, sceneView?: SceneView) {
+    constructor(identifiant: string, compileFaust: (compileFaust: CompileFaust) => Promise<void>, sceneView?: SceneView) {
         this.compileFaust = compileFaust;
         this.sceneView = new SceneView();
         this.sceneView.initNormalScene(this)
         this.integrateSceneInBody();
+        this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
         this.integrateOutput();
+        this.integrateInput();
+        Utilitary.hideFullPageLoading();
+        this.isInitLoading = false;
         document.addEventListener("unstylenode", () => { this.unstyleNode() });
     }
 
@@ -54,16 +72,9 @@ export class Scene {
 
     /*********************** MUTE/UNMUTE SCENE ***************************/
     muteScene(): void {
-        var out: IHTMLDivElementOut = <IHTMLDivElementOut>document.getElementById("audioOutput");
-
-        if (out !== null) {
-            let context = out.audioNode.context as AudioContext;
-            if (context != undefined) {//because of Edge not supporting audioContext.suspend() yet
-                context.suspend();
-                this.isMute = true;
-                this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker-mute.png)"
-            }
-        }
+        Utilitary.audioContext.suspend();
+        this.isMute = true;
+        this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker-mute.png)"
     }
     unmuteScene(): void {
         console.log("timeIn");
@@ -72,16 +83,9 @@ export class Scene {
 
     delayedUnmuteScene() {//because of probable Firefox bug with audioContext.resume() when resume to close from suspend
         console.log("timeout")
-        var out: IHTMLDivElementOut = <IHTMLDivElementOut>document.getElementById("audioOutput");
-
-        if (out !== null) {
-            var context = out.audioNode.context as any; // To avoid: error TS2339: Property 'resume' does not exist on type 'BaseAudioContext'.
-            if (context.resume !== undefined) {
-                context.resume();
-                this.isMute = false;
-                this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker.png)"
-            }
-        }
+        Utilitary.audioContext.resume();
+        this.isMute = false;
+        this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker.png)"
     }
 
     //add listner on the output module to give the user the possibility to mute/onmute the scene
@@ -109,10 +113,49 @@ export class Scene {
     }
 
     /******************** HANDLE MODULES IN SCENE ************************/
+    // Faust modules only (the physical input and output modules are not in this list).
     getModules(): ModuleClass[] { return this.fModuleList; }
-    addModule(module: ModuleClass): void { this.fModuleList.push(module); }
+
+    // Registers a module whose DSP is created: adds it to the patch and to the audio graph.
+    addModule(module: ModuleClass): void {
+        var dsp = module.moduleFaust.getDSP();
+        var state = this.patch.addModule({
+            kind: "faust",
+            name: module.moduleFaust.getName(),
+            code: module.moduleFaust.getSource(),
+            x: module.moduleView.x,
+            y: module.moduleView.y,
+            numInputs: dsp.getNumInputs(),
+            numOutputs: dsp.getNumOutputs(),
+        });
+        module.moduleId = state.id;
+        this.audioGraph.setNode(state.id, dsp);
+        this.fModuleList.push(module);
+    }
+
     removeModule(module: ModuleClass): void {
-        this.fModuleList.splice(this.fModuleList.indexOf(module), 1);
+        var index = this.fModuleList.indexOf(module);
+        if (index >= 0) {
+            this.fModuleList.splice(index, 1);
+        }
+        if (module.moduleId !== undefined && this.patch.getModule(module.moduleId)) {
+            this.patch.removeModule(module.moduleId);
+        }
+    }
+
+    // Called once a module has a new DSP (recompilation): its connections must have been removed.
+    updateModuleDSP(module: ModuleClass): void {
+        var dsp = module.moduleFaust.getDSP();
+        this.patch.setArity(module.moduleId, dsp.getNumInputs(), dsp.getNumOutputs());
+        this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
+        this.audioGraph.setNode(module.moduleId, dsp);
+    }
+
+    // Module (Faust or physical input/output) bound to a module of the patch.
+    getModuleById(id: ModuleId): ModuleClass | undefined {
+        if (id == INPUT_ID) return this.fAudioInput;
+        if (id == OUTPUT_ID) return this.fAudioOutput;
+        return this.fModuleList.find((m) => m.moduleId == id);
     }
 
     /*******************************  PUBLIC METHODS  **********************************/
@@ -122,46 +165,33 @@ export class Scene {
     }
 
     /*************** ACTIONS ON AUDIO IN/OUTPUT ***************************/
+    // The physical output has as many inputs as the audio device has channels.
+    integrateOutput() {
+        var positionOutput: PositionModule = this.positionOutputModule();
+        this.fAudioOutput = new ModuleClass(Utilitary.idX++, positionOutput.x, positionOutput.y, "output", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
+        this.fAudioOutput.patchID = "output";
+        // Source code still used by the 1.x Faust export (EquivalentFaust) until it is rewritten
+        this.fAudioOutput.moduleFaust.setSource("process=_,_;");
+        var destination = Utilitary.audioContext.destination;
+        var channels = Math.min(Math.max(destination.maxChannelCount || 2, 1), MAX_CHANNELS);
+        this.patch.addModule({ id: OUTPUT_ID, kind: "output", name: "output", numInputs: channels, numOutputs: 0 });
+        this.fAudioOutput.moduleId = OUTPUT_ID;
+        this.audioGraph.setNode(OUTPUT_ID, destination);
+        this.addMuteOutputListner(this.fAudioOutput);
+        this.fAudioOutput.addInputOutputNodes(channels, 0);
+    }
+
+    // The physical input is stereo until the microphone is granted; it then gets the number of
+    // channels of the audio track.
     integrateInput() {
         var positionInput: PositionModule = this.positionInputModule();
         this.fAudioInput = new ModuleClass(Utilitary.idX++, positionInput.x, positionInput.y, "input", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
         this.fAudioInput.patchID = "input";
-        var scene: Scene = this;
-        this.compileFaust({ name: "input", sourceCode: "process=_,_;", x: positionInput.x, y: positionInput.y, callback: (factory) => { scene.integrateAudioInput(factory) } });
-    }
-
-    integrateOutput() {
-        var positionOutput: PositionModule = this.positionOutputModule();
-        var scene: Scene = this;
-        this.fAudioOutput = new ModuleClass(Utilitary.idX++, positionOutput.x, positionOutput.y, "output", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
-        this.fAudioOutput.patchID = "output";
-        this.addMuteOutputListner(this.fAudioOutput);
-        this.compileFaust({ name: "output", sourceCode: "process=_,_;", x: positionOutput.x, y: positionOutput.y, callback: (factory) => { scene.integrateAudioOutput(factory) } });
-    }
-
-    private integrateAudioOutput(factory: FaustDspFactory): void {
-        if (this.fAudioOutput) {
-            this.fAudioOutput.moduleFaust.setSource("process=_,_;");
-            var moduleFaust = this;
-            this.fAudioOutput.createDSP(factory, function () {
-                moduleFaust.activateAudioOutput(moduleFaust.fAudioOutput);
-                moduleFaust.fAudioOutput.addInputOutputNodes();
-                moduleFaust.integrateInput();
-            });
-        }
-    }
-
-    private integrateAudioInput(factory: FaustDspFactory): void {
-        if (this.fAudioInput) {
-            this.fAudioInput.moduleFaust.setSource("process=_,_;");
-            var moduleFaust = this;
-            this.fAudioInput.createDSP(factory, function () {
-                moduleFaust.activateAudioInput();
-                moduleFaust.fAudioInput.addInputOutputNodes();
-                Utilitary.hideFullPageLoading();
-                moduleFaust.isInitLoading = false;
-            });
-        }
+        this.fAudioInput.moduleFaust.setSource("process=_,_;");
+        this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2 });
+        this.fAudioInput.moduleId = INPUT_ID;
+        this.fAudioInput.addInputOutputNodes(0, 2);
+        this.activateAudioInput();
     }
 
     getAudioOutput(): ModuleClass { return this.fAudioOutput; }
@@ -190,312 +220,248 @@ export class Scene {
     }
 
     private getDevice(device: MediaStream): void {
+        // The logo container historically moved to the body here; kept for an identical layout.
+        var logo = document.getElementById("input");
+        if (logo) document.body.appendChild(logo);
 
-        // Create an AudioNode from the stream.
-        var src = <IHTMLDivElementSrc>document.getElementById("input");
-        src.audioNode = Utilitary.audioContext.createMediaStreamSource(device);
-        document.body.appendChild(src);
-        var connect: Connector = new Connector();
-        connect.connectInput(this.fAudioInput, src);
+        var source = Utilitary.audioContext.createMediaStreamSource(device);
+        var settings = device.getAudioTracks()[0]?.getSettings();
+        var channels = Math.min(Math.max(settings?.channelCount || 2, 1), MAX_CHANNELS);
+        this.patch.setArity(INPUT_ID, 0, channels);
+        this.audioGraph.setNode(INPUT_ID, source);
+        this.rebusConnectors(this.fAudioInput);
     }
 
-    activateAudioOutput(sceneOutput: ModuleClass): void {
-
-        var out = <IHTMLDivElementOut>document.createElement("div");
-        out.id = "audioOutput";
-        out.audioNode = Utilitary.audioContext.destination;
-        document.body.appendChild(out);
-        var connect: Connector = new Connector();
-        connect.connectOutput(sceneOutput, out);
+    // With the one-port view, a drawn connection stands for a bus connection: after an arity
+    // change, complete each bus with the cyclic rule.
+    private rebusConnectors(module: ModuleClass): void {
+        for (var connector of module.moduleFaust.getOutputConnections()) {
+            var created = this.patch.connectBus(module.moduleId, connector.destination.moduleId);
+            connector.patchConnections = connector.patchConnections.filter((id) => this.patch.getConnection(id) !== undefined).concat(created.map((c) => c.id));
+        }
     }
 
     /*********************** SAVE/RECALL SCENE ***************************/
 
-    // use a collection of JsonSaveModule describing the scene and the modules to save it in a json string
-    // isPrecompiled is used to save or not the asm.js code
-    saveScene(isPrecompiled: boolean): string {
-
-        for (var i = 0; i < this.fModuleList.length; i++) {
-            if (this.fModuleList[i].patchID != "output" && this.fModuleList[i].patchID != "input") {
-                this.fModuleList[i].patchID = String(i + 1);
+    // Copies into the patch model what lives in the modules: position, name, code, parameter
+    // values, accelerometer mappings and (if isPrecompiled) the compiled factory.
+    private updatePatchFromModules(isPrecompiled: boolean): void {
+        for (var module of this.fModuleList) {
+            var dsp = module.moduleFaust.getDSP();
+            var params: Record<string, number> = {};
+            for (var path of dsp.getParams() ?? []) {
+                params[path] = dsp.getParamValue(path);
             }
-        }
-
-        var json: string
-        var jsonObjectCollection: JsonSaveCollection = {};
-
-        for (var i = 0; i < this.fModuleList.length; i++) {
-            if (this.fModuleList[i].patchID != "output" && this.fModuleList[i].patchID != "input") {
-                jsonObjectCollection[this.fModuleList[i].patchID.toString()] = new JsonSaveModule();
-                var jsonObject = jsonObjectCollection[this.fModuleList[i].patchID.toString()];
-                jsonObject.sceneName = this.sceneName;
-                jsonObject.patchId = this.fModuleList[i].patchID.toString();
-                jsonObject.code = this.fModuleList[i].moduleFaust.getSource();
-                jsonObject.name = this.fModuleList[i].moduleFaust.getName();
-                jsonObject.x = this.fModuleList[i].moduleView.getModuleContainer().getBoundingClientRect().left.toString();
-                jsonObject.y = this.fModuleList[i].moduleView.getModuleContainer().getBoundingClientRect().top.toString()
-
-                var inputs: Connector[] = this.fModuleList[i].moduleFaust.getInputConnections();
-                var jsonInputs: JsonInputsSave = new JsonInputsSave();
-                jsonInputs.source = [];
-                if (inputs) {
-                    for (var j = 0; j < inputs.length; j++) {
-                        jsonInputs.source.push(inputs[j].source.patchID.toString());
-                    }
-                }
-
-                var outputs = this.fModuleList[i].moduleFaust.getOutputConnections();
-                var jsonOutputs: JsonOutputsSave = new JsonOutputsSave();
-                jsonOutputs.destination = [];
-
-                if (outputs) {
-                    for (var j = 0; j < outputs.length; j++) {
-                        jsonOutputs.destination.push(outputs[j].destination.patchID.toString())
-                    }
-                }
-
-                var params = this.fModuleList[i].moduleFaust.getDSP().getParams();
-                var jsonParams: JsonParamsSave = new JsonParamsSave();
-                jsonParams.sliders = []
-                if (params) {
-                    for (var j = 0; j < params.length; j++) {
-                        var jsonSlider: JsonSliderSave = new JsonSliderSave();
-                        jsonSlider.path = params[j];
-                        jsonSlider.value = this.fModuleList[i].moduleFaust.getDSP().getParamValue(params[j]).toString();
-                        jsonParams.sliders.push(jsonSlider);
-                    }
-
-                }
-                var faustIControler = this.fModuleList[i].moduleControles;
-                var jsonAccs = new JsonAccSaves();
-
-                jsonAccs.controles = [];
-                for (var j = 0; j < faustIControler.length; j++) {
-                    var jsonAcc: JsonAccSave = new JsonAccSave();
-                    var acc = faustIControler[j].accelerometerSlider;
-                    jsonAcc.axis = acc.axis.toString();
-                    jsonAcc.curve = acc.curve.toString();
-                    jsonAcc.amin = acc.amin.toString();
-                    jsonAcc.amid = acc.amid.toString();
-                    jsonAcc.amax = acc.amax.toString();
-                    jsonAcc.adress = acc.address;
-                    jsonAcc.isEnabled = acc.isEnabled;
-                    jsonAccs.controles.push(jsonAcc);
-                }
-                jsonObject.inputs = jsonInputs;
-                jsonObject.outputs = jsonOutputs;
-                jsonObject.params = jsonParams;
-                jsonObject.acc = jsonAccs;
-
-                const { code, json, poly, shaKey } = this.fModuleList[i].moduleFaust.factory;
-                const factorySave = { code: btoa(faustWasmEnv.ab2str(code)), json: JSON.parse(json), poly, shaKey };
-                // var factorySave: JsonFactorySave = faust.writeDSPFactoryToMachine(this.fModuleList[i].moduleFaust.factory);
-
-                if (factorySave && isPrecompiled) {
-                    jsonObject.factory = factorySave;
-                }
-            }
-        }
-
-        json = JSON.stringify(jsonObjectCollection)
-        return json;
-    }
-
-    //recall scene from json/jfaust fill arrayRecalScene with each JsonSaveModule
-    recallScene(json: string): void {
-        if (json != null) {
-            let jsonObjectCollection: JsonSaveCollection = {};
-            try {
-                jsonObjectCollection = JSON.parse(json);
-            } catch (e) {
-                new Message(Utilitary.messageResource.errorJsonCorrupted)
-                Utilitary.hideFullPageLoading();
-            }
-            //this.parent.currentNumberDSP = this.fModuleList.length;
-            for (var index in jsonObjectCollection) {
-                var jsonObject = jsonObjectCollection[index];
-                this.arrayRecalScene.push(jsonObject);
-            }
-            this.launchModuleCreation();
-        } else {
-            Utilitary.hideFullPageLoading();
-            new Message(Utilitary.messageResource.errorLoading)
-        }
-    }
-
-    // recall module at rank 0 of arrayRecalScene
-    // direct use of the asm.js code if exist
-    // or compile the faust code
-    //
-    // When arrayRecalScene empty, connect the modules in the scene
-
-    async launchModuleCreation() {
-        if (this.arrayRecalScene.length != 0) {
-            var jsonObject = this.arrayRecalScene[0]
-            if (jsonObject.factory != undefined) {
-                this.tempPatchId = jsonObject.patchId;
-                const { code, json, poly, shaKey } = jsonObject.factory;
-                const [factories] = await faustWasmEnv.faustwasm.FaustCompiler.importDSPFactories(JSON.stringify({ [shaKey]: { code, json, poly } }));
-                this.updateAppTempModuleInfo(jsonObject);
-                this.sceneName = jsonObject.sceneName;
-                this.createModule(factories.get(shaKey)!);
-            } else if (jsonObject.patchId != "output" && jsonObject.patchId != "input") {
-                this.tempPatchId = jsonObject.patchId;
-                this.sceneName = jsonObject.sceneName;
-                var argumentCompile = { name: jsonObject.name, sourceCode: jsonObject.code, x: parseFloat(jsonObject.x), y: parseFloat(jsonObject.y), callback: (factory) => { this.createModule(factory) } }
-                this.compileFaust(argumentCompile);
-            } else {
-                this.arrayRecalScene.shift();
-                this.launchModuleCreation();
-            }
-        } else {
-            for (var i = 0; i < this.arrayRecalledModule.length; i++) {
-                this.connectModule(this.arrayRecalledModule[i]);
-            }
-            for (var i = 0; i < this.arrayRecalledModule.length; i++) {
-                delete (this.arrayRecalledModule[i] as any).patchID;
-            }
-            this.arrayRecalledModule = [];
-            var event = new CustomEvent("updatename");
-            document.dispatchEvent(event);
-            Utilitary.hideFullPageLoading();
-        }
-    }
-
-    //update temporary info for the module being created
-    updateAppTempModuleInfo(jsonSaveObject: JsonSaveModule) {
-        this.tempModuleX = parseFloat(jsonSaveObject.x);
-        this.tempModuleY = parseFloat(jsonSaveObject.y);
-        this.tempModuleName = jsonSaveObject.name;
-        this.tempModuleSourceCode = jsonSaveObject.code;
-        this.tempPatchId = jsonSaveObject.patchId;
-        this.tempParams = jsonSaveObject.params;
-    }
-
-    //create Module then remove corresponding JsonSaveModule from arrayRecalScene at rank 0
-    //re-lunch module of following Module/JsonSaveModule
-    private createModule(factory: FaustDspFactory): void {
-        try {
-            if (!factory) {
-                new Message("Error"/*faust.getErrorMessage()*/);
-                Utilitary.hideFullPageLoading();
-                return;
-            }
-
-            var module: ModuleClass = new ModuleClass(Utilitary.idX++, this.tempModuleX, this.tempModuleY, this.tempModuleName, document.getElementById("modules")!, (module) => { this.removeModule(module) }, this.compileFaust);
-            module.moduleFaust.setSource(this.tempModuleSourceCode);
-            module.createDSP(factory, () => {
-                module.patchID = this.tempPatchId;
-                if (this.tempParams) {
-                    for (var i = 0; i < this.tempParams.sliders.length; i++) {
-                        var slider = this.tempParams.sliders[i];
-                        module.addInterfaceParam(slider.path, parseFloat(slider.value));
-                    }
-                }
-                module.moduleFaust.recallInputsSource = this.arrayRecalScene[0].inputs.source;
-                module.moduleFaust.recallOutputsDestination = this.arrayRecalScene[0].outputs.destination;
-                this.arrayRecalledModule.push(module);
-                module.recallInterfaceParams();
-                module.setFaustInterfaceControles();
-                module.createFaustInterface();
-                module.addInputOutputNodes();
-                this.addModule(module);
-                this.recallAccValues(this.arrayRecalScene[0].acc, module);
-                this.arrayRecalScene.shift();
-                this.launchModuleCreation();
+            var acc: AccMapping[] = module.moduleControles.map((controler) => {
+                var slider = controler.accelerometerSlider;
+                return { address: slider.address, axis: slider.axis, curve: slider.curve, amin: slider.amin, amid: slider.amid, amax: slider.amax, enabled: slider.isEnabled };
             });
-        } catch (e) {
-            new Message(Utilitary.messageResource.errorCreateModuleRecall);
-            this.arrayRecalScene.shift();
-            this.launchModuleCreation()
+            var container = module.moduleView.getModuleContainer();
+            this.patch.updateModule(module.moduleId, {
+                name: module.moduleFaust.getName(),
+                code: module.moduleFaust.getSource(),
+                x: parseFloat(container.style.left) || 0,
+                y: parseFloat(container.style.top) || 0,
+                params,
+                acc,
+                factory: isPrecompiled ? this.exportFactory(module.moduleFaust.factory) : undefined,
+            });
         }
+    }
+
+    private exportFactory(factory: FaustDspFactory): PrecompiledFactory {
+        const { code, json, poly, shaKey } = factory;
+        return { code: btoa(faustWasmEnv.ab2str(code)), json: JSON.parse(json), poly, shaKey };
+    }
+
+    // Saves the scene as a version 2 patch file (JSON string).
+    // isPrecompiled is used to save or not the compiled wasm code
+    saveScene(isPrecompiled: boolean): string {
+        this.updatePatchFromModules(isPrecompiled);
+        return JSON.stringify(serializePatch(this.patch, this.sceneName, isPrecompiled));
+    }
+
+    // Adds the content of a patch file (version 1 or 2) to the scene.
+    async recallScene(json: string | null): Promise<void> {
+        if (json == null) {
+            Utilitary.hideFullPageLoading();
+            new Message(Utilitary.messageResource.errorLoading);
+            return;
+        }
+        var warnings: string[] = [];
+        try {
+            var data: unknown = JSON.parse(json);
+            if (isPatchFileV2(data)) {
+                warnings = await this.recallV2(data);
+            } else if (isPatchFileV1(data)) {
+                warnings = await this.recallV1(data);
+            } else {
+                throw new Error("unknown patch format");
+            }
+        } catch (e) {
+            console.error(e);
+            new Message(Utilitary.messageResource.errorJsonCorrupted + " : " + e);
+        }
+        if (warnings.length > 0) {
+            warnings.forEach((w) => console.warn(w));
+            new Message(warnings.join("\n"));
+        }
+        document.dispatchEvent(new CustomEvent("updatename"));
+        Utilitary.hideFullPageLoading();
+    }
+
+    private async recallV2(data: unknown): Promise<string[]> {
+        var { patch: file, sceneName } = parsePatchV2(data);
+        this.sceneName = sceneName;
+        var warnings: string[] = [];
+        var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings);
+        var created: ConnectionId[] = [];
+        for (var c of file.getConnections()) {
+            var from = ids.get(c.from.module);
+            var to = ids.get(c.to.module);
+            if (from === undefined || to === undefined) {
+                warnings.push(`connection ${c.from.module}:${c.from.port} -> ${c.to.module}:${c.to.port}: unknown module, connection dropped`);
+                continue;
+            }
+            try {
+                created.push(this.patch.connect({ module: from, port: c.from.port }, { module: to, port: c.to.port }).id);
+            } catch (e) {
+                warnings.push(`connection ${c.from.module}:${c.from.port} -> ${c.to.module}:${c.to.port}: ${(e as Error).message}, connection dropped`);
+            }
+        }
+        this.drawConnectors(created);
+        return warnings;
+    }
+
+    private async recallV1(data: unknown): Promise<string[]> {
+        var draft = readV1(data);
+        if (draft.sceneName) {
+            this.sceneName = draft.sceneName;
+        }
+        var warnings = [...draft.warnings];
+        var ids = await this.recallModules(draft.modules, warnings);
+        var before = new Set(this.patch.getConnections().map((c) => c.id));
+        warnings.push(...connectV1Links(this.patch, draft.links, (id) => ids.get(id)));
+        this.drawConnectors(this.patch.getConnections().map((c) => c.id).filter((id) => !before.has(id)));
+        return warnings;
+    }
+
+    // Creates the modules (in sequence) and returns the map: id in the file -> id in the patch.
+    private async recallModules(descriptions: ModuleDescription[], warnings: string[]): Promise<Map<ModuleId, ModuleId>> {
+        var ids = new Map<ModuleId, ModuleId>([[INPUT_ID, INPUT_ID], [OUTPUT_ID, OUTPUT_ID]]);
+        for (var description of descriptions) {
+            var module = await this.createModule(description);
+            if (module) {
+                ids.set(description.id, module.moduleId);
+            } else {
+                warnings.push(`module ${description.id} (${description.name}) could not be created`);
+            }
+        }
+        return ids;
+    }
+
+    // Draws one (one-port view) connector per pair of modules linked by the given connections.
+    private drawConnectors(connections: ConnectionId[]): void {
+        var pairs = new Map<string, ConnectionId[]>();
+        for (var id of connections) {
+            var c = this.patch.getConnection(id)!;
+            var key = JSON.stringify([c.from.module, c.to.module]);
+            pairs.set(key, (pairs.get(key) ?? []).concat([id]));
+        }
+        pairs.forEach((list, key) => {
+            var [fromId, toId] = JSON.parse(key);
+            var source = this.getModuleById(fromId)!;
+            var destination = this.getModuleById(toId)!;
+            var connector: Connector = new Connector();
+            connector.createConnection(source, source.moduleView.getOutputNode(), destination, destination.moduleView.getInputNode(), list);
+        });
+    }
+
+    private async importFactory(factory: PrecompiledFactory): Promise<FaustDspFactory | null> {
+        const { code, json, poly, shaKey } = factory;
+        const [factories] = await faustWasmEnv.faustwasm.FaustCompiler.importDSPFactories(JSON.stringify({ [shaKey]: { code, json, poly } }));
+        return factories.get(shaKey) ?? null;
+    }
+
+    private async compile(name: string, code: string, x: number, y: number): Promise<FaustDspFactory | null> {
+        var result: FaustDspFactory | null = null;
+        await this.compileFaust({ name, sourceCode: code, x, y, callback: (factory) => { result = factory } });
+        return result;
+    }
+
+    // Creates a module from its description: precompiled factory if any, otherwise compilation.
+    private async createModule(description: ModuleDescription): Promise<ModuleClass | null> {
+        var factory: FaustDspFactory | null = null;
+        try {
+            factory = description.factory ? await this.importFactory(description.factory) : null;
+        } catch (e) {
+            console.warn(`module ${description.id}: precompiled factory unusable, recompiling`, e);
+        }
+        if (!factory) {
+            factory = await this.compile(description.name, description.code, description.x, description.y);
+        }
+        if (!factory) {
+            return null;
+        }
+        var module: ModuleClass = new ModuleClass(Utilitary.idX++, description.x, description.y, description.name, document.getElementById("modules")!, (module) => { this.removeModule(module) }, this.compileFaust);
+        module.moduleFaust.setSource(description.code);
+        var created = false;
+        await module.createDSP(factory, () => { created = true });
+        if (!created) {
+            module.deleteModule();
+            return null;
+        }
+        for (var path in description.params) {
+            module.addInterfaceParam(path, description.params[path]);
+        }
+        module.recallInterfaceParams();
+        module.setFaustInterfaceControles();
+        module.createFaustInterface();
+        module.addInputOutputNodes();
+        this.addModule(module);
+        this.recallAccValues(description.acc, module);
+        return module;
     }
 
     //recall of the accelerometer mapping parameters for each FaustInterfaceControler of the Module
-    recallAccValues(jsonAccs: IJsonAccSaves, module: ModuleClass) {
-        if (jsonAccs != undefined) {
-            for (var i in jsonAccs.controles) {
-                var controle = jsonAccs.controles[i];
-                if (controle != undefined) {
-                    for (var j in module.moduleControles) {
-                        var moduleControle = module.moduleControles[j];
-                        if (moduleControle.itemParam.address == controle.adress) {
-                            var group = moduleControle.faustInterfaceView.group;
-                            var slider = moduleControle.faustInterfaceView.slider;
-                            var acc = moduleControle.accelerometerSlider;
-                            moduleControle.accelerometerSlider.acc = controle.axis + " " + controle.curve + " " + controle.amin + " " + controle.amid + " " + controle.amax;
-                            moduleControle.acc = controle.axis + " " + controle.curve + " " + controle.amin + " " + controle.amid + " " + controle.amax;
-                            acc.amax = parseFloat(controle.amax);
-                            acc.amid = parseFloat(controle.amid);
-                            acc.amin = parseFloat(controle.amin);
-                            acc.axis = parseFloat(controle.axis);
-                            acc.curve = parseFloat(controle.curve);
-                            acc.isEnabled = controle.isEnabled;
-                            AccelerometerHandler.curveSplitter(acc);
+    recallAccValues(mappings: AccMapping[], module: ModuleClass) {
+        for (var controle of mappings) {
+            for (var moduleControle of module.moduleControles) {
+                if (moduleControle.itemParam.address == controle.address) {
+                    var group = moduleControle.faustInterfaceView.group;
+                    var slider = moduleControle.faustInterfaceView.slider;
+                    var acc = moduleControle.accelerometerSlider;
+                    moduleControle.accelerometerSlider.acc = controle.axis + " " + controle.curve + " " + controle.amin + " " + controle.amid + " " + controle.amax;
+                    moduleControle.acc = controle.axis + " " + controle.curve + " " + controle.amin + " " + controle.amid + " " + controle.amax;
+                    acc.amax = controle.amax;
+                    acc.amid = controle.amid;
+                    acc.amin = controle.amin;
+                    acc.axis = controle.axis;
+                    acc.curve = controle.curve;
+                    acc.isEnabled = controle.enabled;
+                    AccelerometerHandler.curveSplitter(acc);
 
-                            group.className = "control-group";
-                            group.classList.add(Axis[controle.axis]);
-                            if (!controle.isEnabled) {
-                                group.classList.add("disabledAcc");
-                                slider.classList.add("allowed");
-                                slider.classList.remove("not-allowed");
-                                slider.disabled = false;
-                            } else {
-                                if (acc.isActive) {
-                                    slider.classList.add("not-allowed");
-                                    slider.classList.remove("allowed");
-                                    slider.disabled = true;
-                                } else {
-                                    slider.classList.add("allowed");
-                                    slider.classList.remove("not-allowed");
-                                    slider.disabled = false;
-                                }
-                            }
+                    group.className = "control-group";
+                    group.classList.add(Axis[controle.axis]);
+                    if (!controle.enabled) {
+                        group.classList.add("disabledAcc");
+                        slider.classList.add("allowed");
+                        slider.classList.remove("not-allowed");
+                        slider.disabled = false;
+                    } else {
+                        if (acc.isActive) {
+                            slider.classList.add("not-allowed");
+                            slider.classList.remove("allowed");
+                            slider.disabled = true;
+                        } else {
+                            slider.classList.add("allowed");
+                            slider.classList.remove("not-allowed");
+                            slider.disabled = false;
                         }
                     }
                 }
             }
         }
-    }
-
-    //connect Modules recalled
-    connectModule(module: ModuleClass) {
-        try {
-            for (var i = 0; i < module.moduleFaust.recallInputsSource.length; i++) {
-                var moduleSource = this.getModuleByPatchId(module.moduleFaust.recallInputsSource[i]);
-                if (moduleSource != null) {
-                    var connector: Connector = new Connector();
-                    connector.createConnection(moduleSource, moduleSource.moduleView.getOutputNode(), module, module.moduleView.getInputNode());
-                }
-            }
-
-            for (var i = 0; i < module.moduleFaust.recallOutputsDestination.length; i++) {
-                var moduleDestination = this.getModuleByPatchId(module.moduleFaust.recallOutputsDestination[i]);
-                if (moduleDestination != null) {
-                    var connector: Connector = new Connector();
-                    connector.createConnection(module, module.moduleView.getOutputNode(), moduleDestination, moduleDestination.moduleView.getInputNode());
-                }
-            }
-        } catch (e) {
-            new Message(Utilitary.messageResource.errorConnectionRecall)
-        }
-    }
-
-    //use to identify the module to be connected to when recalling connections between modules
-    getModuleByPatchId(patchId: string): ModuleClass | null {
-        if (patchId == "output") {
-            return this.fAudioOutput;
-        } else if (patchId == "input") {
-            return this.fAudioInput;
-        } else {
-            var arrayModules = this.getModules();
-            for (var i = 0; i < arrayModules.length; i++) {
-                if (arrayModules[i].patchID == patchId) {
-                    return arrayModules[i];
-                }
-            }
-        }
-        return null;
     }
 
     //use to replace all éèàù ' from string and replace it with eeau__
@@ -563,9 +529,7 @@ export class Scene {
     }
     /***************** Unstyle node connection of all modules on touchscreen  ***************/
     unstyleNode() {
-        var modules = this.getModules();
-        modules.push(this.fAudioInput);
-        modules.push(this.fAudioOutput);
+        var modules = this.getModules().concat([this.fAudioInput, this.fAudioOutput]);
         for (var i = 0; i < modules.length; i++) {
             if (modules[i].moduleView.fInputNode) {
                 modules[i].moduleView.fInputNode.style.border = "none";
@@ -581,129 +545,4 @@ export class Scene {
         ModuleClass.isNodesModuleUnstyle = true;
 
     }
-}
-
-/*******************************************************************
-********************  save/recall interface object *****************
-********************************************************************/
-
-interface IJsonSaveCollection {
-    [patchId: string]: IJsonSaveModule;
-}
-
-class JsonSaveCollection implements IJsonSaveCollection {
-    [patchId: string]: IJsonSaveModule;
-}
-
-interface IJsonSaveModule {
-    sceneName: string;
-    patchId: string;
-    name: string;
-    code: string;
-    x: string;
-    y: string;
-    inputs: IJsonInputsSave;
-    outputs: IJsonOutputsSave;
-    params: IJsonParamsSave;
-    acc: IJsonAccSaves;
-    factory: IJsonFactorySave;
-}
-
-class JsonSaveModule implements IJsonSaveModule {
-    patchId: string;
-    sceneName: string;
-    name: string;
-    code: string;
-    x: string;
-    y: string;
-    inputs: IJsonInputsSave;
-    outputs: IJsonOutputsSave;
-    params: IJsonParamsSave
-    acc: IJsonAccSaves;
-    factory: IJsonFactorySave;
-}
-
-interface IJsonOutputsSave {
-    destination: string[]
-}
-class JsonOutputsSave implements IJsonOutputsSave {
-    destination: string[]
-}
-
-interface IJsonInputsSave {
-    source: string[]
-}
-class JsonInputsSave implements IJsonInputsSave {
-    source: string[]
-}
-
-export interface IJsonParamsSave {
-    sliders: IJsonSliderSave[]
-}
-
-class JsonParamsSave implements IJsonParamsSave {
-    sliders: IJsonSliderSave[]
-}
-interface IJsonAccSaves {
-    controles: IJsonAccSave[];
-}
-class JsonAccSaves implements IJsonAccSaves {
-    controles: IJsonAccSave[]
-}
-interface IJsonAccSave {
-    axis: string;
-    curve: string;
-    amin: string;
-    amid: string;
-    amax: string;
-    adress: string;
-    isEnabled: boolean;
-}
-
-class JsonAccSave implements IJsonAccSave {
-    axis: string;
-    curve: string;
-    amin: string;
-    amid: string;
-    amax: string;
-    adress: string;
-    isEnabled: boolean;
-}
-
-interface IJsonSliderSave {
-    path: string;
-    value: string;
-}
-class JsonSliderSave implements IJsonSliderSave {
-    path: string;
-    value: string;
-}
-
-interface IJsonFactorySave {
-    code: string;
-    json: any;
-    poly: boolean;
-    shaKey: string;
-    // name: string;
-    // code: object;
-    // code_source: string;
-    // helpers: string;
-    // name_effect: string;
-    // code_effect: string;
-    // code_source_effect: string;
-    // helpers_effect: string;
-}
-class JsonFactorySave implements IJsonFactorySave {
-    code: string;
-    json: any;
-    poly: boolean;
-    shaKey: string;
-    // name: string;
-    // code: object;
-    // code_source: string;
-    // helpers: string;
-    // name_effect: string;
-    // code_effect: string;
-    // code_source_effect: string;
-    // helpers_effect: string;
 }
