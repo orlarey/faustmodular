@@ -1,0 +1,65 @@
+# Changelog
+
+## 2.0.0 (2026-10-30)
+
+FaustPlayground becomes multichannel: a module has as many ports as its Faust program has inputs
+and outputs, and cables connect one channel to one channel. The design, the decisions and the
+measurements behind this version are in [Documentation/multi-io/PLAN.md](Documentation/multi-io/PLAN.md).
+
+### Patching
+
+- One port per channel on every module: inputs on the left (green), outputs on the right (red),
+  numbered when there are several, up to 32 of each.
+- Physical input and output modules have as many ports as the audio devices have channels.
+- Drag from a port to a port of the other kind to connect two channels; release on the body of a
+  module to connect all the channels at once: output `k mod n` goes to input `k mod m`, which is
+  Faust's `<:` or `:>` when one number of channels divides the other.
+- Several cables reaching an input are summed; an output can feed any number of inputs from a
+  single instance of its module. Cables closing a cycle are dashed: they are delayed by one render
+  quantum (128 samples) in the browser and by one sample in the exported program.
+- Mouse, touch, pen and multi-touch through Pointer Events (several cables can be drawn at once).
+- When a module is recompiled, the connections whose ports still exist are kept; the others are
+  removed and reported.
+
+### Export
+
+- The exported Faust program is equivalent to the patch, channel by channel, cycles included, with
+  one instance and one set of controls per module. Only the modules that reach the output are
+  exported. The application has the physical inputs that are used and all the physical outputs, or
+  2 inputs and 2 outputs with the new "force stereo" option.
+- Exporting no longer adds connections to the patch.
+
+### Files
+
+- Patches are saved in format version 2 (`"format": "faustplayground-patch", "version": 2`), with
+  port-to-port connections. Patches of FaustPlayground 1.x still load: each 1.x connection becomes a
+  bus connection.
+- **Level change**: a 1.x connection from a stereo output to a mono input used to average the two
+  channels; it now sums them, as Faust's `:>` does (+6 dB).
+- Parameter values saved with older Faust paths (`1_(Note_48)`) are restored again.
+- The examples of the Load menu are version 2 files; a multichannel example is added.
+
+### Library
+
+- New "Multichannel" category: oscillator bank (0×8), panner (1×2), stereo width (2×2), mixer
+  4 to 2, multi delay (4×4), quad and octo spatializers (1×4, 1×8), ambisonic encoder and decoder
+  of order 3 (1×7, 7×8).
+- VibratoEnvelope had an unintended second input; it is now 1×1.
+
+### Fixes
+
+- Modules are compiled with `-ftz 1` instead of `-ftz 2`: with libfaust 2.90.17, `-ftz 2` zeroes the
+  recursions driven by a constant, which silenced or altered 9 library modules (SBird, Birds and
+  other modules based on noise).
+- Two instances of the same module no longer share their controls in the exported program.
+- Saving precompiled patches with large modules no longer overflows the call stack.
+- Module positions are saved exactly, also when the scene is scrolled.
+- Dropping several files at once no longer mixes the names and positions of the new modules.
+- Touch dragging no longer adds the input and output modules to the module list.
+
+### Development
+
+- Type checking (`npm run typecheck`) and tests (`npm test`): unit tests under Node.js with libfaust,
+  Web Audio tests in Chromium, end-to-end tests of the application with Playwright, among which a
+  differential test showing that the browser and the exported program render the same signals.
+- Continuous integration on every push; the GitHub Pages deployment only runs on demand.

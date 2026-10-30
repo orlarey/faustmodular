@@ -5,6 +5,8 @@ Objectif : une nouvelle version de FaustPlayground où chaque module expose
 au lieu d'un unique port d'entrée et d'un unique port de sortie « stéréo ».
 
 Base analysée : `master` @ `5a4f3fb` (version 1.7.1, faustwasm 0.19.2).
+**État au 2026-10-30 : phases 0 à 5 terminées, version 2.0.0** (voir l'état de chaque phase en §4 et
+[CHANGELOG.md](../../CHANGELOG.md)).
 Toutes les mesures citées sont reproductibles avec les scripts de
 [`probes/`](probes/) (à lancer depuis la racine du dépôt après `npm install`).
 
@@ -539,6 +541,30 @@ Tests de bout en bout (`tests/e2e/app.test.ts`, 12 tests) :
 - Ajout à la bibliothèque de modules réellement multicanaux (spatialisation,
   matrices, ambisonie) pour démontrer la fonctionnalité.
 - Documentation (README, `Documentation/`), version 2.0.0.
+
+**État : fait.**
+- **Compilation** : `-ftz 1` au lieu de `-ftz 2` (contournement de D9), options
+  partagées par l'application et les tests (`src/FaustOptions.ts`).
+- **Exemples** :
+  - les 8 fichiers 1.x sont déplacés dans `tests/fixtures/v1/` (tests de
+    migration) ;
+  - les 4 exemples du menu Charger sont régénérés en v2 par l'application
+    elle-même (`scripts/build-examples.mjs`), avec positions et valeurs de
+    paramètres identiques aux originaux ; les variantes précompilées sont
+    recompilées depuis le code source ;
+  - nouvel exemple multicanal (`Multichannel_Example.json`).
+  `patch_big` (D7) n'était proposé nulle part dans l'interface ; il reste
+  uniquement comme donnée de test.
+- **Bibliothèque** : nouvelle catégorie « Multicanal » (quatrième colonne du
+  menu), 9 modules vérifiés (arités, niveaux, réponse spatiale de la chaîne
+  ambisonique). `VibratoEnvelope` corrigé (1×1).
+- **Défauts trouvés en convertissant les exemples, corrigés** :
+  - chemins de paramètres des anciennes versions de Faust (`1_(Note_48)`)
+    ignorés au chargement ;
+  - positions relues arrondies à 3 décimales ;
+  - débordement de pile à la sauvegarde précompilée d'un gros module
+    (`ab2str` de faustwasm).
+- **Version** : 2.0.0 ; notes de version dans `CHANGELOG.md`.
 
 **Estimation totale : 12 à 15 jours de développement.**
 

@@ -2,6 +2,8 @@
 
 Faust playground is a Web platform designed to enable children to learn basic audio programming in a simple and graphic way. In particular, it allows them to develop musical instruments for Android smartphones.
 
+Version 2 is multichannel: modules have one port per input and output channel, connected cable by cable. See the [changelog](CHANGELOG.md).
+
 ## Useful links
 
 - [https://faustplayground.grame.fr](https://faustplayground.grame.fr): official FaustPlayground website
