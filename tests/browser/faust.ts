@@ -3,6 +3,7 @@ import jsURL from "@grame/faustwasm/libfaust-wasm/libfaust-wasm.js?url";
 import dataURL from "@grame/faustwasm/libfaust-wasm/libfaust-wasm.data?url";
 import wasmURL from "@grame/faustwasm/libfaust-wasm/libfaust-wasm.wasm?url";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
+import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 
 let compilerPromise: Promise<fw.FaustCompiler> | undefined;
 
@@ -17,7 +18,7 @@ export async function faustNode(context: BaseAudioContext, code: string): Promis
     const generator = new fw.FaustMonoDspGenerator();
     // A distinct name per node: each name registers its own AudioWorklet processor.
     const name = `dsp${counter++}`;
-    await generator.compile(await getCompiler(), name, code, "");
+    await generator.compile(await getCompiler(), name, code, FAUST_COMPILE_OPTIONS);
     const node = await generator.createNode(context, name);
     if (!node) throw new Error("cannot create node");
     return { node, numInputs: node.getNumInputs(), numOutputs: node.getNumOutputs() };
@@ -26,7 +27,7 @@ export async function faustNode(context: BaseAudioContext, code: string): Promis
 // Renders Faust code offline (no Web Audio graph) with the given input signals.
 export async function renderCode(code: string, inputs: Float32Array[], length: number): Promise<Float32Array[]> {
     const generator = new fw.FaustMonoDspGenerator();
-    await generator.compile(await getCompiler(), `render${counter++}`, code, "");
+    await generator.compile(await getCompiler(), `render${counter++}`, code, FAUST_COMPILE_OPTIONS);
     const processor = await generator.createOfflineProcessor(48000, length);
     if (!processor) throw new Error("cannot create offline processor");
     return processor.render(inputs, length);

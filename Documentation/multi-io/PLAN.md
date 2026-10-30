@@ -146,7 +146,7 @@ tous compilent) :
 | D6 | Positions sauvegardées via `getBoundingClientRect()` (coordonnées viewport) | décalage si la scène est défilée |
 | D7 | Exemples `patch_big.json` et `patch_big_precompile.json` : 4 modules sur 10 (SAtonalSoftHarp, SBlowhistleBottle, SBouncyHarp, Granulator) importent `instrument.lib` ou `reduce.lib`, supprimées de Faust ; les factories de `patch_*_precompile.json` sont au format asm.js obsolète | exemples déjà inutilisables en 1.x (relevé en phase 1, `tests/model/v1.test.ts`) |
 | D8 | `Scene.unstyleNode` ajoutait les modules d'E/S à la liste des modules de la scène à chaque fin de glisser tactile (`getModules()` renvoie la liste elle-même) ; `Scene.removeModule` supprimait le dernier module quand le module à retirer n'était pas dans la liste (`splice(-1, 1)`) | corrigés en phase 2 |
-| D9 | libfaust 2.90.17 (backend wasm, faustwasm 0.19.2) : avec `-ftz 2`, l'option de compilation de l'application, une récursion alimentée par une constante produit des zéros (`process = (0.3, _ : -) ~ *(0.5);` donne 0, 0, 0… au lieu de 0,3 ; 0,15 ; 0,225…). Correct sans `-ftz`, avec `-ftz 1` ou `-double`. 9 modules de la bibliothèque sonnent différemment avec et sans `-ftz 2` (SBird, SPulsaxophone, SRandomFlute, RandomRingModulation, RandomVibrato, Birds, FlappyFlute, Pulsaxophone, RandomFlute), dont plusieurs à base de `no.noise` | relevé en phase 4 (`tests/faust/ftz.test.ts`, en échec attendu tant que le défaut existe) ; non corrigé dans l'application, décision en attente |
+| D9 | libfaust 2.90.17 (backend wasm, faustwasm 0.19.2) : avec `-ftz 2`, l'option de compilation de l'application, une récursion alimentée par une constante produit des zéros (`process = (0.3, _ : -) ~ *(0.5);` donne 0, 0, 0… au lieu de 0,3 ; 0,15 ; 0,225…). Correct sans `-ftz`, avec `-ftz 1` ou `-double`. 9 modules de la bibliothèque sonnent différemment avec et sans `-ftz 2` (SBird, SPulsaxophone, SRandomFlute, RandomRingModulation, RandomVibrato, Birds, FlappyFlute, Pulsaxophone, RandomFlute), dont plusieurs à base de `no.noise` | relevé en phase 4 (`tests/faust/ftz.test.ts`, en échec attendu tant que le défaut existe) ; contourné : l'application compile désormais avec `-ftz 1` (`src/FaustOptions.ts`), et `tests/library/ftz.test.ts` vérifie que les 90 modules rendent le même signal qu'en l'absence de `-ftz` |
 
 ---
 
@@ -530,8 +530,8 @@ Tests de bout en bout (`tests/e2e/app.test.ts`, 12 tests) :
     retards, récursions) et une entrée physique. Le rendu Web Audio en direct
     (`AudioGraph`) et le rendu du code exporté coïncident à 2,4·10⁻⁷ près
     (arrondi float32) sur 2048 échantillons.
-- Constat : défaut D9 de libfaust avec `-ftz 2`. Les tests de sémantique
-  compilent donc sans `-ftz`.
+- Constat : défaut D9 de libfaust avec `-ftz 2`, contourné en passant à
+  `-ftz 1` (application et tests).
 
 ### Phase 5 — Finitions (≈ 1–2 j)
 - Migration des exemples `public/json/` en v2 (le lecteur v1 reste).

@@ -2,6 +2,7 @@
 import { createRequire } from "module";
 // The package has no "exports" map: Node resolves "main" (CJS); load the ESM build explicitly.
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
+import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 
 const require = createRequire(import.meta.url);
 
@@ -22,9 +23,8 @@ export interface FaustJson {
     ui: any[];
 }
 
-// Compilation options of the tests. Not "-ftz 2" (the application's option): with libfaust 2.90.17
-// it zeroes recursions driven by a constant (see tests/faust/ftz.test.ts).
-export const TEST_OPTIONS = "";
+// The tests compile with the options of the application.
+export const TEST_OPTIONS = FAUST_COMPILE_OPTIONS;
 
 export async function compileJson(name: string, code: string, options: string = TEST_OPTIONS): Promise<FaustJson> {
     const compiler = await getCompiler();

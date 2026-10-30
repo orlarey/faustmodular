@@ -1,5 +1,6 @@
-// Known libfaust defect (2.90.17, wasm backend, faustwasm 0.19.2): with "-ftz 2", the option the
-// application compiles every module with, a recursion driven by a constant outputs zeros.
+// Known libfaust defect (2.90.17, wasm backend, faustwasm 0.19.2): with "-ftz 2" (the option used
+// by the application up to 1.7.1), a recursion driven by a constant outputs zeros. The application
+// now compiles with "-ftz 1" (src/FaustOptions.ts).
 // `it.fails` passes as long as the defect is there: when this test starts failing, libfaust is fixed.
 import { describe, expect, it } from "vitest";
 import { renderConstant } from "../helpers/faust";

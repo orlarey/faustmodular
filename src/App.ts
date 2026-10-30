@@ -33,6 +33,7 @@ import { Menu, MenuChoices } from "./Menu/Menu";
 import { CompileFaust, PositionModule, Utilitary } from "./Utilitary";
 import { Scene } from "./Scenes/SceneClass";
 import { SceneView } from "./Scenes/SceneView";
+import { FAUST_COMPILE_OPTIONS } from "./FaustOptions";
 import { faustWasmEnv } from "./Main";
 import { Message } from "./Messages";
 import { ModuleClass } from "./Modules/ModuleClass";
@@ -95,7 +96,7 @@ export class App {
         //try to create the wasm code/factory with the given Faust code. Then callback to function passing the factory.
         try {
             const faustMonoDspGenerator = new faustWasmEnv.FaustMonoDspGenerator();
-            await faustMonoDspGenerator.compile(faustWasmEnv.faustCompiler, "FaustDSP", compileFaust.sourceCode, "-ftz 2");
+            await faustMonoDspGenerator.compile(faustWasmEnv.faustCompiler, "FaustDSP", compileFaust.sourceCode, FAUST_COMPILE_OPTIONS);
             if (!faustMonoDspGenerator.factory) throw new Error("Faust DSP is not compiled");
             compileFaust.callback(faustMonoDspGenerator.factory);
         } catch (error) {
