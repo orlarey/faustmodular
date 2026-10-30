@@ -2,7 +2,7 @@
     Handles Graphical elements for the Export Feature of the normal Playground
 */
 
-import { EquivalentFaust } from "../EquivalentFaust";
+import { exportFaust, unexportedModules } from "../export/FaustExporter";
 import { ExportLib } from "../ExportLib";
 import { Message } from "../Messages";
 import { Scene } from "../Scenes/SceneClass";
@@ -125,8 +125,13 @@ export class Export {
         }
         this.removeQRCode();
         Utilitary.addLoadingLogo("exportResultContainer");
-        var equivalentFaust: EquivalentFaust = new EquivalentFaust();
-        var faustCode: string = equivalentFaust.getFaustEquivalent(Utilitary.currentScene, Utilitary.currentScene.sceneName)!;
+        var scene = Utilitary.currentScene;
+        scene.updatePatchFromModules(false);
+        var faustCode: string = exportFaust(scene.patch, { name: scene.sceneName, forceStereo: this.exportView.checkBoxStereo.checked }).code;
+        var left = unexportedModules(scene.patch);
+        if (left.length > 0) {
+            new Message(Utilitary.messageResource.modulesNotExported.replace("{names}", left.map((m) => m.name).join(", ")));
+        }
         ExportLib.getSHAKey((<HTMLInputElement>document.getElementById("faustweburl")).value, Utilitary.currentScene.sceneName, faustCode, expor.exportFaustCode);
     }
 

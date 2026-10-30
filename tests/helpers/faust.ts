@@ -22,18 +22,22 @@ export interface FaustJson {
     ui: any[];
 }
 
-export async function compileJson(name: string, code: string): Promise<FaustJson> {
+// Compilation options of the tests. Not "-ftz 2" (the application's option): with libfaust 2.90.17
+// it zeroes recursions driven by a constant (see tests/faust/ftz.test.ts).
+export const TEST_OPTIONS = "";
+
+export async function compileJson(name: string, code: string, options: string = TEST_OPTIONS): Promise<FaustJson> {
     const compiler = await getCompiler();
-    const factory = await compiler.createMonoDSPFactory(name, code, "-ftz 2");
+    const factory = await compiler.createMonoDSPFactory(name, code, options);
     if (!factory) throw new Error(`${name}: compilation failed`);
     return JSON.parse(factory.json);
 }
 
 // Render `code` for `length` samples, each input being a constant signal.
-export async function renderConstant(name: string, code: string, inputs: number[], length: number): Promise<number[][]> {
+export async function renderConstant(name: string, code: string, inputs: number[], length: number, options: string = TEST_OPTIONS): Promise<number[][]> {
     const compiler = await getCompiler();
     const generator = new fw.FaustMonoDspGenerator();
-    await generator.compile(compiler, name, code, "-ftz 2");
+    await generator.compile(compiler, name, code, options);
     const processor = await generator.createOfflineProcessor(48000, length);
     if (!processor) throw new Error(`${name}: cannot create offline processor`);
     const out = processor.render(inputs.map(v => new Float32Array(length).fill(v)), length);

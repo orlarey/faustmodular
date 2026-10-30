@@ -281,10 +281,10 @@ describe("application", () => {
         await page.close();
     }, 120_000);
 
-    it("exports compilable Faust code without modifying the patch (1.x export)", async () => {
+    it("exports compilable Faust code without modifying the patch", async () => {
         const { page, errors } = await openApp();
         await loadExample(page, "patch_light.json");
-        // an unconnected module: the export composes it with the output, the patch must not change
+        // an unconnected module: left out of the export, and the patch must not change
         await page.evaluate(async () => {
             const app = (globalThis as any).faustPlayground.app;
             const code = "process = 0.1;";
@@ -294,15 +294,22 @@ describe("application", () => {
         const before = await state(page);
         // as a string: Vitest would rewrite a dynamic import() inside a function
         const result = await page.evaluate(`(async () => {
-            const { EquivalentFaust } = await import("/src/EquivalentFaust.ts");
+            const { exportFaust, unexportedModules } = await import("/src/export/FaustExporter.ts");
             const s = globalThis.faustPlayground.scene;
-            const code = new EquivalentFaust().getFaustEquivalent(s, "Exported");
-            let json = null;
-            await globalThis.faustPlayground.app.compileFaust({ name: "X", sourceCode: code, x: 0, y: 0, callback: (f) => { json = JSON.parse(f.json); } });
-            return { compiled: json !== null, inputs: json && json.inputs, outputs: json && json.outputs };
+            s.updatePatchFromModules(false);
+            const results = [];
+            for (const forceStereo of [false, true]) {
+                const exported = exportFaust(s.patch, { name: "Exported", forceStereo });
+                let json = null;
+                await globalThis.faustPlayground.app.compileFaust({ name: "X", sourceCode: exported.code, x: 0, y: 0, callback: (f) => { json = JSON.parse(f.json); } });
+                results.push({ declared: [exported.inputs, exported.outputs], compiled: json && [json.inputs, json.outputs] });
+            }
+            return { results, left: unexportedModules(s.patch).map((m) => m.name) };
         })()`);
-        expect(result).toEqual({ compiled: true, inputs: 0, outputs: 2 });   // the microphone is not used
+        // the microphone is not used: no input
+        expect(result).toEqual({ results: [{ declared: [0, 2], compiled: [0, 2] }, { declared: [0, 2], compiled: [0, 2] }], left: ["C"] });
         expect(await state(page)).toEqual(before);
+        expect(await page.locator("#checkBoxStereoExport").count()).toBe(1);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

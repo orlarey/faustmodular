@@ -175,9 +175,6 @@ export class Scene {
     integrateOutput() {
         var positionOutput: PositionModule = this.positionOutputModule();
         this.fAudioOutput = new ModuleClass(Utilitary.idX++, positionOutput.x, positionOutput.y, "output", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
-        this.fAudioOutput.patchID = "output";
-        // Source code still used by the 1.x Faust export (EquivalentFaust) until it is rewritten
-        this.fAudioOutput.moduleFaust.setSource("process=_,_;");
         var destination = Utilitary.audioContext.destination;
         var channels = Math.min(Math.max(destination.maxChannelCount || 2, 1), MAX_CHANNELS);
         this.patch.addModule({ id: OUTPUT_ID, kind: "output", name: "output", numInputs: channels, numOutputs: 0 });
@@ -192,8 +189,6 @@ export class Scene {
     integrateInput() {
         var positionInput: PositionModule = this.positionInputModule();
         this.fAudioInput = new ModuleClass(Utilitary.idX++, positionInput.x, positionInput.y, "input", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
-        this.fAudioInput.patchID = "input";
-        this.fAudioInput.moduleFaust.setSource("process=_,_;");
         this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2 });
         this.fAudioInput.moduleId = INPUT_ID;
         this.patchView.addModule(this.fAudioInput);
@@ -245,7 +240,7 @@ export class Scene {
 
     // Copies into the patch model what lives in the modules: position, name, code, parameter
     // values, accelerometer mappings and (if isPrecompiled) the compiled factory.
-    private updatePatchFromModules(isPrecompiled: boolean): void {
+    updatePatchFromModules(isPrecompiled: boolean): void {
         for (var module of this.fModuleList) {
             var dsp = module.moduleFaust.getDSP();
             var params: Record<string, number> = {};

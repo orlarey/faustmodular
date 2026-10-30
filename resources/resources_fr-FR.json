@@ -62,6 +62,8 @@
   "lessOptions": "- moins d'options",
   "moreOptions": "+ plus d'options",
   "titleExportOptions": "Choix de l'export",
+  "forceStereoExport": "Forcer la stéréo (2 entrées, 2 sorties)",
+  "modulesNotExported": "Modules non reliés à la sortie, non exportés : {names}",
   "buttonRefresh": "Rafraîchir le serveur",
   "buttonExportScene": "Exporter",
   "titleDownloadExport": "Téléchargement",

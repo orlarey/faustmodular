@@ -17,8 +17,6 @@ import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 interface DSPCallback { (): void; }
 
 export class ModuleClass {
-    //used only by the Faust export (EquivalentFaust)
-    patchID: string;
     //id of the module in the patch model (set when the module is added to the scene)
     moduleId: ModuleId;
 

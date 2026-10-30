@@ -62,6 +62,8 @@
   "lessOptions": "- less options",
   "moreOptions": "+ more options",
   "titleExportOptions": "Choose export",
+  "forceStereoExport": "Force stereo (2 inputs, 2 outputs)",
+  "modulesNotExported": "Modules not connected to the output, not exported: {names}",
   "buttonRefresh": "Refresh server",
   "buttonExportScene": "Export",
   "titleDownloadExport": "Download",

@@ -21,6 +21,11 @@ channels.
 
 Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded.
 
+The export generates a single Faust program equivalent to the patch (`src/export/FaustExporter.ts`):
+one instance per module, sums at the inputs, feedback cables delayed by one sample, and only the
+modules that reach the output. The application gets the physical inputs that are used and all the
+physical outputs, or 2 inputs and 2 outputs with the "force stereo" option.
+
 ## Development
 
 ### Notes

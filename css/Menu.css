@@ -279,6 +279,13 @@ div#exportOptionContainer{
     float:left;
 }
 
+label#labelStereoExport {
+    display: block;
+    margin-top: 1em;
+    text-align: center;
+    cursor: pointer;
+}
+
 div#moreOptionDiv {
     top: 40%;
     margin: 0px auto;

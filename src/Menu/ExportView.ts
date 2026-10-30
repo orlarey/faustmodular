@@ -13,6 +13,7 @@ export class ExportView {
     moreOptionDiv: HTMLElement;
     lessOptionDiv: HTMLElement;
     optionContainer: HTMLElement;
+    checkBoxStereo: HTMLInputElement;
     initExportView(): HTMLElement {
 
         var exportContainer: HTMLElement = document.createElement("div");
@@ -140,6 +141,15 @@ export class ExportView {
         exportButton.value = Utilitary.messageResource.buttonExportScene;
         this.exportButton = exportButton;
 
+        var stereoLabel: HTMLLabelElement = document.createElement("label");
+        stereoLabel.id = "labelStereoExport";
+        var checkBoxStereo: HTMLInputElement = document.createElement("input");
+        checkBoxStereo.type = "checkbox";
+        checkBoxStereo.id = "checkBoxStereoExport";
+        stereoLabel.appendChild(checkBoxStereo);
+        stereoLabel.appendChild(document.createTextNode(" " + Utilitary.messageResource.forceStereoExport));
+        this.checkBoxStereo = checkBoxStereo;
+
         var exportBottomButtonContainer: HTMLElement = document.createElement("div");
         exportBottomButtonContainer.className = "bottomButtonContainer";
 
@@ -151,6 +161,7 @@ export class ExportView {
         exportOptionContainer.appendChild(moreOptionDiv);
         exportOptionContainer.appendChild(lessOptionDiv);
         exportOptionContainer.appendChild(optionContainer);
+        exportOptionContainer.appendChild(stereoLabel);
         exportOptionContainer.appendChild(exportBottomButtonContainer);
 
         //////////////////////////// export Result

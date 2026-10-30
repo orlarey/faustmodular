@@ -2,7 +2,6 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { AccelerometerHandler } from "./Accelerometer";
 import { DriveAPI } from "./DriveAPI";
-import { ModuleTree } from "./EquivalentFaust";
 import { ModuleClass } from "./Modules/ModuleClass";
 import { Resources } from "./Resources";
 import { Scene } from "./Scenes/SceneClass";
@@ -14,7 +13,6 @@ export class Utilitary {
     static messageResource: Resources;
     static idX: number = 0;
     static baseImg: string = "img/";
-    static recursiveMap: ModuleTree[];//used for EquivalentFaust
     static isAccelerometerOn: boolean = false;
     static isAccelerometerEditOn: boolean = false;
     static accHandler: AccelerometerHandler;

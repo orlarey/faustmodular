@@ -22,3 +22,12 @@ export async function faustNode(context: BaseAudioContext, code: string): Promis
     if (!node) throw new Error("cannot create node");
     return { node, numInputs: node.getNumInputs(), numOutputs: node.getNumOutputs() };
 }
+
+// Renders Faust code offline (no Web Audio graph) with the given input signals.
+export async function renderCode(code: string, inputs: Float32Array[], length: number): Promise<Float32Array[]> {
+    const generator = new fw.FaustMonoDspGenerator();
+    await generator.compile(await getCompiler(), `render${counter++}`, code, "");
+    const processor = await generator.createOfflineProcessor(48000, length);
+    if (!processor) throw new Error("cannot create offline processor");
+    return processor.render(inputs, length);
+}
