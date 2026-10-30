@@ -72,7 +72,7 @@ export class FaustInterfaceControler {
     faustInterfaceView: FaustInterfaceView;
 
     interfaceCallback: (faustInterfaceControler: FaustInterfaceControler) => void;
-    callbackEdit: () => void;
+    callbackEdit: (event: Event) => void;
     updateFaustCodeCallback: (details: ElementCodeFaustParser) => void
     setDSPValueCallback: (address: string, value: string) => void;
 

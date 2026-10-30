@@ -34,6 +34,15 @@ cd dist
 python -m http.server
 ```
 
+### Type check and tests
+```bash
+npm run typecheck
+npm test
+```
+Tests use [Vitest](https://vitest.dev/) and run libfaust under Node.js (see `tests/helpers/faust.ts`).
+The library test compiles every module listed in `public/faust-modules/index.json` and snapshots its
+number of inputs and outputs: after an intended change, update the snapshot with `npx vitest run -u`.
+
 ### To create examples (in `public/json/`)
 - create a patch in the platform
 - possibly rename it using the the "Edit" button

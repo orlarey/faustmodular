@@ -120,7 +120,7 @@ export class App {
             this.factory = faustMonoDspGenerator.factory;
             compileFaust.callback(this.factory);
         } catch (error) {
-            new Message(error)
+            new Message(String(error))
         }
 
         if (currentScene) { currentScene.unmuteScene() };
@@ -253,7 +253,7 @@ export class App {
                 try {
                     this.uploadFileFaust(app, module, x, y, e, dsp_code);
                 } catch (error) {
-                    new Message(error);
+                    new Message(String(error));
                     Utilitary.hideFullPageLoading();
                 }
             }

@@ -6,11 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc -p . && tsc -p tests",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.5",
-    "vite": ">=4.5.2"
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3",
+    "vite": ">=4.5.2",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "@grame/faustwasm": "^0.19.2",

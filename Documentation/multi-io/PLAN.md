@@ -329,6 +329,15 @@ branche de travail.
 
 **Validation** : CI verte, build inchangé.
 
+**État : fait.** `tsconfig.json` (strict, sauf `noImplicitAny` et
+`strictPropertyInitialization`) et `tests/tsconfig.json` ; `npm run typecheck`,
+`npm test` (Vitest 5, libfaust sous Node) ; workflow `.github/workflows/ci.yml`
+(vérification des types, tests, build). Tests initiaux : sémantique Faust utilisée
+par l'export (`tests/faust/semantics.test.ts`) ; compilation des 90 modules de la
+bibliothèque avec instantané de leurs arités (`tests/library/modules.test.ts`).
+La mesure Web Audio reste un script (`probes/webaudio.cjs`), en attendant les
+tests navigateur de la phase 2.
+
 ### Phase 1 — Modèle et format (≈ 2 j)
 - `Patch` (§3.1), règle cyclique, arcs de retour déterministes.
 - Sérialisation v2 et lecteur v1, avec tests sur les 8 exemples de
