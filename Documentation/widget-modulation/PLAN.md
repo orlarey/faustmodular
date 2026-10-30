@@ -48,15 +48,29 @@ Règles de correspondance et d'ordre :
 
 ### 2.1 Types de modulation (contenu de la palette)
 
-| Type | Circuit Faust | Usage |
-|---|---|---|
-| **×** multiplier | `*` | trémolo, modulation d'amplitude d'un paramètre |
-| **+** ajouter | `+` | décalage autour de la valeur du slider |
-| **±** balayer | `(_, *(k) : + : max(min) : min(max))`, avec `k = (max − min)/2` | un LFO dans [−1, 1] balaie toute la plage du widget autour du slider ; résultat borné à [min, max] |
-| **⇐** remplacer | `(ro.cross(2) : attach)` | le signal pilote seul le paramètre ; le widget reste visible mais inopérant (grisé) |
+Ce choix suit la pratique des synthés modulaires. En Eurorack comme dans VCV Rack, un paramètre
+vaut bouton + profondeur × CV : un atténuverteur dose la modulation, et les niveaux sont
+normalisés (LFO bipolaires, enveloppes unipolaires). Les deux exceptions consacrées sont la VCA,
+multiplicative, et la hauteur, exponentielle (1 V/octave). Les logiciels (Bitwig, Ableton, Serum)
+règlent la profondeur sur la destination et additionnent les modulateurs.
 
-`min` et `max` viennent du JSON de la factory. Pour un bouton ou une case à cocher, la palette ne
-propose que **+** et **⇐**, puisque **×** y est nul tant que le contrôle vaut 0.
+| Choix | Formule (w : valeur du widget, m : signal, D : profondeur) | Rôle |
+|---|---|---|
+| **± moduler** (par défaut, au centre de la palette) | borné(w + D · m · (max − min)/2) | l'atténuverteur : un LFO dans [−1, 1] à D = 1 balaie toute la plage autour du slider |
+| **± moduler**, widget de fréquence | borné(w · 2^(D · m · N)), N = log₂(max/min)/2 octaves | modulation exponentielle, comme le 1 V/octave ; appliquée automatiquement aux widgets marqués `[scale:log]` ou `[unit:Hz]` |
+| **× doser** | w · m | la VCA : trémolo, enveloppe appliquée à un niveau |
+| **⇐ piloter** | borné(m) | le signal remplace le slider (grisé) ; c'est le seul choix pour les boutons et cases à cocher, comme une entrée gate |
+
+Règles associées :
+- **Bornes** : « borné » signifie limité à [min, max] du widget, lus dans le JSON de la factory.
+- **Fréquences sans minimum positif** : si `min ≤ 0`, on prend N = 5 octaves, comme si la plage
+  couvrait 10 octaves.
+- **Profondeur D** : de −1 à 1, valeur initiale 1, pour le mode ±. C'est un slider Faust placé
+  dans le circuit de modulation, avec la métadonnée `[modulation]`. Il se règle donc **en direct,
+  sans recompilation** (mesuré : D = 1, 0,5, 0, −1 donnent exactement 0,8, 0,65, 0,5, 0,2 pour
+  w = 0,5 et m = 0,6). L'interface l'affiche comme un petit bouton à côté du widget modulé, et non
+  parmi les contrôles du module.
+- **Un seul type par widget** ; plusieurs sources vers un même widget s'additionnent.
 
 ### 2.2 Modèle
 
@@ -123,7 +137,7 @@ valeurs des paramètres sont conservées et les connexions existantes sont gard�
 | W3 | Latence de recompilation (de 0,1 à plus d'1 s pour les gros modules) et remise à zéro de l'état interne du module (queues de réverbération, lignes à retard) | inhérent à la compilation ; indicateur sur le module pendant la compilation, l'ancien DSP joue jusqu'à l'échange | moyen |
 | W4 | Renumérotation des ports de modulation quand une modulation disparaît | portée par le modèle (API `addModulation` / `removeModulation`), testée | faible |
 | W5 | Palette au toucher : le doigt masque la cible, pas de survol avant contact | palette décalée hors du doigt, délai d'ouverture court ; une palette par pointeur en multi-touch | moyen |
-| W6 | Slider d'un widget remplacé (⇐) : sa valeur n'a plus d'effet | widget grisé tant que la modulation existe | faible |
+| W6 | Slider d'un widget piloté (⇐) : sa valeur n'a plus d'effet | widget grisé tant que la modulation existe | faible |
 | W7 | Limite de 32 entrées | les entrées de modulation comptent dans la limite ; la palette refuse au-delà | faible |
 | W8 | Accéléromètre sur un slider modulé | il continue de piloter la valeur de base (×, +, ±), ce qui est cohérent | faible |
 
@@ -133,7 +147,7 @@ valeurs des paramètres sont conservées et les connexions existantes sont gard�
 
 | Phase | Contenu | Validation | Estimation |
 |---|---|---|---|
-| M0 | Générateur du code effectif (`modulatedCode`) : choix du suffixe de chemin, circuits des 4 types, remise en ordre des entrées | tests libfaust : arité `n + k`, valeur de chaque type, widgets homonymes, groupes sans nom | 1 j |
+| M0 | Générateur du code effectif (`modulatedCode`) : choix du suffixe de chemin, circuits des 3 types (et variante exponentielle), profondeur, remise en ordre des entrées | tests libfaust : arité `n + k`, valeur de chaque type, profondeur réglée en direct, widgets homonymes, groupes sans nom | 1 j |
 | M1 | Modèle et format : modulations, ports, création et suppression avec renumérotation, version 3 | tests unitaires, aller-retour du format | 1 j |
 | M2 | Moteur : recompilation dynamique à chaque création ou suppression de modulation | test navigateur : un LFO module un gain, le signal rendu correspond à la formule | 1 j |
 | M3 | Interface : widgets cibles, palette, câbles de modulation et badges, suppression, repères | tests de bout en bout à la souris et au toucher (palette, choix, annulation) | 2–3 j |
@@ -143,13 +157,11 @@ valeurs des paramètres sont conservées et les connexions existantes sont gard�
 
 ---
 
-## 5. Décisions à prendre
+## 5. Décisions (arrêtées le 2026-10-30)
 
-1. **Types de la palette** : les quatre proposés (×, +, ±, ⇐) ? En ajouter, par exemple
-   `w · (1 + m)` pour une modulation d'amplitude autour de la valeur du slider ?
-2. **Ouverture de la palette** : immédiate au survol du widget, ou après un court délai (200 ms par
-   exemple) pour ne pas gêner un câble qui ne fait que passer ?
-3. **Plusieurs types sur un même widget** : autorisés (composés dans l'ordre de création) ou un seul
-   type par widget ?
-4. **Bibliothèque** : ajouter des sources de modulation (LFO sinus, triangle et carré ; aléatoire
-   échantillonné-bloqué ; suiveur d'enveloppe) ?
+| # | Question | Décision |
+|---|---|---|
+| 1 | Types de la palette | **± moduler** (par défaut, avec profondeur réglable en direct, exponentiel pour les fréquences), **× doser**, **⇐ piloter** ; plus de « + » brut (§2.1) |
+| 2 | Ouverture de la palette | après un **court délai** au survol du widget |
+| 3 | Plusieurs types sur un même widget | **non** : un seul type par widget (plusieurs sources s'additionnent) |
+| 4 | Sources de modulation dans la bibliothèque | **oui**, comme dans les synthés modulaires : LFO bipolaires [−1, 1] (sinus, triangle, carré, dent de scie), aléatoire échantillonné-bloqué, ADSR déclenchée par une gate [0, 1], suiveur d'enveloppe [0, 1] |
