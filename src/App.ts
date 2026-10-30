@@ -12,9 +12,7 @@ Create Factories and Modules
 /// <reference path="Modules/ModuleClass.ts"/>
 /// <reference path="Modules/ModuleView.ts"/>
 /// <reference path="Modules/ModuleFaust.ts"/>
-/// <reference path="Connect.ts"/>
 /// <reference path="Error.ts"/>
-/// <reference path="Dragging.ts"/>
 /// <reference path="Utilitary.ts"/>
 /// <reference path="Modules/FaustInterface.ts"/>
 /// <reference path="Scenes/SceneView.ts"/>
@@ -123,7 +121,6 @@ export class App {
         module.createDSP(factory, () => {
             module.setFaustInterfaceControles();
             module.createFaustInterface();
-            module.addInputOutputNodes();
 
             //set listener to recompile when dropping faust code on the module
             if (name != "input" && name != "output") {

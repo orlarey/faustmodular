@@ -22,14 +22,13 @@ interface HTMLinterfaceElement extends HTMLElement {
 }
 
 export class ModuleView {
-    inputOutputNodeDimension: number = 32;
     fModuleContainer: HTMLElement;
     fName: string;
     fInterfaceContainer: HTMLInterfaceContainer;
     fEditImg: HTMLfEdit;
     fTitle: HTMLElement;
-    fInputNode: HTMLDivElement;
-    fOutputNode: HTMLDivElement;
+    fInputPorts: HTMLElement[] = [];
+    fOutputPorts: HTMLElement[] = [];
     contentModule: HTMLElement;
     textArea: HTMLTextAreaElement;
     miniButton: HTMLDivElement;
@@ -113,10 +112,6 @@ export class ModuleView {
         this.x = x;
         this.y = y;
     }
-    // ------ Returns Graphical input and output Node
-    getOutputNode(): HTMLElement { return this.fOutputNode; }
-    getInputNode(): HTMLElement { return this.fInputNode; }
-
     getModuleContainer(): HTMLElement {
         return this.fModuleContainer;
     }
@@ -124,56 +119,68 @@ export class ModuleView {
         return this.fInterfaceContainer;
     }
 
-    setInputNode(): void {
-        this.fInputNode = document.createElement("div");
-        this.fInputNode.className = "node node-input";
-        this.fInputNode.draggable = false;
-        var spanNode: HTMLSpanElement = document.createElement("span");
-        spanNode.draggable = false;
-        spanNode.className = "node-button";
-        this.fInputNode.appendChild(spanNode);
-        this.fModuleContainer.appendChild(this.fInputNode);
-    }
-    setOutputNode(): void {
-        this.fOutputNode = document.createElement("div");
-        this.fOutputNode.className = "node node-output";
-        this.fOutputNode.draggable = false;
-        var spanNode: HTMLSpanElement = document.createElement("span");
-        spanNode.draggable = false;
-        spanNode.className = "node-button";
-        this.fOutputNode.appendChild(spanNode);
-        this.fModuleContainer.appendChild(this.fOutputNode);
-    }
-    deleteInputOutputNodes(): void {
-        if (this.fInputNode) {
-            this.fModuleContainer.removeChild(this.fInputNode);
-            (this.fInputNode as any) = null;
-        }
+    /******************** PORTS ********************/
+    // One port per channel, stacked on the left (inputs) and right (outputs) sides.
+    // Each port carries data-module, data-dir ("in" | "out") and data-port (0-based) for hit testing.
 
-        if (this.fOutputNode) {
-            this.fModuleContainer.removeChild(this.fOutputNode);
-            (this.fOutputNode as any) = null;
-        }
+    setPorts(moduleId: string, numInputs: number, numOutputs: number): void {
+        this.clearPorts();
+        this.fInputPorts = this.createPorts(moduleId, "in", numInputs);
+        this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs);
+        // tall enough for the longest column of ports, between the title bar and the footer
+        var height = Math.max(numInputs * ModuleView.portLayout(numInputs).pitch, numOutputs * ModuleView.portLayout(numOutputs).pitch);
+        var margins = this.portMargins();
+        this.fModuleContainer.style.minHeight = height > 0 ? (height + margins.top + margins.bottom + 8) + "px" : "";
     }
 
-    isPointInOutput(x: number, y: number): boolean {
-        if (this.fOutputNode && this.fOutputNode.getBoundingClientRect().left < x && x < this.fOutputNode.getBoundingClientRect().right && this.fOutputNode.getBoundingClientRect().top < y && y < this.fOutputNode.getBoundingClientRect().bottom) {
-            return true;
-        }
-        return false;
+    clearPorts(): void {
+        this.fInputPorts.concat(this.fOutputPorts).forEach((port) => port.remove());
+        this.fInputPorts = [];
+        this.fOutputPorts = [];
     }
 
-    isPointInInput(x: number, y: number): boolean {
-        if (this.fInputNode && this.fInputNode.getBoundingClientRect().left <= x && x <= this.fInputNode.getBoundingClientRect().right && this.fInputNode.getBoundingClientRect().top <= y && y <= this.fInputNode.getBoundingClientRect().bottom) {
-            return true;
-        }
-        return false;
+    getPort(dir: "in" | "out", index: number): HTMLElement | undefined {
+        return (dir == "in" ? this.fInputPorts : this.fOutputPorts)[index];
     }
 
-    isPointInNode(x: number, y: number): boolean {
-        if (this.fModuleContainer && this.fModuleContainer.getBoundingClientRect().left < x && x < this.fModuleContainer.getBoundingClientRect().right && this.fModuleContainer.getBoundingClientRect().top < y && y < this.fModuleContainer.getBoundingClientRect().bottom) {
-            return true;
+    // Space kept free above and below the ports: title bar (close/minimize buttons) and footer
+    // (edit button) of Faust modules; none for the physical input and output modules.
+    private portMargins(): { top: number; bottom: number } {
+        return this.fName == "input" || this.fName == "output" ? { top: 0, bottom: 0 } : { top: 34, bottom: 26 };
+    }
+
+    // Port size and spacing shrink when there are many ports.
+    static portLayout(count: number): { size: number; pitch: number } {
+        if (count <= 4) return { size: 30, pitch: 36 };
+        if (count <= 8) return { size: 24, pitch: 28 };
+        return { size: 18, pitch: 20 };
+    }
+
+    private createPorts(moduleId: string, dir: "in" | "out", count: number): HTMLElement[] {
+        var layout = ModuleView.portLayout(count);
+        var margins = this.portMargins();
+        var ports: HTMLElement[] = [];
+        for (var i = 0; i < count; i++) {
+            var port = document.createElement("div");
+            port.className = "port " + (dir == "in" ? "port-input" : "port-output");
+            port.draggable = false;
+            port.dataset.module = moduleId;
+            port.dataset.dir = dir;
+            port.dataset.port = String(i);
+            port.title = (dir == "in" ? "input " : "output ") + (i + 1);
+            port.style.width = port.style.height = layout.size + "px";
+            // centered in the space between the margins
+            port.style.top = "calc(50% + " + ((margins.top - margins.bottom) / 2 + (i - (count - 1) / 2) * layout.pitch - layout.size / 2) + "px)";
+            port.style[dir == "in" ? "left" : "right"] = (-layout.size / 2 - 2) + "px";
+            var dot = document.createElement("span");
+            dot.draggable = false;
+            if (count > 1) {
+                dot.textContent = String(i + 1);
+            }
+            port.appendChild(dot);
+            this.fModuleContainer.appendChild(port);
+            ports.push(port);
         }
-        return false;
+        return ports;
     }
 }

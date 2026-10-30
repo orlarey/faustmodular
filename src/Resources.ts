@@ -32,6 +32,7 @@ export class Resources {
     errorCreateDSP: string;
     errorCreateModuleRecall: string;
     errorConnectionRecall: string;
+    connectionsRemovedByArity: string;
     errorLocalStorage: string;
     errorConnectionCloud: string;
 

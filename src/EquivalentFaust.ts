@@ -5,7 +5,6 @@
     FIRST PART --> DERECURSIVIZE THE PATCH
     SECOND PART --> CREATE THE FAUST EQUIVALENT FROM THE "DERECURSIVIZED" PATCH
 */
-import { Connector } from "./Connect";
 import { ModuleClass } from "./Modules/ModuleClass";
 import { Scene } from "./Scenes/SceneClass";
 import { Utilitary } from "./Utilitary";
@@ -30,6 +29,22 @@ export class ModuleTree implements IModuleTree {
 }
 
 export class EquivalentFaust {
+    private fScene: Scene;
+    // modules whose outputs are connected nowhere: composed in parallel with the output's inputs
+    private fUnconnected: ModuleClass[] = [];
+
+    // Distinct modules feeding `module` (module level: the 1.x export is stereo, see stereoize).
+    private sourceModules(module: ModuleClass): ModuleClass[] {
+        var ids: string[] = [];
+        for (var c of this.fScene.patch.connectionsTo(module.moduleId)) {
+            if (ids.indexOf(c.from.module) < 0) ids.push(c.from.module);
+        }
+        var sources = ids.map((id) => this.fScene.getModuleById(id)!).filter((m) => m !== undefined);
+        if (module === this.fScene.getAudioOutput()) {
+            sources = sources.concat(this.fUnconnected);
+        }
+        return sources;
+    }
 
     isModuleRecursiveExisting(moduleTree: ModuleTree): boolean {
         if (Utilitary.recursiveMap[moduleTree.patchID])
@@ -104,10 +119,9 @@ export class EquivalentFaust {
 
             moduleTree.course[moduleTree.course.length] = moduleTree;
 
-            if (module.moduleFaust.getInputConnections()) {
-                for (var j = 0; j < module.moduleFaust.getInputConnections().length; j++)
-                    moduleTree.moduleInputs[j] = this.createTree(module.moduleFaust.getInputConnections()[j].source, moduleTree)!;
-            }
+            var sources = this.sourceModules(module);
+            for (var j = 0; j < sources.length; j++)
+                moduleTree.moduleInputs[j] = this.createTree(sources[j], moduleTree)!;
         }
 
         return moduleTree;
@@ -165,18 +179,10 @@ export class EquivalentFaust {
         return faustResult;
     }
 
-    // Computing the trees unconnected to the output
-    connectUnconnectedModules(faustModuleList: ModuleClass[], output: ModuleClass): void {
-
-        for (var i in faustModuleList) {
-
-            var outputNode = faustModuleList[i].moduleView.getOutputNode();
-
-            if (faustModuleList[i].moduleFaust.fName != "input" && outputNode && (!faustModuleList[i].moduleFaust.getOutputConnections || !faustModuleList[i].moduleFaust.getOutputConnections() || faustModuleList[i].moduleFaust.getOutputConnections().length == 0)) {
-                var connector: Connector = new Connector();
-                connector.createConnection(faustModuleList[i], faustModuleList[i].moduleView.getOutputNode(), output, output.moduleView.getInputNode());
-            }
-        }
+    // Modules whose outputs are connected nowhere (the patch is not modified).
+    unconnectedModules(faustModuleList: ModuleClass[]): ModuleClass[] {
+        return faustModuleList.filter((m) =>
+            this.fScene.patch.getModule(m.moduleId)!.numOutputs > 0 && this.fScene.patch.connectionsFrom(m.moduleId).length == 0);
     }
 
     //Calculate Faust Equivalent of the Scene
@@ -218,7 +224,8 @@ export class EquivalentFaust {
 			    recursivize(p,q) = (_,_,_,_ :> stereoize(p)) ~ stereoize(q);\n\
 			    ";
 
-            this.connectUnconnectedModules(faustModuleList, dest);
+            this.fScene = scene;
+            this.fUnconnected = this.unconnectedModules(faustModuleList);
 
             Utilitary.recursiveMap = [];
 
@@ -226,8 +233,7 @@ export class EquivalentFaust {
 
             var destinationDIVVV = this.createTree(dest, null);
 
-            if (dest.moduleFaust.getInputConnections())
-                faustResult += "process = vgroup(\"" + patchName + "\",(" + this.computeModule(destinationDIVVV!) + "));";
+            faustResult += "process = vgroup(\"" + patchName + "\",(" + this.computeModule(destinationDIVVV!) + "));";
 
             // 		console.log(faustResult);
 

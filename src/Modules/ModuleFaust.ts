@@ -1,5 +1,4 @@
 ﻿import type { FaustDspFactory } from "@grame/faustwasm";
-import { Connector } from "../Connect";
 import { IfDSP } from "../Utilitary";
 
 /*MODULEFAUST.JS
@@ -12,35 +11,10 @@ export class ModuleFaust {
     fTempSource: string;
     fName: string;
     fTempName: string;
-    fOutputConnections: Connector[] = [];
-    fInputConnections: Connector[] = [];
     constructor(name: string) {
         this.fName = name;
     }
 
-    /*************** ACTIONS ON IN/OUTPUT MODULES ***************************/
-
-    // ------ Returns Connection Array OR null if there are none
-    getInputConnections(): Connector[] {
-        return this.fInputConnections;
-    }
-    getOutputConnections(): Connector[] {
-        return this.fOutputConnections;
-    }
-
-    addOutputConnection(connector: Connector): void {
-        this.fOutputConnections.push(connector);
-    }
-    addInputConnection(connector: Connector): void {
-        this.fInputConnections.push(connector);
-    }
-
-    removeOutputConnection(connector: Connector): void {
-        this.fOutputConnections.splice(this.fOutputConnections.indexOf(connector), 1);
-    }
-    removeInputConnection(connector: Connector): void {
-        this.fInputConnections.splice(this.fInputConnections.indexOf(connector), 1);
-    }
     /********************** GET/SET SOURCE/NAME/DSP ***********************/
     setSource(code: string): void {
         this.fSource = code;

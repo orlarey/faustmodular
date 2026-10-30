@@ -441,6 +441,47 @@ la recompilation avec changement de ports et la suppression d'un module.
 **Validation** : scénarios manuels + tests Playwright (création, connexion,
 suppression, sauvegarde/rappel).
 
+**État : fait.**
+- **Ports** (`ModuleView.setPorts`) : un port par canal, entrées à gauche (vert)
+  et sorties à droite (rouge), numérotés à partir de 1 dès qu'il y en a plus
+  d'un. Taille et pas diminuent au-delà de 4 puis de 8 ports. Les colonnes sont
+  centrées entre la barre de titre et le pied de module, et le module grandit
+  pour les contenir (le pied reste en bas). Chaque port porte `data-module`,
+  `data-dir` et `data-port` pour la détection des cibles.
+- **Vue du patch** (`src/view/PatchView.ts`) : un câble SVG par connexion du
+  modèle, créé, supprimé et redessiné à partir des événements du patch. Les
+  câbles sont redessinés au déplacement d'un module et à tout changement de
+  taille (`ResizeObserver`). Les câbles de rétroaction sont en pointillés.
+- **Interactions** (Pointer Events, chaque pointeur suivi séparément) :
+  - déplacer un module en le saisissant par son corps (les contrôles, l'éditeur
+    et les boutons gardent leur comportement) ;
+  - tirer un câble depuis un port, dans un sens ou dans l'autre, et le lâcher
+    sur un port de sens opposé pour une connexion unitaire, ou sur le corps
+    d'un autre module pour une connexion bus ;
+  - cibles compatibles surlignées pendant le glisser ;
+  - clic sur un câble pour le supprimer.
+- `Dragging.ts` et `Connect.ts` sont supprimés, ainsi que les listes de
+  `Connector` de `ModuleFaust` et le style tactile ad hoc des pastilles.
+- **Recompilation** : les connexions dont les ports existent encore sont
+  conservées, les autres supprimées avec un message traduit
+  (`connectionsRemovedByArity`). Même traitement quand l'entrée micro change de
+  nombre de canaux.
+- **Export 1.x** (`EquivalentFaust`) : il lit le patch, sans plus le modifier
+  (corrige D3). Il reste stéréo jusqu'à la phase 4.
+
+Tests de bout en bout (`tests/e2e/app.test.ts`, 12 tests) :
+- extrémités des câbles alignées sur les centres des ports à moins d'un pixel,
+  avant et après le déplacement d'un module ;
+- suppression par clic ;
+- connexion port à port tirée depuis une sortie et depuis une entrée ;
+- connexion bus par lâcher sur le corps d'un module ;
+- lâchers sans effet : port de même sens, fond, son propre module ;
+- câble de rétroaction en pointillés et retardé dans le graphe audio ;
+- deux câbles tracés simultanément à deux doigts ;
+- slider manipulé au doigt sans déplacer son module ;
+- recompilation qui conserve ou supprime des connexions ;
+- export 1.x compilable, sans modification du patch.
+
 ### Phase 4 — Export Faust v2 (≈ 2 j)
 - `FaustExporter` pur, sans effet de bord sur la scène (corrige D3) :
   1. bus initial = [sources des arcs de retour (F) | entrées physiques] ;

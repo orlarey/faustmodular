@@ -1,8 +1,9 @@
 ﻿/*				SCENECLASS.JS
     HAND-MADE JAVASCRIPT CLASS CONTAINING THE API OF A GENERIC SCENE
 
-    The scene owns the patch model (model/Patch.ts) and its Web Audio rendering
-    (audio/AudioGraph.ts). ModuleClass objects are the views/controllers of the modules;
+    The scene owns the patch model (model/Patch.ts), its Web Audio rendering
+    (audio/AudioGraph.ts) and its graphical view (view/PatchView.ts: ports, cables and
+    pointer interactions). ModuleClass objects are the views/controllers of the modules;
     each one is bound to a module of the patch by its moduleId.
 */
 
@@ -10,14 +11,14 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
-import { Connector } from "../Connect";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
-import { AccMapping, ConnectionId, MAX_CHANNELS, ModuleId, Patch, PrecompiledFactory } from "../model/Patch";
+import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PrecompiledFactory } from "../model/Patch";
 import { isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
+import { PatchView } from "../view/PatchView";
 import { SceneView } from "./SceneView";
 
 export const INPUT_ID: ModuleId = "input";
@@ -40,6 +41,7 @@ export class Scene {
     //-- Patch model and its audio rendering
     patch: Patch = new Patch();
     audioGraph: AudioGraph;
+    patchView: PatchView;
     //-- Audio Input/Output
     fAudioOutput: ModuleClass;
     fAudioInput: ModuleClass;
@@ -61,11 +63,12 @@ export class Scene {
         this.sceneView.initNormalScene(this)
         this.integrateSceneInBody();
         this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
+        var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
+        this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id));
         this.integrateOutput();
         this.integrateInput();
         Utilitary.hideFullPageLoading();
         this.isInitLoading = false;
-        document.addEventListener("unstylenode", () => { this.unstyleNode() });
     }
 
     getSceneContainer(): HTMLDivElement { return this.sceneView.fSceneContainer; }
@@ -116,7 +119,7 @@ export class Scene {
     // Faust modules only (the physical input and output modules are not in this list).
     getModules(): ModuleClass[] { return this.fModuleList; }
 
-    // Registers a module whose DSP is created: adds it to the patch and to the audio graph.
+    // Registers a module whose DSP is created: adds it to the patch, the audio graph and the view.
     addModule(module: ModuleClass): void {
         var dsp = module.moduleFaust.getDSP();
         var state = this.patch.addModule({
@@ -131,6 +134,7 @@ export class Scene {
         module.moduleId = state.id;
         this.audioGraph.setNode(state.id, dsp);
         this.fModuleList.push(module);
+        this.patchView.addModule(module);
     }
 
     removeModule(module: ModuleClass): void {
@@ -143,12 +147,14 @@ export class Scene {
         }
     }
 
-    // Called once a module has a new DSP (recompilation): its connections must have been removed.
-    updateModuleDSP(module: ModuleClass): void {
+    // Called once a module has a new DSP (recompilation). Returns the connections removed
+    // because their ports no longer exist.
+    updateModuleDSP(module: ModuleClass): Connection[] {
         var dsp = module.moduleFaust.getDSP();
-        this.patch.setArity(module.moduleId, dsp.getNumInputs(), dsp.getNumOutputs());
+        var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs(), dsp.getNumOutputs());
         this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
         this.audioGraph.setNode(module.moduleId, dsp);
+        return removed;
     }
 
     // Module (Faust or physical input/output) bound to a module of the patch.
@@ -178,11 +184,11 @@ export class Scene {
         this.fAudioOutput.moduleId = OUTPUT_ID;
         this.audioGraph.setNode(OUTPUT_ID, destination);
         this.addMuteOutputListner(this.fAudioOutput);
-        this.fAudioOutput.addInputOutputNodes(channels, 0);
+        this.patchView.addModule(this.fAudioOutput);
     }
 
     // The physical input is stereo until the microphone is granted; it then gets the number of
-    // channels of the audio track.
+    // channels of the audio track (connections to missing channels are then removed).
     integrateInput() {
         var positionInput: PositionModule = this.positionInputModule();
         this.fAudioInput = new ModuleClass(Utilitary.idX++, positionInput.x, positionInput.y, "input", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
@@ -190,7 +196,7 @@ export class Scene {
         this.fAudioInput.moduleFaust.setSource("process=_,_;");
         this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2 });
         this.fAudioInput.moduleId = INPUT_ID;
-        this.fAudioInput.addInputOutputNodes(0, 2);
+        this.patchView.addModule(this.fAudioInput);
         this.activateAudioInput();
     }
 
@@ -227,17 +233,11 @@ export class Scene {
         var source = Utilitary.audioContext.createMediaStreamSource(device);
         var settings = device.getAudioTracks()[0]?.getSettings();
         var channels = Math.min(Math.max(settings?.channelCount || 2, 1), MAX_CHANNELS);
-        this.patch.setArity(INPUT_ID, 0, channels);
+        var removed = this.patch.setArity(INPUT_ID, 0, channels);
         this.audioGraph.setNode(INPUT_ID, source);
-        this.rebusConnectors(this.fAudioInput);
-    }
-
-    // With the one-port view, a drawn connection stands for a bus connection: after an arity
-    // change, complete each bus with the cyclic rule.
-    private rebusConnectors(module: ModuleClass): void {
-        for (var connector of module.moduleFaust.getOutputConnections()) {
-            var created = this.patch.connectBus(module.moduleId, connector.destination.moduleId);
-            connector.patchConnections = connector.patchConnections.filter((id) => this.patch.getConnection(id) !== undefined).concat(created.map((c) => c.id));
+        if (removed.length > 0) {
+            new Message(Utilitary.messageResource.connectionsRemovedByArity
+                .replace("{name}", "input").replace("{inputs}", "0").replace("{outputs}", String(channels)).replace("{count}", String(removed.length)));
         }
     }
 
@@ -315,7 +315,6 @@ export class Scene {
         this.sceneName = sceneName;
         var warnings: string[] = [];
         var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings);
-        var created: ConnectionId[] = [];
         for (var c of file.getConnections()) {
             var from = ids.get(c.from.module);
             var to = ids.get(c.to.module);
@@ -324,12 +323,11 @@ export class Scene {
                 continue;
             }
             try {
-                created.push(this.patch.connect({ module: from, port: c.from.port }, { module: to, port: c.to.port }).id);
+                this.patch.connect({ module: from, port: c.from.port }, { module: to, port: c.to.port });
             } catch (e) {
                 warnings.push(`connection ${c.from.module}:${c.from.port} -> ${c.to.module}:${c.to.port}: ${(e as Error).message}, connection dropped`);
             }
         }
-        this.drawConnectors(created);
         return warnings;
     }
 
@@ -340,9 +338,7 @@ export class Scene {
         }
         var warnings = [...draft.warnings];
         var ids = await this.recallModules(draft.modules, warnings);
-        var before = new Set(this.patch.getConnections().map((c) => c.id));
         warnings.push(...connectV1Links(this.patch, draft.links, (id) => ids.get(id)));
-        this.drawConnectors(this.patch.getConnections().map((c) => c.id).filter((id) => !before.has(id)));
         return warnings;
     }
 
@@ -358,23 +354,6 @@ export class Scene {
             }
         }
         return ids;
-    }
-
-    // Draws one (one-port view) connector per pair of modules linked by the given connections.
-    private drawConnectors(connections: ConnectionId[]): void {
-        var pairs = new Map<string, ConnectionId[]>();
-        for (var id of connections) {
-            var c = this.patch.getConnection(id)!;
-            var key = JSON.stringify([c.from.module, c.to.module]);
-            pairs.set(key, (pairs.get(key) ?? []).concat([id]));
-        }
-        pairs.forEach((list, key) => {
-            var [fromId, toId] = JSON.parse(key);
-            var source = this.getModuleById(fromId)!;
-            var destination = this.getModuleById(toId)!;
-            var connector: Connector = new Connector();
-            connector.createConnection(source, source.moduleView.getOutputNode(), destination, destination.moduleView.getInputNode(), list);
-        });
     }
 
     private async importFactory(factory: PrecompiledFactory): Promise<FaustDspFactory | null> {
@@ -417,7 +396,6 @@ export class Scene {
         module.recallInterfaceParams();
         module.setFaustInterfaceControles();
         module.createFaustInterface();
-        module.addInputOutputNodes();
         this.addModule(module);
         this.recallAccValues(description.acc, module);
         return module;
@@ -526,23 +504,5 @@ export class Scene {
         position.x = window.innerWidth / 2;
         position.y = window.innerHeight / 2;
         return position
-    }
-    /***************** Unstyle node connection of all modules on touchscreen  ***************/
-    unstyleNode() {
-        var modules = this.getModules().concat([this.fAudioInput, this.fAudioOutput]);
-        for (var i = 0; i < modules.length; i++) {
-            if (modules[i].moduleView.fInputNode) {
-                modules[i].moduleView.fInputNode.style.border = "none";
-                modules[i].moduleView.fInputNode.style.left = "-16px";
-                modules[i].moduleView.fInputNode.style.marginTop = "-18px";
-            }
-            if (modules[i].moduleView.fOutputNode) {
-                modules[i].moduleView.fOutputNode.style.border = "none";
-                modules[i].moduleView.fOutputNode.style.right = "-16px";
-                modules[i].moduleView.fOutputNode.style.marginTop = "-18px";
-            }
-        }
-        ModuleClass.isNodesModuleUnstyle = true;
-
     }
 }

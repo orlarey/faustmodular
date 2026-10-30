@@ -4,14 +4,12 @@
 */
 import type { FaustDspFactory } from "@grame/faustwasm";
 
-import { Drag } from "../Dragging";
 import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView } from "./FaustInterface";
 import { Message } from "../Messages";
 import { ModuleFaust } from "./ModuleFaust";
 import { ModuleView } from "./ModuleView";
 import { CompileFaust, IfDSP, Utilitary } from "../Utilitary";
 import { AccelerometerHandler } from "../Accelerometer";
-import { Connector } from "../Connect";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
@@ -19,10 +17,6 @@ import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 interface DSPCallback { (): void; }
 
 export class ModuleClass {
-    static isNodesModuleUnstyle: boolean = true;
-    //drag object to handle dragging of module and connection
-    drag: Drag = new Drag()
-    dragList: Drag[] = [];
     //used only by the Faust export (EquivalentFaust)
     patchID: string;
     //id of the module in the patch model (set when the module is added to the scene)
@@ -35,20 +29,16 @@ export class ModuleClass {
     private deleteCallback: (module: ModuleClass) => void;
     private fModuleInterfaceParams: { [label: string]: string } = {};
 
-    eventDraggingHandler: (event: MouseEvent | TouchEvent) => void;
-    eventConnectorHandler: (event: Event) => void;
     eventOpenEditHandler: () => void;
     eventCloseEditHandler: (event: Event) => void;
     compileFaust: (conpileFaust: CompileFaust) => Promise<void>;
 
     constructor(id: number, x: number, y: number, name: string, htmlElementModuleContainer: HTMLElement, removeModuleCallBack: (m: ModuleClass) => void, compileFaust: (compileFaust: CompileFaust) => Promise<void>) {
-        this.eventConnectorHandler = (event: Event) => { this.dragCnxCallback(event as MouseEvent, this) };
         this.eventCloseEditHandler = (event: Event) => { this.recompileSource(event as MouseEvent, this) }
         this.eventOpenEditHandler = () => { this.edit() }
         this.compileFaust = compileFaust;
 
         this.deleteCallback = removeModuleCallBack;
-        this.eventDraggingHandler = (event) => { this.dragCallback(event, this) };
 
         this.moduleView = new ModuleView();
         this.moduleView.createModuleView(id, x, y, name, htmlElementModuleContainer);
@@ -58,10 +48,7 @@ export class ModuleClass {
 
     //add all event listener to the moduleView
     addEvents() {
-        this.moduleView.getModuleContainer().addEventListener("mousedown", this.eventDraggingHandler, false);
-        this.moduleView.getModuleContainer().addEventListener("touchstart", this.eventDraggingHandler, false);
-        this.moduleView.getModuleContainer().addEventListener("touchmove", this.eventDraggingHandler, false);
-        this.moduleView.getModuleContainer().addEventListener("touchend", this.eventDraggingHandler, false);
+        // dragging of the module and of its cables is handled by the PatchView (Pointer Events)
         if (this.moduleView.textArea != undefined) {
             this.moduleView.textArea.addEventListener("touchstart", (e) => { e.stopPropagation() });
             this.moduleView.textArea.addEventListener("touchend", (e) => { e.stopPropagation() });
@@ -88,62 +75,9 @@ export class ModuleClass {
 
     /***************  PRIVATE METHODS  ******************************/
 
-    private dragCallback(event: Event, module: ModuleClass): void {
-
-        if (event.type == "mousedown") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module, e) => { module.drag.startDraggingModule(el, x, y, module, e) });
-        } else if (event.type == "mouseup") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module, e) => { module.drag.stopDraggingModule(el, x, y, module, e) });
-        } else if (event.type == "mousemove") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module, e) => { module.drag.whileDraggingModule(el, x, y, module, e) });
-        } else if (event.type == "touchstart") {
-            module.drag.getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module, e) => { module.drag.startDraggingModule(el, x!, y!, module, e) });
-        } else if (event.type == "touchmove") {
-            module.drag.getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module, e) => { module.drag.whileDraggingModule(el, x!, y!, module, e) });
-        } else if (event.type == "touchend") {
-            module.drag.getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module, e) => { module.drag.stopDraggingModule(el, x!, y!, module, e) });
-        }
-    }
-
-    private dragCnxCallback(event: Event, module: ModuleClass): void {
-        if (event.type == "mousedown") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module, e) => { module.drag.startDraggingConnector(el, x, y, module, e) });
-        } else if (event.type == "mouseup") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module) => { module.drag.stopDraggingConnector(el, x, y, module) });
-        } else if (event.type == "mousemove") {
-            module.drag.getDraggingMouseEvent(<MouseEvent>event, module, (el, x, y, module, e) => { module.drag.whileDraggingConnector(el, x, y, module, e) });
-        } else if (event.type == "touchstart") {
-            var newdrag = new Drag();
-            newdrag.isDragConnector = true;
-            newdrag.originTarget = <HTMLElement>event.target;
-            module.dragList.push(newdrag);
-            var index = module.dragList.length - 1
-            module.dragList[index].getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module, e) => { module.dragList[index].startDraggingConnector(el!, x!, y!, module, e) });
-
-        } else if (event.type == "touchmove") {
-
-            for (var i = 0; i < module.dragList.length; i++) {
-                if (module.dragList[i].originTarget == event.target) {
-                    module.dragList[i].getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module, e) => { module.dragList[i].whileDraggingConnector(el!, x!, y!, module, e) })
-                }
-            }
-        } else if (event.type == "touchend") {
-            var customEvent = new CustomEvent("unstylenode");
-            document.dispatchEvent(customEvent);
-            for (var i = 0; i < module.dragList.length; i++) {
-                if (module.dragList[i].originTarget == event.target) {
-                    module.dragList[i].getDraggingTouchEvent(<TouchEvent>event, module, (el, x, y, module) => { module.dragList[i].stopDraggingConnector(el!, x!, y!, module) });
-                }
-            }
-            document.dispatchEvent(customEvent);
-        }
-    }
-
     /*******************************  PUBLIC METHODS  **********************************/
+    // Removes the module; its connections are removed with it from the patch (Scene.removeModule).
     deleteModule(): void {
-
-        var connector: Connector = new Connector()
-        connector.disconnectModule(this);
 
         this.deleteFaustInterface();
 
@@ -163,8 +97,7 @@ export class ModuleClass {
         this.moduleView.fTitle.classList.add("miniTitle");
         this.moduleView.miniButton.style.display = "none";
         this.moduleView.maxButton.style.display = "block";
-        Connector.redrawInputConnections(this, this.drag);
-        Connector.redrawOutputConnections(this, this.drag);
+        this.redrawCables();
     }
     //restore module size
     maxModule() {
@@ -172,8 +105,7 @@ export class ModuleClass {
         this.moduleView.fTitle.classList.remove("miniTitle");
         this.moduleView.maxButton.style.display = "none";
         this.moduleView.miniButton.style.display = "block";
-        Connector.redrawInputConnections(this, this.drag);
-        Connector.redrawOutputConnections(this, this.drag);
+        this.redrawCables();
     }
 
     //--- Create and Update are called once a source code is compiled and the factory exists
@@ -211,47 +143,39 @@ export class ModuleClass {
     }
 
     //--- Update DSP in module
+    // The connections whose ports still exist are kept (Scene.updateModuleDSP); the others are
+    // removed and reported.
     private updateDSP(factory: FaustDspFactory, module: ModuleClass): void {
 
         var toDelete: IfDSP = module.moduleFaust.fDSP;
 
-        // 	Save Cnx
-        var saveOutCnx: Connector[] = new Array().concat(module.moduleFaust.fOutputConnections);
-        var saveInCnx: Connector[] = new Array().concat(module.moduleFaust.fInputConnections);
-
-        // Delete old ModuleClass
-        var connector: Connector = new Connector();
-        connector.disconnectModule(module);
-
         module.deleteFaustInterface();
-        module.moduleView.deleteInputOutputNodes();
 
-        // Create new one
         module.createDSP(factory, function () {
             module.moduleFaust.fName = module.moduleFaust.fTempName;
             module.moduleFaust.fSource = module.moduleFaust.fTempSource
             module.setFaustInterfaceControles()
             module.createFaustInterface();
-            module.addInputOutputNodes();
 
-            Utilitary.currentScene.updateModuleDSP(module);
+            var removed = Utilitary.currentScene.updateModuleDSP(module);
             module.deleteDSP(toDelete);
-
-            // Recall Cnx
-            if (saveOutCnx && module.moduleView.getOutputNode()) {
-                for (var i = 0; i < saveOutCnx.length; i++) {
-                    if (saveOutCnx[i])
-                        connector.createConnection(module, module.moduleView.getOutputNode(), saveOutCnx[i].destination, saveOutCnx[i].destination.moduleView.getInputNode());
-                }
-            }
-            if (saveInCnx && module.moduleView.getInputNode()) {
-                for (var i = 0; i < saveInCnx.length; i++) {
-                    if (saveInCnx[i])
-                        connector.createConnection(saveInCnx[i].source, saveInCnx[i].source.moduleView.getOutputNode(), module, module.moduleView.getInputNode());
-                }
+            if (removed.length > 0) {
+                var dsp = module.moduleFaust.getDSP();
+                new Message(Utilitary.messageResource.connectionsRemovedByArity
+                    .replace("{name}", module.moduleFaust.getName())
+                    .replace("{inputs}", String(dsp.getNumInputs()))
+                    .replace("{outputs}", String(dsp.getNumOutputs()))
+                    .replace("{count}", String(removed.length)));
             }
             Utilitary.hideFullPageLoading();
         });
+    }
+
+    // Redraws the cables of the module (its size or ports changed).
+    private redrawCables(): void {
+        if (this.moduleId !== undefined) {
+            Utilitary.currentScene.patchView.redrawModule(this.moduleId);
+        }
     }
 
     private deleteDSP(todelete: IfDSP): void {
@@ -271,8 +195,7 @@ export class ModuleClass {
 
         this.moduleView.textArea.style.display = "block";
         this.moduleView.textArea.value = this.moduleFaust.fSource;
-        Connector.redrawInputConnections(this, this.drag);
-        Connector.redrawOutputConnections(this, this.drag);
+        this.redrawCables();
         this.moduleView.fEditImg.style.backgroundImage = "url(" + Utilitary.baseImg + "enter.png)";
         this.moduleView.fEditImg.addEventListener("click", this.eventCloseEditHandler);
         this.moduleView.fEditImg.addEventListener("touchend", this.eventCloseEditHandler);
@@ -296,8 +219,7 @@ export class ModuleClass {
         Utilitary.showFullPageLoading();
         var dsp_code: string = this.moduleView.textArea.value;
         this.moduleView.textArea.style.display = "none";
-        Connector.redrawOutputConnections(this, this.drag);
-        Connector.redrawInputConnections(this, this.drag)
+        this.redrawCables();
         module.update(this.moduleView.fTitle.textContent!, dsp_code);
         module.recallInterfaceParams();
 
@@ -439,40 +361,5 @@ export class ModuleClass {
     }
     addInterfaceParam(path: string, value: number): void {
         this.fModuleInterfaceParams[path] = value.toString();
-    }
-
-    /******************* GET/SET INPUT/OUTPUT NODES **********************/
-    // One graphical node per side for now, whatever the number of channels.
-    // The physical input and output modules, which have no DSP, give their number of channels.
-    addInputOutputNodes(numInputs: number = this.moduleFaust.fDSP.getNumInputs(), numOutputs: number = this.moduleFaust.fDSP.getNumOutputs()): void {
-        if (numInputs > 0) {
-            this.moduleView.setInputNode();
-            this.moduleView.fInputNode.addEventListener("mousedown", this.eventConnectorHandler);
-            this.moduleView.fInputNode.addEventListener("touchstart", this.eventConnectorHandler);
-            this.moduleView.fInputNode.addEventListener("touchmove", this.eventConnectorHandler);
-            this.moduleView.fInputNode.addEventListener("touchend", this.eventConnectorHandler);
-        }
-
-        if (numOutputs > 0) {
-            this.moduleView.setOutputNode();
-            this.moduleView.fOutputNode.addEventListener("mousedown", this.eventConnectorHandler);
-            this.moduleView.fOutputNode.addEventListener("touchstart", this.eventConnectorHandler);
-            this.moduleView.fOutputNode.addEventListener("touchmove", this.eventConnectorHandler);
-            this.moduleView.fOutputNode.addEventListener("touchend", this.eventConnectorHandler);
-        }
-    }
-    //manage style of node when touchover will dragging
-    //make the use easier for connections
-    styleInputNodeTouchDragOver(el: HTMLElement) {
-        el.style.border = "15px double rgb(0, 211, 255)"
-        el.style.left = "-32px"
-        el.style.marginTop = "-32px"
-        ModuleClass.isNodesModuleUnstyle = false;
-    }
-    styleOutputNodeTouchDragOver(el: HTMLElement) {
-        el.style.border = "15px double rgb(0, 211, 255)"
-        el.style.right = "-32px"
-        el.style.marginTop = "-32px"
-        ModuleClass.isNodesModuleUnstyle = false;
     }
 }
