@@ -12,10 +12,22 @@
     Version 1 files are read by PatchFormatV1.ts.
 */
 
+import { ModulationMode, ModulationSpec } from "./Modulation";
 import { AccMapping, ModuleKind, Patch, PatchError, PortRef, PrecompiledFactory } from "./Patch";
 
 export const PATCH_FORMAT = "faustplayground-patch";
 export const PATCH_VERSION = 2;
+// Version of the files with widget modulations (a 2.0 application must not read them).
+export const PATCH_VERSION_MODULATIONS = 3;
+
+export interface ModulationFile {
+    widget: string;                 // address of the widget in the module's DSP
+    target: string;
+    mode: ModulationMode;
+    min: number;
+    max: number;
+    exponential: boolean;
+}
 
 export interface ModuleFileV2 {
     id: string;
@@ -28,6 +40,7 @@ export interface ModuleFileV2 {
     outputs: number;
     params: Record<string, number>;
     acc: AccMapping[];
+    modulations?: ModulationFile[];     // version 3; ports inputs .. inputs + n - 1
     factory?: PrecompiledFactory;
 }
 
@@ -38,7 +51,7 @@ export interface ConnectionFileV2 {
 
 export interface PatchFileV2 {
     format: typeof PATCH_FORMAT;
-    version: 2;
+    version: 2 | 3;
     sceneName: string;
     modules: ModuleFileV2[];
     connections: ConnectionFileV2[];
@@ -59,9 +72,10 @@ export function encodeFactoryCode(code: Uint8Array | ArrayBuffer): string {
 
 // `precompiled`: also save the precompiled factories, when the modules have one.
 export function serializePatch(patch: Patch, sceneName: string, precompiled: boolean = false): PatchFileV2 {
+    const modulated = patch.getModules().some((m) => m.modulations.length > 0);
     return {
         format: PATCH_FORMAT,
-        version: PATCH_VERSION,
+        version: modulated ? PATCH_VERSION_MODULATIONS : PATCH_VERSION,
         sceneName,
         modules: patch.getModules().map((m) => {
             const module: ModuleFileV2 = {
@@ -76,6 +90,9 @@ export function serializePatch(patch: Patch, sceneName: string, precompiled: boo
                 params: { ...m.params },
                 acc: m.acc.map((a) => ({ ...a })),
             };
+            if (m.modulations.length > 0) {
+                module.modulations = m.modulations.map((x) => ({ widget: x.widget, ...x.spec }));
+            }
             if (precompiled && m.factory) {
                 module.factory = m.factory;
             }
@@ -98,7 +115,7 @@ export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string }
     if (!isObject(data) || data.format != PATCH_FORMAT) {
         throw new PatchFormatError("not a FaustPlayground patch file");
     }
-    if (data.version != PATCH_VERSION) {
+    if (data.version != PATCH_VERSION && data.version != PATCH_VERSION_MODULATIONS) {
         throw new PatchFormatError(`unsupported patch version ${String(data.version)}`);
     }
     const sceneName = expectString(data.sceneName, "sceneName");
@@ -124,6 +141,7 @@ export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string }
             numOutputs: expectNumber(m.outputs, `${where}.outputs`),
             params: parseParams(m.params, `${where}.params`),
             acc: expectArray(m.acc, `${where}.acc`).map((a, j) => parseAcc(a, `${where}.acc[${j}]`)),
+            modulations: m.modulations === undefined ? [] : expectArray(m.modulations, `${where}.modulations`).map((x, j) => parseModulation(x, `${where}.modulations[${j}]`)),
             factory: m.factory === undefined ? undefined : parseFactory(m.factory, `${where}.factory`),
         }));
     });
@@ -202,6 +220,24 @@ function parseAcc(value: unknown, where: string): AccMapping {
         amid: expectNumber(a.amid, `${where}.amid`),
         amax: expectNumber(a.amax, `${where}.amax`),
         enabled: expectBoolean(a.enabled, `${where}.enabled`),
+    };
+}
+
+function parseModulation(value: unknown, where: string): { widget: string; spec: ModulationSpec } {
+    const x = expectObject(value, where);
+    const mode = expectString(x.mode, `${where}.mode`);
+    if (mode != "modulate" && mode != "scale" && mode != "drive") {
+        throw new PatchFormatError(`${where}.mode: unknown modulation mode "${mode}"`);
+    }
+    return {
+        widget: expectString(x.widget, `${where}.widget`),
+        spec: {
+            target: expectString(x.target, `${where}.target`),
+            mode,
+            min: expectNumber(x.min, `${where}.min`),
+            max: expectNumber(x.max, `${where}.max`),
+            exponential: expectBoolean(x.exponential, `${where}.exponential`),
+        },
     };
 }
 

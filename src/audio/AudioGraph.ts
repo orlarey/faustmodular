@@ -16,7 +16,7 @@
     and every other wire is removed.
 */
 
-import { Connection, ConnectionId, ModuleId, Patch, PatchEvent } from "../model/Patch";
+import { Connection, ConnectionId, ModuleId, Patch, PatchEvent, totalInputs } from "../model/Patch";
 
 interface ModulePorts {
     node: AudioNode;
@@ -52,7 +52,7 @@ export class AudioGraph {
             if (!module) {
                 throw new Error(`AudioGraph: module ${id} is not in the patch`);
             }
-            this.fPorts.set(id, this.buildPorts(node, module.numInputs, module.numOutputs));
+            this.fPorts.set(id, this.buildPorts(node, totalInputs(module), module.numOutputs));
         }
         this.reconcile();
     }
@@ -81,11 +81,14 @@ export class AudioGraph {
             case "moduleRemoved":
                 this.releasePorts(event.module.id);
                 break;
-            case "arityChanged": {
+            case "arityChanged":
+            case "modulationsChanged": {
+                // until the module gets its new DSP (Scene), the merger may have more or fewer
+                // channels than the node: Web Audio then drops or zero-fills them ("discrete")
                 const ports = this.fPorts.get(event.module.id);
-                if (ports && (ports.numInputs != event.module.numInputs || ports.numOutputs != event.module.numOutputs)) {
+                if (ports && (ports.numInputs != totalInputs(event.module) || ports.numOutputs != event.module.numOutputs)) {
                     this.releasePorts(event.module.id);
-                    this.fPorts.set(event.module.id, this.buildPorts(ports.node, event.module.numInputs, event.module.numOutputs));
+                    this.fPorts.set(event.module.id, this.buildPorts(ports.node, totalInputs(event.module), event.module.numOutputs));
                 }
                 break;
             }

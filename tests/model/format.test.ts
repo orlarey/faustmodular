@@ -51,7 +51,7 @@ describe("patch file v2", () => {
     });
 
     it.each([
-        ["wrong version", (f: any) => { f.version = 3; }, /unsupported patch version 3/],
+        ["wrong version", (f: any) => { f.version = 4; }, /unsupported patch version 4/],
         ["missing field", (f: any) => { delete f.modules[2].code; }, /modules\[2\]\.code: string expected/],
         ["unknown kind", (f: any) => { f.modules[2].kind = "midi"; }, /modules\[2\]\.kind: unknown module kind/],
         ["too many channels", (f: any) => { f.modules[2].inputs = 33; }, /modules\[2\]: number of inputs/],

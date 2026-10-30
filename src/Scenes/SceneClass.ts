@@ -151,7 +151,9 @@ export class Scene {
     // because their ports no longer exist.
     updateModuleDSP(module: ModuleClass): Connection[] {
         var dsp = module.moduleFaust.getDSP();
-        var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs(), dsp.getNumOutputs());
+        // the DSP is compiled from the effective code: its first inputs are the audio inputs
+        var modulations = this.patch.getModule(module.moduleId)!.modulations.length;
+        var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs() - modulations, dsp.getNumOutputs());
         this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
         this.audioGraph.setNode(module.moduleId, dsp);
         return removed;

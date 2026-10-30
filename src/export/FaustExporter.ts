@@ -23,7 +23,8 @@
     Every module keeps its own controls: modules with the same name get distinct group labels.
 */
 
-import { busPairs, ConnectionId, ModuleId, ModuleState, Patch } from "../model/Patch";
+import { modulatedCode } from "../model/Modulation";
+import { busPairs, ConnectionId, ModuleId, ModuleState, Patch, totalInputs } from "../model/Patch";
 
 export interface ExportOptions {
     name: string;
@@ -96,13 +97,14 @@ export function exportFaust(patch: Patch, options: ExportOptions): ExportResult 
     modules.forEach((m, k) => {
         const id = `fp_module${k + 1}`;
         identifier.set(m.id, id);
-        let body = `environment{\n${m.code}\n}.process`;
+        // effective code: the widget modulations are part of the module
+        let body = `environment{\n${modulatedCode(m.code, m.numInputs, m.modulations.map((x) => x.spec))}\n}.process`;
         if ((names.get(m.name) ?? 0) > 1) {
             const n = (seen.get(m.name) ?? 0) + 1;
             seen.set(m.name, n);
             body = `vgroup(${quote(`${m.name} ${n}`)}, ${body})`;
         }
-        definitions.push(`// module ${m.id}: ${m.name} (${m.numInputs} in, ${m.numOutputs} out)\n${id} = ${body};`);
+        definitions.push(`// module ${m.id}: ${m.name} (${m.numInputs} in, ${m.modulations.length} modulation(s), ${m.numOutputs} out)\n${id} = ${body};`);
     });
 
     // Stages.
@@ -110,12 +112,13 @@ export function exportFaust(patch: Patch, options: ExportOptions): ExportResult 
     for (const m of modules) {
         const pairs: Array<[number, number]> = used.filter((c) => c.to.module == m.id).map((c) => [sourcePosition(c), c.to.port + 1]);
         const module = identifier.get(m.id)!;
+        const inputs = totalInputs(m);
         if (width == 0) {
-            stages.push(m.numInputs == 0 ? module : `${route(0, m.numInputs, [])} : ${module}`);
-        } else if (m.numInputs == 0) {
+            stages.push(inputs == 0 ? module : `${route(0, inputs, [])} : ${module}`);
+        } else if (inputs == 0) {
             stages.push(`(si.bus(${width}), ${module})`);
         } else {
-            stages.push(`(si.bus(${width}) <: si.bus(${width}), (${route(width, m.numInputs, pairs)} : ${module}))`);
+            stages.push(`(si.bus(${width}) <: si.bus(${width}), (${route(width, inputs, pairs)} : ${module}))`);
         }
         for (let i = 0; i < m.numOutputs; i++) {
             position.set(key(m.id, i), ++width);

@@ -10,7 +10,12 @@
     - an output port may feed several connections (one single module instance);
     - cycles are allowed; the connections returned by analyze().feedback are the
       ones that get delayed (DelayNode live, `~` in the export).
+
+    Widget modulations (model/Modulation.ts): a Faust module with n audio inputs and k modulations
+    has n + k input ports; port n + i is the input of its i-th modulation.
 */
+
+import type { ModulationSpec } from "./Modulation";
 
 export const MAX_CHANNELS = 32;
 
@@ -49,6 +54,13 @@ export interface PrecompiledFactory {
     shaKey: string;
 }
 
+// A widget of a module modulated by the signal reaching its modulation port.
+export interface Modulation {
+    readonly id: string;
+    readonly widget: string;        // address of the widget in the module's DSP
+    readonly spec: ModulationSpec;
+}
+
 export interface ModuleState {
     id: ModuleId;
     kind: ModuleKind;
@@ -56,11 +68,17 @@ export interface ModuleState {
     code: string;
     x: number;
     y: number;
-    numInputs: number;
+    numInputs: number;              // audio inputs (the modulation inputs come after them)
     numOutputs: number;
     params: Record<string, number>;
     acc: AccMapping[];
+    modulations: Modulation[];
     factory?: PrecompiledFactory;
+}
+
+// Number of input ports: audio inputs, then modulation inputs.
+export function totalInputs(module: ModuleState): number {
+    return module.numInputs + module.modulations.length;
 }
 
 export interface ModuleInit {
@@ -74,6 +92,7 @@ export interface ModuleInit {
     numOutputs: number;
     params?: Record<string, number>;
     acc?: AccMapping[];
+    modulations?: Array<{ widget: string; spec: ModulationSpec }>;
     factory?: PrecompiledFactory;
 }
 
@@ -84,6 +103,7 @@ export type PatchEvent =
     | { type: "moduleUpdated"; module: ModuleState }
     | { type: "moduleRemoved"; module: ModuleState }
     | { type: "arityChanged"; module: ModuleState }
+    | { type: "modulationsChanged"; module: ModuleState }
     | { type: "connectionAdded"; connection: Connection }
     | { type: "connectionRemoved"; connection: Connection };
 
@@ -121,6 +141,7 @@ export class Patch {
     private fListeners = new Set<PatchListener>();
     private fNextModuleId = 1;
     private fNextConnectionId = 1;
+    private fNextModulationId = 1;
 
     /******************** OBSERVERS ********************/
 
@@ -160,7 +181,10 @@ export class Patch {
         if (this.fModules.has(id)) {
             throw new PatchError(`module ${id} already exists`);
         }
-        this.checkKindArity(kind, init.numInputs, init.numOutputs);
+        this.checkKindArity(kind, init.numInputs + (init.modulations?.length ?? 0), init.numOutputs);
+        if (kind != "faust" && (init.modulations?.length ?? 0) > 0) {
+            throw new PatchError("only Faust modules have modulations");
+        }
         if (kind != "faust" && this.getModules().some((m) => m.kind == kind)) {
             throw new PatchError(`the patch already has an ${kind} module`);
         }
@@ -175,6 +199,7 @@ export class Patch {
             numOutputs: init.numOutputs,
             params: { ...(init.params ?? {}) },
             acc: [...(init.acc ?? [])],
+            modulations: (init.modulations ?? []).map((m) => ({ id: "mod" + this.fNextModulationId++, widget: m.widget, spec: m.spec })),
         };
         if (init.factory) {
             module.factory = init.factory;
@@ -205,18 +230,75 @@ export class Patch {
         return removed;
     }
 
-    // Changes the number of ports (e.g. after recompilation); drops the connections
-    // whose ports no longer exist and returns them.
+    // Changes the number of audio ports (e.g. after recompilation); drops the connections whose
+    // ports no longer exist and returns them. The modulation ports, after the audio inputs, move
+    // with them (their connections are made again on their new ports).
     setArity(id: ModuleId, numInputs: number, numOutputs: number): Connection[] {
         const module = this.requireModule(id);
-        this.checkKindArity(module.kind, numInputs, numOutputs);
+        this.checkKindArity(module.kind, numInputs + module.modulations.length, numOutputs);
+        const old = module.numInputs;
+        const toModulation = (c: Connection) => c.to.module == id && c.to.port >= old;
         const removed = this.getConnections().filter((c) =>
-            (c.from.module == id && c.from.port >= numOutputs) || (c.to.module == id && c.to.port >= numInputs));
+            (c.from.module == id && c.from.port >= numOutputs) || (c.to.module == id && !toModulation(c) && c.to.port >= numInputs));
         removed.forEach((c) => this.disconnect(c.id));
+        const moved = numInputs == old ? [] : this.getConnections().filter(toModulation);
+        moved.forEach((c) => this.disconnect(c.id));
         module.numInputs = numInputs;
         module.numOutputs = numOutputs;
         this.emit({ type: "arityChanged", module });
+        moved.forEach((c) => this.connect(c.from, { module: id, port: c.to.port - old + numInputs }));
         return removed;
+    }
+
+    /******************** MODULATIONS ********************/
+
+    // Adds a modulation of a widget (one per widget); its port is the last input port of the module.
+    addModulation(id: ModuleId, widget: string, spec: ModulationSpec): Modulation {
+        const module = this.requireModule(id);
+        if (module.kind != "faust") {
+            throw new PatchError("only Faust modules have modulations");
+        }
+        if (module.modulations.some((m) => m.widget == widget)) {
+            throw new PatchError(`the widget ${widget} of module ${id} is already modulated`);
+        }
+        this.checkKindArity(module.kind, totalInputs(module) + 1, module.numOutputs);
+        const modulation: Modulation = { id: "mod" + this.fNextModulationId++, widget, spec };
+        module.modulations.push(modulation);
+        this.emit({ type: "modulationsChanged", module });
+        return modulation;
+    }
+
+    // Removes a modulation and the connections to its port; the following modulation ports move
+    // down by one. Returns the connections that went to the removed modulation.
+    removeModulation(id: ModuleId, modulationId: string): Connection[] {
+        const module = this.requireModule(id);
+        const index = module.modulations.findIndex((m) => m.id == modulationId);
+        if (index < 0) {
+            throw new PatchError(`module ${id} has no modulation ${modulationId}`);
+        }
+        const port = module.numInputs + index;
+        const removed = this.connectionsTo(id).filter((c) => c.to.port == port);
+        const moved = this.connectionsTo(id).filter((c) => c.to.port > port);
+        removed.concat(moved).forEach((c) => this.disconnect(c.id));
+        module.modulations.splice(index, 1);
+        this.emit({ type: "modulationsChanged", module });
+        moved.forEach((c) => this.connect(c.from, { module: id, port: c.to.port - 1 }));
+        return removed;
+    }
+
+    // Modulation whose input is the given port of a module, if any.
+    modulationAt(id: ModuleId, port: number): Modulation | undefined {
+        const module = this.requireModule(id);
+        return port >= module.numInputs ? module.modulations[port - module.numInputs] : undefined;
+    }
+
+    modulationPort(id: ModuleId, modulationId: string): number {
+        const module = this.requireModule(id);
+        const index = module.modulations.findIndex((m) => m.id == modulationId);
+        if (index < 0) {
+            throw new PatchError(`module ${id} has no modulation ${modulationId}`);
+        }
+        return module.numInputs + index;
     }
 
     /******************** CONNECTIONS ********************/
@@ -227,8 +309,8 @@ export class Patch {
         if (!Number.isInteger(from.port) || from.port < 0 || from.port >= source.numOutputs) {
             throw new PatchError(`module ${source.id} has no output ${from.port} (it has ${source.numOutputs})`);
         }
-        if (!Number.isInteger(to.port) || to.port < 0 || to.port >= destination.numInputs) {
-            throw new PatchError(`module ${destination.id} has no input ${to.port} (it has ${destination.numInputs})`);
+        if (!Number.isInteger(to.port) || to.port < 0 || to.port >= totalInputs(destination)) {
+            throw new PatchError(`module ${destination.id} has no input ${to.port} (it has ${totalInputs(destination)})`);
         }
         if (this.findConnection(from, to)) {
             throw new PatchError(`${from.module}:${from.port} is already connected to ${to.module}:${to.port}`);
