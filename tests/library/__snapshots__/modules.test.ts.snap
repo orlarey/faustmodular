@@ -47,7 +47,7 @@ exports[`library modules > all indexed modules compile, with at most 32 inputs a
   "faust-modules/effects/RandomVibrato.dsp": "1x1",
   "faust-modules/effects/RingModulation.dsp": "1x1",
   "faust-modules/effects/SLimiter.dsp": "2x2",
-  "faust-modules/effects/VibratoEnvelope.dsp": "2x1",
+  "faust-modules/effects/VibratoEnvelope.dsp": "1x1",
   "faust-modules/effects/Volume.dsp": "2x2",
   "faust-modules/effects/WahWah.dsp": "1x1",
   "faust-modules/effects/ZitaReverb.dsp": "1x1",
@@ -91,5 +91,14 @@ exports[`library modules > all indexed modules compile, with at most 32 inputs a
   "faust-modules/generators/STunedBar6.dsp": "0x1",
   "faust-modules/generators/SWhistles2.dsp": "0x1",
   "faust-modules/generators/SWhistles3.dsp": "0x1",
+  "faust-modules/multichannel/AmbiDecoder3.dsp": "7x8",
+  "faust-modules/multichannel/AmbiEncoder3.dsp": "1x7",
+  "faust-modules/multichannel/Mixer4to2.dsp": "4x2",
+  "faust-modules/multichannel/MultiDelay4.dsp": "4x4",
+  "faust-modules/multichannel/OctoSpat.dsp": "1x8",
+  "faust-modules/multichannel/OscillatorBank8.dsp": "0x8",
+  "faust-modules/multichannel/Panner.dsp": "1x2",
+  "faust-modules/multichannel/QuadPanner.dsp": "1x4",
+  "faust-modules/multichannel/StereoWidth.dsp": "2x2",
 }
 `;

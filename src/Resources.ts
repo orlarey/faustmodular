@@ -73,6 +73,7 @@ export class Resources {
     titleInstruments: string;
     titleEffects: string;
     titleExemples: string;
+    titleMultichannel: string;
 
     //Library
     hoverLibraryElement: string;

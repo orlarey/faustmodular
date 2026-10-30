@@ -7,6 +7,7 @@ export class LibraryView {
     intrumentLibrarySelect: HTMLUListElement
     effetLibrarySelect: HTMLUListElement
     exempleLibrarySelect: HTMLUListElement
+    multichannelLibrarySelect: HTMLUListElement
     intrumentLibrary: HTMLElement
     effetLibrary: HTMLElement
     exempleLibrary: HTMLElement
@@ -80,9 +81,30 @@ export class LibraryView {
         exempleLibraryContent.appendChild(exempleLibraryTitle);
         exempleLibraryContent.appendChild(exempleLibrarySelect);
 
+        /////////////Multichannel modules
+
+        var multichannelLibraryContent: HTMLElement = document.createElement("div");
+        multichannelLibraryContent.id = "multichannelLibraryContent";
+        multichannelLibraryContent.className = "submenuLibraryContent";
+
+        var multichannelLibraryTitle: HTMLSpanElement = document.createElement("span");
+        multichannelLibraryTitle.id = "multichannelLibraryTitle";
+        multichannelLibraryTitle.className = "libraryTitles";
+        multichannelLibraryTitle.appendChild(document.createTextNode(Utilitary.messageResource.titleMultichannel));
+
+        var multichannelLibrarySelect: HTMLUListElement = document.createElement("ul");
+        multichannelLibrarySelect.id = "multichannelLibrarySelect";
+        multichannelLibrarySelect.className = "librarySelects";
+        Ps.initialize(multichannelLibrarySelect, { suppressScrollX: true, theme: 'my-theme-name' });
+        this.multichannelLibrarySelect = multichannelLibrarySelect;
+
+        multichannelLibraryContent.appendChild(multichannelLibraryTitle);
+        multichannelLibraryContent.appendChild(multichannelLibrarySelect);
+
         libraryContent.appendChild(instrumentLibraryContent)
         libraryContent.appendChild(effetLibraryContent)
         libraryContent.appendChild(exempleLibraryContent)
+        libraryContent.appendChild(multichannelLibraryContent)
 
         return libraryContent;
     }

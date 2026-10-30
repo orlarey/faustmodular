@@ -43,6 +43,7 @@ interface jsonObjectLibrary {
     instruments: string[];
     effets: string[];
     exemples: string[];
+    multicanal?: string[];
 }
 
 export class Library {
@@ -70,6 +71,7 @@ export class Library {
         this.fillSubMenu(jsonObject.instruments, jsonObject.instrument, jsonObject.instrumentSupprStructure);
         this.fillSubMenu(jsonObject.effets, jsonObject.effet, jsonObject.effetSupprStructure);
         this.fillSubMenu(jsonObject.exemples, jsonObject.exemple, jsonObject.exempleSupprStructure);
+        this.fillSubMenu(jsonObject.multicanal ?? [], "multichannelLibrarySelect", "faust-modules/multichannel/");
     }
 
     //fill submenu and attach events
@@ -120,6 +122,7 @@ export class Library {
         this.libraryView.effetLibrarySelect.scrollTop += 1;
         this.libraryView.exempleLibrarySelect.scrollTop += 1;
         this.libraryView.intrumentLibrarySelect.scrollTop += 1;
+        this.libraryView.multichannelLibrarySelect.scrollTop += 1;
     }
 
     //remove .dsp extention and uri from element to get title
