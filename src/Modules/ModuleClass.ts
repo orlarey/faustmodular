@@ -140,33 +140,41 @@ export class ModuleClass {
         }
     }
 
-    //--- Update DSP in module
-    // The connections whose ports still exist are kept (Scene.updateModuleDSP); the others are
-    // removed and reported.
-    private updateDSP(factory: FaustDspFactory, module: ModuleClass): void {
+    //--- Replace the DSP of the module
+    // Used after a code edition (`source`: new name and base code) and when its widget modulations
+    // change (same code). The current DSP and interface stay until the new DSP exists; parameter
+    // values are kept. The connections whose ports still exist are kept (Scene.updateModuleDSP),
+    // the others are removed and reported.
+    async replaceDSP(factory: FaustDspFactory, source?: { name: string; code: string }): Promise<boolean> {
+        var toDelete: IfDSP = this.moduleFaust.fDSP;
+        var previousFactory = this.moduleFaust.factory;
+        this.saveInterfaceParams();
+        var created = false;
+        await this.createDSP(factory, () => { created = true; });
+        if (!created) {
+            this.moduleFaust.factory = previousFactory;
+            return false;
+        }
+        if (source) {
+            this.moduleFaust.fName = source.name;
+            this.moduleFaust.fSource = source.code;
+        }
+        this.deleteFaustInterface();
+        this.setFaustInterfaceControles();
+        this.createFaustInterface();
+        this.recallInterfaceParams();
 
-        var toDelete: IfDSP = module.moduleFaust.fDSP;
-
-        module.deleteFaustInterface();
-
-        module.createDSP(factory, function () {
-            module.moduleFaust.fName = module.moduleFaust.fTempName;
-            module.moduleFaust.fSource = module.moduleFaust.fTempSource
-            module.setFaustInterfaceControles()
-            module.createFaustInterface();
-
-            var removed = Utilitary.currentScene.updateModuleDSP(module);
-            module.deleteDSP(toDelete);
-            if (removed.length > 0) {
-                var dsp = module.moduleFaust.getDSP();
-                new Message(Utilitary.messageResource.connectionsRemovedByArity
-                    .replace("{name}", module.moduleFaust.getName())
-                    .replace("{inputs}", String(dsp.getNumInputs()))
-                    .replace("{outputs}", String(dsp.getNumOutputs()))
-                    .replace("{count}", String(removed.length)));
-            }
-            Utilitary.hideFullPageLoading();
-        });
+        var removed = Utilitary.currentScene.updateModuleDSP(this);
+        this.deleteDSP(toDelete);
+        if (removed.length > 0) {
+            var dsp = this.moduleFaust.getDSP();
+            new Message(Utilitary.messageResource.connectionsRemovedByArity
+                .replace("{name}", this.moduleFaust.getName())
+                .replace("{inputs}", String(dsp.getNumInputs()))
+                .replace("{outputs}", String(dsp.getNumOutputs()))
+                .replace("{count}", String(removed.length)));
+        }
+        return true;
     }
 
     // Redraws the cables of the module (its size or ports changed).
@@ -206,10 +214,10 @@ export class ModuleClass {
 
         var event: CustomEvent = new CustomEvent("codeeditevent")
         document.dispatchEvent(event);
-        this.moduleFaust.fTempName = name;
-        this.moduleFaust.fTempSource = code;
-        var module: ModuleClass = this;
-        this.compileFaust({ name: name, sourceCode: code, x: this.moduleView.x, y: this.moduleView.y, callback: (factory) => { module.updateDSP(factory, module) } });
+        // compiled with the widget modulations of the module, if any (Scene.compileModuleCode)
+        Utilitary.currentScene.compileModuleCode(this, name, code)
+            .then((factory) => factory ? this.replaceDSP(factory, { name, code }) : false)
+            .then(() => Utilitary.hideFullPageLoading());
     }
 
     //---- React to recompilation triggered by click on icon
@@ -218,8 +226,8 @@ export class ModuleClass {
         var dsp_code: string = this.moduleView.textArea.value;
         this.moduleView.textArea.style.display = "none";
         this.redrawCables();
+        // the parameter values saved by edit() are given back to the new DSP (replaceDSP)
         module.update(this.moduleView.fTitle.textContent!, dsp_code);
-        module.recallInterfaceParams();
 
         module.moduleView.fEditImg.style.backgroundImage = "url(" + Utilitary.baseImg + "edit.png)";
         module.moduleView.fEditImg.addEventListener("click", this.eventOpenEditHandler);
@@ -338,7 +346,7 @@ export class ModuleClass {
     }
 
     // Save graphical parameters of a Faust Node
-    private saveInterfaceParams(): void {
+    saveInterfaceParams(): void {
 
         var controls = this.moduleControles;
         for (var j = 0; j < controls.length; j++) {

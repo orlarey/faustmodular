@@ -424,3 +424,97 @@ describe("application", () => {
         await page.close();
     }, 120_000);
 });
+
+describe("widget modulation (scene API)", () => {
+    // Last sample at the output of a module's node (constant signals), through an analyser.
+    const outputOf = (page: Page, id: string) => page.evaluate(async (moduleId) => {
+        const s = (globalThis as any).faustPlayground.scene;
+        const node = s.audioGraph.getNode(moduleId);
+        await node.context.resume();
+        const analyser = node.context.createAnalyser();
+        node.connect(analyser);
+        await new Promise((r) => setTimeout(r, 400));
+        const buffer = new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(buffer);
+        node.disconnect(analyser);
+        return buffer[buffer.length - 1];
+    }, id);
+
+    async function addModule(page: Page, name: string, code: string, x: number): Promise<string> {
+        return page.evaluate(async ([n, c, xx]) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const before = scene.getModules().length;
+            await app.compileFaust({ name: n, sourceCode: c, x: xx, y: 300, callback: (f: any) => app.createModule(f, n, c, xx, 300) });
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[before].moduleId;
+        }, [name, code, x] as [string, string, number]);
+    }
+
+    it("recompiles a module when a widget is modulated or released, keeping the slider values", async () => {
+        const { page, errors } = await openApp();
+        const one = await addModule(page, "One", 'process = vgroup("One", 1);', 150);
+        const gain = await addModule(page, "Gain", 'process = vgroup("Gain", *(hslider("gain", 0.5, 0, 1, 0.01)));', 450);
+        const source = await addModule(page, "Quarter", 'process = vgroup("Quarter", 0.25);', 150);
+        await page.evaluate(([a, b]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.connect({ module: a, port: 0 }, { module: b, port: 0 });
+            s.patch.connect({ module: b, port: 0 }, { module: "output", port: 0 });
+            // the user sets the slider to 0.8
+            const slider = s.getModuleById(b).moduleView.fModuleContainer.querySelector("input[type=range]");
+            slider.value = "80";
+            slider.dispatchEvent(new Event("input"));
+        }, [one, gain]);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.8, 5);
+
+        const modulate = (mode: string) => page.evaluate(async ([from, to, m]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const address = s.widgetsOf(s.getModuleById(to)).find((w: any) => w.label == "gain").address;
+            return s.modulate({ module: from, port: 0 }, to, address, m);
+        }, [source, gain, mode]);
+        const inputsOf = (id: string) => page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs(), id);
+
+        // ⇐ piloter: the gain is the signal
+        expect(await modulate("drive")).toBe(true);
+        expect(await inputsOf(gain)).toBe(2);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.25, 5);
+
+        // removing the cable removes the modulation: back to the slider value (kept: 0.8)
+        await page.evaluate(([from, to]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.disconnect(s.patch.connectionsTo(to).find((c: any) => c.from.module == from).id);
+        }, [source, gain]);
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 1, gain);
+        expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.length, gain)).toBe(0);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.8, 5);
+
+        // ± moduler: 0.8 + D·0.25·(1 − 0)/2, D adjusted live (no recompilation)
+        expect(await modulate("modulate")).toBe(true);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.925, 3);
+        const depth = await page.evaluate((m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const dsp = s.getModuleById(m).moduleFaust.getDSP();
+            const address = s.widgetsOf(s.getModuleById(m)).find((w: any) => w.meta.modulation).address;
+            dsp.setParamValue(address, -1);
+            (globalThis as any).dspBefore = dsp;
+            return address;
+        }, gain);
+        expect(depth).toMatch(/depth/);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.675, 3);
+        expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP() === (globalThis as any).dspBefore, gain)).toBe(true);
+
+        // saved in version 3, then recalled: same modulation, same values
+        const saved = await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false));
+        expect(JSON.parse(saved).version).toBe(3);
+        await cleanScene(page);
+        await page.evaluate((json) => (globalThis as any).faustPlayground.scene.recallScene(json), saved);
+        const recalled = await page.evaluate(() => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const m = s.getModules().find((x: any) => x.moduleFaust.getName() == "Gain");
+            return { id: m.moduleId, inputs: m.moduleFaust.getDSP().getNumInputs(), modulations: s.patch.getModule(m.moduleId).modulations.map((x: any) => x.spec.mode) };
+        });
+        expect(recalled).toMatchObject({ inputs: 2, modulations: ["modulate"] });
+        expect(await outputOf(page, recalled.id)).toBeCloseTo(0.675, 3);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 180_000);
+});

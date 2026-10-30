@@ -8,9 +8,7 @@ export class ModuleFaust {
     fDSP: IfDSP;
     factory: FaustDspFactory;
     fSource: string;
-    fTempSource: string;
     fName: string;
-    fTempName: string;
     constructor(name: string) {
         this.fName = name;
     }

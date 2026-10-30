@@ -33,6 +33,8 @@ export class Resources {
     errorCreateModuleRecall: string;
     errorConnectionRecall: string;
     connectionsRemovedByArity: string;
+    modulationFailed: string;
+    modulationsRemoved: string;
     forceStereoExport: string;
     modulesNotExported: string;
     errorLocalStorage: string;

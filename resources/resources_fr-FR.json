@@ -23,6 +23,8 @@
   "errorCreateModuleRecall": "Une erreur s'est produite lors de la création du module, le fichier de sauvegarde est probablement corrompu",
   "errorConnectionRecall": "Une erreur s'est produite lors de la connexion des modules, le fichier de sauvegarde est probablement corrompu",
   "connectionsRemovedByArity": "Le module {name} a maintenant {inputs} entrée(s) et {outputs} sortie(s) : {count} connexion(s) vers des ports disparus ont été supprimées",
+  "modulationFailed": "La modulation n'a pas pu être créée : {reason}",
+  "modulationsRemoved": "Modulations supprimées, leurs widgets n'existent plus dans le nouveau code : {widgets}",
   "errorLocalStorage": "Votre navigateur ne permet pas la sauvegarde locale",
   "errorConnectionCloud": "Connexion à Google Drive impossible",
   

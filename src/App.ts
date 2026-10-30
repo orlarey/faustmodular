@@ -87,7 +87,8 @@ export class App {
 
         var currentScene: Scene = Utilitary.currentScene;
 
-        if (currentScene) { currentScene.muteScene() };
+        var mute = compileFaust.mute !== false;
+        if (currentScene && mute) { currentScene.muteScene() };
 
         // Libraries are now included and loaded from the EMCC locale FS inluded in libfaust
         // var libpath = "libraries";
@@ -103,7 +104,7 @@ export class App {
             new Message(String(error))
         }
 
-        if (currentScene) { currentScene.unmuteScene() };
+        if (currentScene && mute) { currentScene.unmuteScene() };
     }
 
     //create Module, set the source faust code to its moduleFaust, set the faust interface , add the input output connection nodes

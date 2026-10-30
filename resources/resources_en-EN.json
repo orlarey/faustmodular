@@ -23,6 +23,8 @@
   "errorCreateModuleRecall": "An error occured while creating the module, the save file is probably corrupt",
   "errorConnectionRecall": "An error occured while connecting modules, the save file is probably corrupt",
   "connectionsRemovedByArity": "Module {name} now has {inputs} input(s) and {outputs} output(s): {count} connection(s) to ports that no longer exist were removed",
+  "modulationFailed": "The modulation could not be created: {reason}",
+  "modulationsRemoved": "Modulations removed, their widgets no longer exist in the new code: {widgets}",
   "errorLocalStorage": "Your browser does not support local storage",
   "errorConnectionCloud": "Unable to connect to Google Drive",
   

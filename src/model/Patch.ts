@@ -286,6 +286,19 @@ export class Patch {
         return removed;
     }
 
+    // Changes the Faust target and range of a modulation (its widget moved in an edited code).
+    setModulationSpec(id: ModuleId, modulationId: string, spec: ModulationSpec): Modulation {
+        const module = this.requireModule(id);
+        const index = module.modulations.findIndex((m) => m.id == modulationId);
+        if (index < 0) {
+            throw new PatchError(`module ${id} has no modulation ${modulationId}`);
+        }
+        const modulation: Modulation = { id: modulationId, widget: module.modulations[index].widget, spec };
+        module.modulations[index] = modulation;
+        this.emit({ type: "modulationsChanged", module });
+        return modulation;
+    }
+
     // Modulation whose input is the given port of a module, if any.
     modulationAt(id: ModuleId, port: number): Modulation | undefined {
         const module = this.requireModule(id);

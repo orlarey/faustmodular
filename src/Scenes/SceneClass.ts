@@ -13,7 +13,8 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
-import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PrecompiledFactory } from "../model/Patch";
+import { listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
+import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
@@ -33,7 +34,9 @@ interface ModuleDescription {
     y: number;
     params: Record<string, number>;
     acc: AccMapping[];
-    factory?: PrecompiledFactory;
+    factory?: PrecompiledFactory;           // compiled from the effective code
+    numInputs?: number;                     // audio inputs, needed with modulations
+    modulations?: Array<{ widget: string; spec: ModulationSpec }>;
 }
 
 export class Scene {
@@ -69,6 +72,16 @@ export class Scene {
         this.integrateInput();
         Utilitary.hideFullPageLoading();
         this.isInitLoading = false;
+        // a modulation whose last cable is removed is removed with it (once the change is complete)
+        this.patch.subscribe((event) => {
+            if (event.type == "connectionRemoved" && this.patch.getModule(event.connection.to.module)) {
+                var modulation = this.patch.modulationAt(event.connection.to.module, event.connection.to.port);
+                if (modulation) {
+                    var id = event.connection.to.module;
+                    queueMicrotask(() => this.pruneModulation(id, modulation!.id));
+                }
+            }
+        });
     }
 
     getSceneContainer(): HTMLDivElement { return this.sceneView.fSceneContainer; }
@@ -120,7 +133,8 @@ export class Scene {
     getModules(): ModuleClass[] { return this.fModuleList; }
 
     // Registers a module whose DSP is created: adds it to the patch, the audio graph and the view.
-    addModule(module: ModuleClass): void {
+    // `modulations`: those of the effective code the DSP was compiled from (recalled modules).
+    addModule(module: ModuleClass, modulations: Array<{ widget: string; spec: ModulationSpec }> = []): void {
         var dsp = module.moduleFaust.getDSP();
         var state = this.patch.addModule({
             kind: "faust",
@@ -128,8 +142,9 @@ export class Scene {
             code: module.moduleFaust.getSource(),
             x: module.moduleView.x,
             y: module.moduleView.y,
-            numInputs: dsp.getNumInputs(),
+            numInputs: dsp.getNumInputs() - modulations.length,
             numOutputs: dsp.getNumOutputs(),
+            modulations,
         });
         module.moduleId = state.id;
         this.audioGraph.setNode(state.id, dsp);
@@ -359,10 +374,118 @@ export class Scene {
         return factories.get(shaKey) ?? null;
     }
 
-    private async compile(name: string, code: string, x: number, y: number): Promise<FaustDspFactory | null> {
+    private async compile(name: string, code: string, x: number, y: number, mute: boolean = true): Promise<FaustDspFactory | null> {
         var result: FaustDspFactory | null = null;
-        await this.compileFaust({ name, sourceCode: code, x, y, callback: (factory) => { result = factory } });
+        await this.compileFaust({ name, sourceCode: code, x, y, mute, callback: (factory) => { result = factory } });
         return result;
+    }
+
+    /*********************** WIDGET MODULATIONS ***************************/
+    // See model/Modulation.ts and Documentation/widget-modulation/PLAN.md.
+
+    private fRecompilations = new Map<ModuleId, Promise<boolean>>();
+
+    // Widgets of the current DSP of a module.
+    widgetsOf(module: ModuleClass): WidgetDescription[] {
+        return listWidgets(JSON.parse(module.moduleFaust.getDSP().getJSON()).ui);
+    }
+
+    // Connects an output to a widget of a module. The first cable creates the modulation (the module
+    // is recompiled with it); the next ones are added to it (one modulation, and type, per widget).
+    async modulate(from: PortRef, moduleId: ModuleId, widget: string, mode: ModulationMode): Promise<boolean> {
+        var module = this.getModuleById(moduleId);
+        var state = this.patch.getModule(moduleId);
+        if (!module || !state) return false;
+        var existing = state.modulations.find((m) => m.widget == widget);
+        if (existing) {
+            var to = { module: moduleId, port: this.patch.modulationPort(moduleId, existing.id) };
+            if (!this.patch.findConnection(from, to)) this.patch.connect(from, to);
+            return true;
+        }
+        var spec: ModulationSpec;
+        try {
+            var widgets = this.widgetsOf(module);
+            var description = widgets.find((w) => w.address == widget);
+            if (!description) throw new ModulationError(`no widget ${widget}`);
+            spec = modulationSpec(description, widgets, mode);
+        } catch (e) {
+            new Message(Utilitary.messageResource.modulationFailed.replace("{reason}", (e as Error).message));
+            return false;
+        }
+        var modulation = this.patch.addModulation(moduleId, widget, spec);
+        this.patch.connect(from, { module: moduleId, port: this.patch.modulationPort(moduleId, modulation.id) });
+        var done = await this.recompileModulations(module);
+        if (!done && this.patch.getModule(moduleId)?.modulations.some((m) => m.id == modulation.id)) {
+            this.patch.removeModulation(moduleId, modulation.id);
+        }
+        return done;
+    }
+
+    // Recompiles a module from its base code and its current modulations, after the pending
+    // recompilations of the same module. The scene keeps playing meanwhile.
+    recompileModulations(module: ModuleClass): Promise<boolean> {
+        var id = module.moduleId;
+        var task = async (): Promise<boolean> => {
+            var state = this.patch.getModule(id);
+            if (!state) return false;
+            var code = modulatedCode(module.moduleFaust.getSource(), state.numInputs, state.modulations.map((m) => m.spec));
+            var container = module.moduleView.getModuleContainer();
+            container.classList.add("compiling");
+            var factory = await this.compile(state.name, code, state.x, state.y, false);
+            container.classList.remove("compiling");
+            if (!factory || !this.patch.getModule(id)) return false;
+            var inputs = JSON.parse(factory.json).inputs;
+            if (inputs != totalInputs(state)) {
+                new Message(Utilitary.messageResource.modulationFailed.replace("{reason}", `${inputs} inputs instead of ${totalInputs(state)}`));
+                return false;
+            }
+            return module.replaceDSP(factory);
+        };
+        var next = (this.fRecompilations.get(id) ?? Promise.resolve(true)).then(task, task);
+        this.fRecompilations.set(id, next);
+        return next;
+    }
+
+    // Removes a modulation that has no cable any more, and recompiles its module.
+    private pruneModulation(moduleId: ModuleId, modulationId: string): void {
+        var state = this.patch.getModule(moduleId);
+        if (!state || !state.modulations.some((m) => m.id == modulationId)) return;
+        var port = this.patch.modulationPort(moduleId, modulationId);
+        if (this.patch.connectionsTo(moduleId).some((c) => c.to.port == port)) return;
+        this.patch.removeModulation(moduleId, modulationId);
+        var module = this.getModuleById(moduleId);
+        if (module) this.recompileModulations(module);
+    }
+
+    // Compiles the new code of an edited module with its modulations: the modulations of widgets that
+    // no longer exist are removed (and reported), the others follow the new code.
+    async compileModuleCode(module: ModuleClass, name: string, code: string): Promise<FaustDspFactory | null> {
+        var state = module.moduleId !== undefined ? this.patch.getModule(module.moduleId) : undefined;
+        var base = await this.compile(name, code, module.moduleView.x, module.moduleView.y);
+        if (!base || !state || state.modulations.length == 0) return base;
+        var json = JSON.parse(base.json);
+        var widgets = listWidgets(json.ui);
+        var dropped: string[] = [];
+        for (var modulation of state.modulations.slice()) {
+            var widget = widgets.find((w) => w.address == modulation.widget);
+            try {
+                if (!widget) throw new ModulationError(`no widget ${modulation.widget}`);
+                this.patch.setModulationSpec(state.id, modulation.id, modulationSpec(widget, widgets, modulation.spec.mode));
+            } catch (e) {
+                dropped.push(widget ? widget.label : modulation.widget);
+                this.patch.removeModulation(state.id, modulation.id);
+            }
+        }
+        if (dropped.length > 0) {
+            new Message(Utilitary.messageResource.modulationsRemoved.replace("{widgets}", dropped.join(", ")));
+        }
+        if (state.modulations.length == 0) return base;
+        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y);
+        if (factory && JSON.parse(factory.json).inputs != json.inputs + state.modulations.length) {
+            new Message(Utilitary.messageResource.modulationFailed.replace("{reason}", "unexpected number of inputs"));
+            return null;
+        }
+        return factory;
     }
 
     // Creates a module from its description: precompiled factory if any, otherwise compilation.
@@ -373,8 +496,12 @@ export class Scene {
         } catch (e) {
             console.warn(`module ${description.id}: precompiled factory unusable, recompiling`, e);
         }
+        var modulations = description.modulations ?? [];
         if (!factory) {
-            factory = await this.compile(description.name, description.code, description.x, description.y);
+            var code = modulations.length > 0
+                ? modulatedCode(description.code, description.numInputs ?? 0, modulations.map((m) => m.spec))
+                : description.code;
+            factory = await this.compile(description.name, code, description.x, description.y);
         }
         if (!factory) {
             return null;
@@ -399,7 +526,7 @@ export class Scene {
         module.recallInterfaceParams();
         module.setFaustInterfaceControles();
         module.createFaustInterface();
-        this.addModule(module);
+        this.addModule(module, modulations.map((m) => ({ widget: m.widget, spec: m.spec })));
         this.recallAccValues(description.acc, module);
         return module;
     }

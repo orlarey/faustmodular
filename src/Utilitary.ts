@@ -131,5 +131,7 @@ export interface CompileFaust {
     sourceCode: string,
     x: number,
     y: number,
-    callback: (factory: FaustDspFactory) => void
+    callback: (factory: FaustDspFactory) => void,
+    // false: the scene keeps playing during the compilation (recompilations of a modulated module)
+    mute?: boolean
 }
