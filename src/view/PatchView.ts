@@ -6,8 +6,9 @@
     - drag from a port to start a cable, then release
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
-        - on a widget (from an output): after a short delay, a palette shows the modulation types
-          allowed for this widget; releasing on one of them modulates the widget
+        - on a widget (from an output): modulates the widget with the mode of its kind ("modulate"
+          for sliders, "drive" for buttons and checkboxes). If several modes were allowed, a palette
+          would show them after a short delay, to release the cable on one of them
           (Documentation/widget-modulation/PLAN.md);
     - click on a cable to delete it.
 
@@ -507,7 +508,7 @@ export class PatchView {
         if (target?.kind == "mode" || target?.kind == "palette") {
             return;
         }
-        if (target?.kind == "widget") {
+        if (target?.kind == "widget" && (this.fModulation?.allowedModes(target.module, target.widget).length ?? 0) > 1) {
             if (drag.palette?.module == target.module && drag.palette.widget == target.widget) return;
             if (drag.hover?.module == target.module && drag.hover.widget == target.widget) return;
             this.closePalette(drag);
@@ -625,8 +626,16 @@ export class PatchView {
             this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, target.mode);
             return;
         }
-        if (target.kind == "widget" || target.kind == "palette") {
-            return;     // a modulation type must be chosen in the palette
+        if (target.kind == "widget") {
+            // a single mode: no choice to make; several: it must be chosen in the palette
+            const modes = this.fModulation?.allowedModes(target.module, target.widget) ?? [];
+            if (modes.length == 1) {
+                this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, modes[0]);
+            }
+            return;
+        }
+        if (target.kind == "palette") {
+            return;
         }
         try {
             if (target.kind == "port") {

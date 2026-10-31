@@ -284,3 +284,23 @@ rognage, et la même modulation n'avait pas le même effet selon la position du 
   que l'exposant multiplie par ln(max/w) ≈ 3,8 : tolérance relative 3·10⁻⁴ (0,5 cent) pour les
   fréquences. Le test de bout en bout passe de 0,925 / 0,675 à 0,85 / 0,6 (slider à 0,8, m = 0,25,
   D = ±1).
+
+### Évolution (2026-10-31, version 2.8.0) : un seul mode par sorte de widget
+
+Avec le ± relatif à la position du slider (2.7.0), les deux autres modes s'obtiennent en plaçant le
+slider : au minimum avec un signal unipolaire, le ± donne D·max·e, un VCA dont la profondeur règle le
+niveau (« × doser ») ; au minimum avec D = 1, il parcourt toute la plage quand le signal va de 0 à 1
+(« → piloter », pour des sources normalisées). D'où, à l'essai :
+
+- **Un seul mode proposé** : ± pour les sliders, « piloter » pour les boutons et cases à cocher
+  (`allowedModes`). La palette n'apparaît plus : relâcher le câble sur le widget suffit. Le code de la
+  palette reste, pour le cas où plusieurs modes seraient de nouveau proposés.
+- **Compatibilité** : « doser » et « piloter » sur un slider restent acceptés (`supportedModes`) ; les
+  patchs qui les utilisent se chargent et sonnent comme avant.
+- **Ce qui est perdu** : piloter un slider avec un signal brut (non normalisé, par exemple en hertz).
+- **Tests** : dépôt direct sur un slider et sur un bouton, sans palette ; seconde source ajoutée à une
+  modulation existante ; le test différentiel de l'export tire les modes parmi `supportedModes`, pour
+  continuer à couvrir les trois circuits. Sa tolérance tient compte de la dérive de phase d'un
+  oscillateur dont la fréquence est modulée : un écart d'un bit de poids faible sur la fréquence,
+  intégré par l'oscillateur, donne 2,9·10⁻⁵ en fin de rendu (seuil 10⁻⁴ ; une erreur de sémantique
+  donnerait des écarts de l'ordre de 0,1).

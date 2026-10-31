@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { AudioGraph } from "../../src/audio/AudioGraph";
 import { exportFaust } from "../../src/export/FaustExporter";
-import { allowedModes, listWidgets, isModulable, ModulationMode, modulatedCode, modulationSpec } from "../../src/model/Modulation";
+import { supportedModes, listWidgets, isModulable, ModulationMode, modulatedCode, modulationSpec } from "../../src/model/Modulation";
 import { Patch } from "../../src/model/Patch";
 import { compileJson, faustNode, renderCode } from "./faust";
 
@@ -121,7 +121,7 @@ describe("export versus live graph", () => {
                 const widgets = listWidgets(json.ui).filter(isModulable);
                 const chosen = widgets.filter(() => random() < 0.7);
                 const modulations = chosen.map((w) => {
-                    const mode = pick(allowedModes(w));
+                    const mode = pick(supportedModes(w));     // the three circuits (scale and drive: patches before 2.8.0)
                     modes.add(mode);
                     const spec = modulationSpec(w, widgets, mode);
                     if (spec.exponential && mode == "modulate") exponential++;
@@ -154,25 +154,23 @@ describe("export versus live graph", () => {
             const exported = exportFaust(patch, { name: "Modulated" });
             const rendered = await renderCode(exported.code, [], LENGTH);
             // Same semantics, but the modules are compiled alone live and inlined in the export: float32
-            // rounding differs, and is amplified during the initial transient (depth smoothing, filter
-            // coefficients moving fast), then forgotten (measured: up to 2.2e-5 in the first 512
-            // samples, below 1e-7 afterwards). A semantic error would give differences of the order of
-            // the signal (0.1). Hence: < 1e-4 overall, < 1e-6 in the second half.
+            // rounding differs. It is amplified during the initial transient (depth smoothing, filter
+            // coefficients moving fast: up to 2.2e-5 in the first 512 samples), and an oscillator whose
+            // frequency is modulated integrates a last-bit difference of its frequency into a phase
+            // drift that grows with time (measured: 2.9e-5 at the end, os.osc around 300 Hz modulated
+            // exponentially). A semantic error would give differences of the order of the signal (0.1).
+            // Hence: < 1e-4.
             let worst = 0;
-            let tail = 0;
             let energy = 0;
             for (let c = 0; c < 2; c++) {
                 const a = live.getChannelData(c);
                 for (let t = 0; t < LENGTH; t++) {
-                    const d = Math.abs(a[t] - rendered[c][t]);
-                    worst = Math.max(worst, d);
-                    if (t >= LENGTH / 2) tail = Math.max(tail, d);
+                    worst = Math.max(worst, Math.abs(a[t] - rendered[c][t]));
                     energy += a[t] * a[t];
                 }
             }
             expect(energy, `trial ${trial}`).toBeGreaterThan(0);
             expect(worst, `trial ${trial}\n${exported.code}`).toBeLessThan(1e-4);
-            expect(tail, `trial ${trial}\n${exported.code}`).toBeLessThan(1e-6);
         }
         // the trials covered the three types and the exponential case
         expect([...modes].sort()).toEqual(["drive", "modulate", "scale"]);

@@ -24,9 +24,11 @@ channels.
 Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded. Opening a
 patch replaces the current scene.
 
-To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and,
-after a short hover, release it on a type in the palette: **±** modulates from the slider value (a
-signal of +1 reaches the maximum, −1 the minimum; in octaves for frequencies), **×** scales it, **→** drives it with the signal. The modulation then
+To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and
+release it there. A slider is modulated from its value: the slider is the rest position, a signal of +1
+brings it to its maximum and −1 to its minimum (in octaves for frequencies), and the depth sets the
+excursion. Put the slider at its minimum to open a level with an envelope (like a VCA), or to map a
+signal from 0 to 1 onto the whole range. A button or a checkbox is driven by the signal. The modulation then
 gets a port astride the left edge of the module, at the height of its widget, showing its type and,
 for **±**, its depth as a ring: drag the port vertically to set the depth (hold Shift for a fine
 adjustment), double click to set it back to 1. The

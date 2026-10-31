@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import {
-    allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, WidgetDescription, widgetTarget,
+    allowedModes, depthWidget, isModulable, supportedModes, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, WidgetDescription, widgetTarget,
 } from "../../src/model/Modulation";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { compileJson, getCompiler } from "../helpers/faust";
@@ -65,11 +65,14 @@ describe("widget descriptions and Faust targets", () => {
         expect(() => widgetTarget(widgets, address("/D/0x00/Twin"))).toThrow(ModulationError);
     });
 
-    it("offers drive only for buttons and checkboxes, exponential modulation for frequencies", async () => {
+    it("offers one mode per kind of widget (modulate for sliders, drive for buttons), still accepts the others", async () => {
         const widgets = await widgetsOf(MODULE);
         const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
         expect(allowedModes(byLabel("gate"))).toEqual(["drive"]);
-        expect(allowedModes(byLabel("gain"))).toEqual(["modulate", "scale", "drive"]);
+        expect(allowedModes(byLabel("gain"))).toEqual(["modulate"]);
+        // patches saved before 2.8.0 may have "scale" or "drive" on sliders
+        expect(supportedModes(byLabel("gain"))).toEqual(["modulate", "scale", "drive"]);
+        expect(modulationSpec(byLabel("gain"), widgets, "scale").mode).toBe("scale");
         expect(modulationSpec(byLabel("freq"), widgets, "modulate").exponential).toBe(true);
         expect(modulationSpec(byLabel("gain"), widgets, "modulate").exponential).toBe(false);
         expect(() => modulationSpec(byLabel("gate"), widgets, "scale")).toThrow(ModulationError);

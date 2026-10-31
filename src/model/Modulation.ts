@@ -79,8 +79,21 @@ export function isModulable(widget: WidgetDescription): boolean {
     return ["hslider", "vslider", "nentry", "button", "checkbox"].indexOf(widget.type) >= 0 && !(DEPTH_METADATA in widget.meta);
 }
 
+// The mode offered for a new modulation: one per kind of widget, so no choice to make. Sliders are
+// modulated from their value (the slider is the rest position, the depth the excursion), which also
+// gives the effect of "scale" (slider at its minimum, unipolar signal) and of "drive" (slider at its
+// minimum, depth 1); buttons and checkboxes are driven by the signal.
 export function allowedModes(widget: WidgetDescription): ModulationMode[] {
-    return widget.type == "button" || widget.type == "checkbox" ? ["drive"] : ["modulate", "scale", "drive"];
+    return isSwitch(widget) ? ["drive"] : ["modulate"];
+}
+
+// The modes accepted (patches saved before 2.8.0 may have "scale" and "drive" on sliders).
+export function supportedModes(widget: WidgetDescription): ModulationMode[] {
+    return isSwitch(widget) ? ["drive"] : ["modulate", "scale", "drive"];
+}
+
+function isSwitch(widget: WidgetDescription): boolean {
+    return widget.type == "button" || widget.type == "checkbox";
 }
 
 // Frequencies are modulated exponentially: widgets with [scale:log] or [unit:Hz].
@@ -113,7 +126,7 @@ export function modulationSpec(widget: WidgetDescription, widgets: WidgetDescrip
     if (!isModulable(widget)) {
         throw new ModulationError(`the widget ${widget.address} cannot be modulated`);
     }
-    if (allowedModes(widget).indexOf(mode) < 0) {
+    if (supportedModes(widget).indexOf(mode) < 0) {
         throw new ModulationError(`mode ${mode} is not available for a ${widget.type}`);
     }
     return { target: widgetTarget(widgets, widget.address), mode, min: widget.min, max: widget.max, exponential: isExponential(widget) };

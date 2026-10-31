@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.8.0 (2026-10-31)
+
+- **One modulation mode per kind of widget, no palette.** Releasing a cable on a slider modulates it
+  with ± (from the slider value, 2.7.0); on a button or a checkbox, the signal drives it. The effect of
+  the former "× scale" is obtained with the slider at its minimum and a unipolar signal (the depth sets
+  the level, like a VCA), the effect of "→ drive" with the slider at its minimum and a depth of 1 (a
+  signal from 0 to 1 covers the whole range). To be evaluated in use.
+- Patches saved with "scale" or "drive" on a slider still load and play as before; these modes are no
+  longer offered.
+- Test of the export with modulations: the tolerance accounts for the phase drift of an oscillator whose
+  frequency is modulated (float32 rounding of its frequency, integrated over time).
+
 ## 2.7.0 (2026-10-31)
 
 - **± modulate now starts from the slider value.** With u = depth · signal, bounded to [−1, 1]: u = 0
