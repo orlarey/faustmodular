@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.6.1 (2026-10-31)
+
+- Dependencies updated (`npm audit`: 0 vulnerabilities): Vite 8.3.5 (several advisories of its dev
+  server and of launch-editor), source-map-js 1.2.2 (denial of service), faustwasm 0.19.6 with
+  libfaust 2.90.19.
+- libfaust 2.90.19 fixes the `-ftz 2` defect found in phase 4 (a recursion driven by a constant gave
+  zeros): `tests/faust/ftz.test.ts` is now a regression test, and all the 90 library modules render the
+  same signal with `-ftz 2` as without. The application keeps `-ftz 1`.
+- Not updated: Playwright stays at 1.63 (its Chromium is the one installed in the development
+  environment), TypeScript 7
+  and `@types/node` 26 are major versions, left for a separate step.
+
 ## 2.6.0 (2026-10-31)
 
 - **Confirmation before replacing a modified scene.** The scene keeps track of its changes since it was
