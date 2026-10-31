@@ -196,7 +196,7 @@ describe("application", () => {
                 expect(await page.locator(".cable.modulation").count()).toBe(2);
                 // the depth rows stay hidden after a recall (shown on the ports)
                 expect(await page.evaluate(() => Array.from(document.querySelectorAll(".widget.modulation-depth"))
-                    .map((e) => getComputedStyle(e).display))).toEqual(["none"]);
+                    .map((e) => getComputedStyle(e).display))).toEqual(["none", "none"]);     // the two ± depths
                 expect(await page.locator(".modulation-port").count()).toBe(2);
             }
             if (file == "Multichannel_Example") {
