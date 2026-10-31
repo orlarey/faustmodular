@@ -355,3 +355,65 @@ div#menuContainer {
    list mixing -webkit- and -moz- pseudo-elements is dropped whole) */
 .disabledAcc > input[type="range"]::-webkit-slider-thumb { background-color: var(--fp-accent); }
 .disabledAcc > input[type="range"]::-moz-range-thumb { background-color: var(--fp-accent); }
+
+/* Dialogues above the open menu (the menu is above the ports) */
+div#dialogue {
+	z-index: 30;
+}
+.messageContainer .message {
+	padding: 0 16px;
+}
+button.accButton {
+	height: 2.4em;
+	border: none !important;
+	border-top: 1px solid var(--fp-accent-border-soft) !important;
+	background-color: transparent;
+	background-size: 20px !important;
+	cursor: pointer;
+}
+button.accButton:hover {
+	background-color: rgba(152, 255, 210, 0.08);
+}
+
+/* Menu contents: pills, dark fields, mono lists */
+.button {
+	background: var(--fp-pill-bg);
+	color: var(--fp-pill-text);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	box-shadow: none;
+	opacity: 1;
+	min-height: 32px;
+	font: 13px var(--fp-sans);
+	cursor: pointer;
+}
+.button:hover {
+	background: var(--fp-pill-bg-hover);
+	box-shadow: none;
+}
+select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 6px;
+	font: 13px var(--fp-mono);
+}
+#contentsMenu input[type="file"] {
+	color: var(--fp-text-quiet);
+	font: 12px var(--fp-sans);
+}
+#contentsMenu input[type="file"]::file-selector-button {
+	color: var(--fp-pill-text);
+	background: var(--fp-pill-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	padding: 3px 12px;
+	margin-right: 8px;
+	cursor: pointer;
+}
+.exempleAnchor {
+	color: var(--fp-text) !important;
+}
+.exempleAnchor:hover {
+	color: var(--fp-pill-text) !important;
+}

@@ -82,5 +82,6 @@
   "editInline": "Éditeur intégré (Ctrl/Cmd-Entrée : compiler, Échap : fermer)",
   "faustcodePopupBlocked": "Le navigateur a bloqué l'ouverture de faustcode : autorisez les fenêtres surgissantes pour ce site",
   "faustcodeNoAnswer": "faustcode ne répond pas ({url}) : cette version ne connaît peut-être pas le lien avec le playground. L'éditeur intégré (</>) reste disponible",
-  "faustcodeUpdateFailed": "{name} : le code reçu de faustcode n'a pas été appliqué ({error})"
+  "faustcodeUpdateFailed": "{name} : le code reçu de faustcode n'a pas été appliqué ({error})",
+  "confirmReplaceScene": "La scène actuelle a été modifiée depuis son dernier enregistrement. La remplacer quand même ?"
 }

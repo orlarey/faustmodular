@@ -124,14 +124,14 @@ class MessageView {
 export class Confirm {
     confirmView: ConfirmView
     confirmViewContainer?: HTMLElement;
-    constructor(message: string, callback: (confirmCallback) => void) {
+    constructor(message: string, callback: (confirmCallback) => void, onCancel?: () => void) {
         this.confirmView = new ConfirmView();
         this.confirmViewContainer = this.confirmView.init();
         this.confirmView.message.textContent = message;
         document.getElementById("dialogue")!.appendChild(this.confirmViewContainer);
         this.displayMessage();
         this.confirmView.validButton.addEventListener("click", () => { callback(() => { this.removeMessage() }) });
-        this.confirmView.cancelButton.addEventListener("click", () => { this.removeMessage() })
+        this.confirmView.cancelButton.addEventListener("click", () => { this.removeMessage(); onCancel?.() })
     }
     displayMessage() {
         this.confirmViewContainer!.classList.remove("messageHide")

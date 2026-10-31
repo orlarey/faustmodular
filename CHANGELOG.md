@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0 (2026-10-31)
+
+- **Confirmation before replacing a modified scene.** The scene keeps track of its changes since it was
+  opened or saved: modules, connections, positions, code, modulations (patch events) and slider values.
+  Opening another patch then asks "The current scene has been modified since it was last saved. Replace
+  it anyway?"; cancelling leaves the scene as it is. Saving (download, local storage, Google Drive)
+  clears the mark; an empty scene never asks.
+- Theme: dialogues above the open menu, menu buttons, fields and file chooser in the dark look.
+
 ## 2.5.0 (2026-10-31)
 
 - **New look, close to faustcode** (`css/Theme.css`, loaded last): charcoal stage with a faint grid,

@@ -34,6 +34,7 @@ export class Save {
                 type: "application/json;charset=utf-8;",
             });
             saveAs(blob, Utilitary.currentScene.sceneName + ".jfaust");
+            this.sceneCurrent.markSaved();
         }
     }
 
@@ -70,6 +71,7 @@ export class Save {
                     return;
                 } else {
                     this.setStorageItemValue('FaustPlayground', name, jsonScene);
+                    this.sceneCurrent.markSaved();
                 }
                 new Message(Utilitary.messageResource.sucessSave, "messageTransitionOutFast", 2000, 500)
                 var event: CustomEvent = new CustomEvent("updatelist")
@@ -84,6 +86,7 @@ export class Save {
     //replace an existing scene in local Storage
     replaceSaveLocal(name: string, jsonScene: string, confirmCallBack: () => void) {
         this.setStorageItemValue('FaustPlayground', name, jsonScene);
+        this.sceneCurrent.markSaved();
         new Message(Utilitary.messageResource.sucessSave, "messageTransitionOutFast", 2000, 500)
         var event: CustomEvent = new CustomEvent("updatelist")
         document.dispatchEvent(event);
@@ -171,6 +174,7 @@ export class Save {
                 var blob = new Blob([jsonScene], { type: "application/json;charset=utf-8;" });
                 this.drive.tempBlob = blob;
                 this.drive.createFile(Utilitary.currentScene.sceneName, null);
+                this.sceneCurrent.markSaved();
             }
         }
     }
@@ -185,6 +189,7 @@ export class Save {
             this.drive.getFile(id, () => {
                 this.drive.updateFile(id, this.drive.lastSavedFileMetadata, blob, null)
             });
+            this.sceneCurrent.markSaved();
         }
         confirmCallback();
     }

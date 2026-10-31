@@ -12,7 +12,7 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
-import { Message } from "../Messages";
+import { Confirm, Message } from "../Messages";
 import { allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
@@ -53,6 +53,9 @@ export class Scene {
     fAudioInput: ModuleClass;
     //-- Modules contained in the scene
     private fModuleList: ModuleClass[] = [];
+    // Changes since the scene was opened or saved: opening another patch asks before losing them.
+    private fModified = false;
+    private fRecalling = 0;
     //-- Graphical Scene container
     sceneView: SceneView;
     sceneName: string = "Patch";
@@ -69,6 +72,7 @@ export class Scene {
         this.sceneView.initNormalScene(this)
         this.integrateSceneInBody();
         this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
+        this.patch.subscribe(() => this.markModified());     // modules, connections, positions, code, modulations
         var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
         this.faustcodeLink = new FaustcodeLink<ModuleClass>(faustcodeUrl(), {
             isAlive: (module) => this.fModuleList.includes(module),
@@ -316,6 +320,26 @@ export class Scene {
         return JSON.stringify(serializePatch(this.patch, this.sceneName, isPrecompiled));
     }
 
+    // A change the patch model does not see (a parameter value).
+    markModified(): void {
+        if (this.fRecalling == 0) this.fModified = true;
+    }
+
+    markSaved(): void {
+        this.fModified = false;
+    }
+
+    // Work that opening another patch would lose (an empty scene has none).
+    hasUnsavedChanges(): boolean {
+        return this.fModified && (this.fModuleList.length > 0 || this.patch.getConnections().length > 0);
+    }
+
+    private confirmReplace(): Promise<boolean> {
+        return new Promise((resolve) => {
+            new Confirm(Utilitary.messageResource.confirmReplaceScene, (close) => { close(); resolve(true); }, () => resolve(false));
+        });
+    }
+
     // Removes every module and connection: an empty scene (the physical input and output stay).
     clearScene(): void {
         var modules = this.getModules();
@@ -339,16 +363,28 @@ export class Scene {
         try {
             var data: unknown = JSON.parse(json);
             // the file is read whole before the scene is cleared
+            var recall: () => Promise<string[]>;
             if (isPatchFileV2(data)) {
                 var v2 = parsePatchV2(data);
-                this.clearScene();
-                warnings = await this.recallV2(v2);
+                recall = () => this.recallV2(v2);
             } else if (isPatchFileV1(data)) {
                 var v1 = readV1(data);
-                this.clearScene();
-                warnings = await this.recallV1(v1);
+                recall = () => this.recallV1(v1);
             } else {
                 throw new Error("unknown patch format");
+            }
+            if (this.hasUnsavedChanges()) {
+                Utilitary.hideFullPageLoading();
+                if (!(await this.confirmReplace())) return;
+                Utilitary.showFullPageLoading();
+            }
+            this.fRecalling++;
+            try {
+                this.clearScene();
+                warnings = await recall();
+            } finally {
+                this.fRecalling--;
+                this.fModified = false;     // a scene just opened has nothing to save
             }
         } catch (e) {
             console.error(e);

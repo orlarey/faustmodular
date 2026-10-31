@@ -375,6 +375,7 @@ export class ModuleClass {
 
         // 	Search for DSP then update the value of its parameter.
         this.moduleFaust.fDSP.setParamValue(text, +val!);
+        if (faustControler.faustInterfaceView.slider) Utilitary.currentScene?.markModified();
     }
     interfaceButtonCallback(faustControler: FaustInterfaceControler, val?: number): any {
 

@@ -82,5 +82,6 @@
   "editInline": "Integrated editor (Ctrl/Cmd-Enter: compile, Escape: close)",
   "faustcodePopupBlocked": "The browser blocked the faustcode window: allow pop-ups for this site",
   "faustcodeNoAnswer": "faustcode does not answer ({url}): this version may not know the link with the playground. The integrated editor (</>) is still available",
-  "faustcodeUpdateFailed": "{name}: the code received from faustcode was not applied ({error})"
+  "faustcodeUpdateFailed": "{name}: the code received from faustcode was not applied ({error})",
+  "confirmReplaceScene": "The current scene has been modified since it was last saved. Replace it anyway?"
 }
