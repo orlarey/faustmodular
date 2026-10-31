@@ -353,12 +353,7 @@ export class Menu {
     //removing all modules from the scene
     cleanScene(callBack: () => void) {
 
-        // getModules() holds the Faust modules only; deleteModule removes each one from it
-        var modules = this.sceneCurrent.getModules()
-
-        while (modules.length != 0) {
-            modules[0].deleteModule();
-        }
+        this.sceneCurrent.clearScene();
         callBack();
     }
 

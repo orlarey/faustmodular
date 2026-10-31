@@ -21,7 +21,8 @@ channels.
   `k mod n` goes to input `k mod m` (Faust's `<:` and `:>` when one number of channels divides the other).
 - Click on a cable to delete it. Dashed cables close a cycle and are delayed by 128 samples.
 
-Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded.
+Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded. Opening a
+patch replaces the current scene.
 
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and,
 after a short hover, release it on a type in the palette: **±** modulates around the slider

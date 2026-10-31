@@ -316,7 +316,19 @@ export class Scene {
         return JSON.stringify(serializePatch(this.patch, this.sceneName, isPrecompiled));
     }
 
-    // Adds the content of a patch file (version 1 or 2) to the scene.
+    // Removes every module and connection: an empty scene (the physical input and output stay).
+    clearScene(): void {
+        var modules = this.getModules();
+        while (modules.length != 0) {
+            modules[0].deleteModule();      // removes it from the list and from the patch
+        }
+        // connections left between the physical input and output
+        this.patch.getConnections().forEach((c) => this.patch.disconnect(c.id));
+        this.sceneName = "Patch";
+    }
+
+    // Opens a patch file (version 1, 2 or 3) in place of the current scene, as a document replaces
+    // another. A file that cannot be read leaves the scene as it is.
     async recallScene(json: string | null): Promise<void> {
         if (json == null) {
             Utilitary.hideFullPageLoading();
@@ -326,10 +338,15 @@ export class Scene {
         var warnings: string[] = [];
         try {
             var data: unknown = JSON.parse(json);
+            // the file is read whole before the scene is cleared
             if (isPatchFileV2(data)) {
-                warnings = await this.recallV2(data);
+                var v2 = parsePatchV2(data);
+                this.clearScene();
+                warnings = await this.recallV2(v2);
             } else if (isPatchFileV1(data)) {
-                warnings = await this.recallV1(data);
+                var v1 = readV1(data);
+                this.clearScene();
+                warnings = await this.recallV1(v1);
             } else {
                 throw new Error("unknown patch format");
             }
@@ -345,8 +362,7 @@ export class Scene {
         Utilitary.hideFullPageLoading();
     }
 
-    private async recallV2(data: unknown): Promise<string[]> {
-        var { patch: file, sceneName } = parsePatchV2(data);
+    private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>): Promise<string[]> {
         this.sceneName = sceneName;
         var warnings: string[] = [];
         var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings);
@@ -366,8 +382,7 @@ export class Scene {
         return warnings;
     }
 
-    private async recallV1(data: unknown): Promise<string[]> {
-        var draft = readV1(data);
+    private async recallV1(draft: ReturnType<typeof readV1>): Promise<string[]> {
         if (draft.sceneName) {
             this.sceneName = draft.sceneName;
         }

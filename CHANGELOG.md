@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.5.0 (2026-10-31)
+
+- **New look, close to faustcode** (`css/Theme.css`, loaded last): charcoal stage with a faint grid,
+  night-blue module panels with 8 px corners, titles in small letter-spaced capitals, mint accent, pills
+  for the menu buttons and the patch name, values in monospace chips. Audio inputs are mint, outputs
+  coral, everything about widget modulation amber. The colours are CSS variables (`--fp-…`).
+- **Opening a patch replaces the scene**, as opening a document replaces another (it used to add the
+  patch to the scene). The file is read whole first: a file that cannot be read leaves the scene as it
+  is. `Scene.clearScene` empties the scene, connections between the physical input and output included.
+
 ## 2.4.0 (2026-10-31)
 
 - **Editing in faustcode**: the pencil of a module opens its code in

@@ -224,6 +224,28 @@ describe("application", () => {
         }
     }, 300_000);
 
+    it("opens a patch in place of the current scene, and keeps the scene when the file cannot be read", async () => {
+        const { page, errors } = await openApp();
+        await loadExample(page, "patch_light.json");
+        // a direct connection between the physical input and output must go too
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.connect({ module: "input", port: 0 }, { module: "output", port: 0 }));
+        const file = await page.evaluate(async () => (await fetch("/json/Modulation_Example.json")).text());
+        await page.evaluate((j) => (globalThis as any).faustPlayground.scene.recallScene(j), file);
+        const saved = JSON.parse(file);
+        const opened = await state(page);
+        expect(opened.modules.map((m) => m.split(":")[1])).toEqual(saved.modules.filter((m: any) => m.kind == "faust").map((m: any) => m.name));
+        expect(opened.connections).toHaveLength(saved.connections.length);
+        expect(opened.connections.some((c) => c.startsWith("input:"))).toBe(false);
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.sceneName)).toBe("Modulation_Example");
+        // unreadable files: the scene stays as it is
+        for (const bad of ["{ not json", JSON.stringify({ format: "faustplayground-patch", version: 2, modules: "broken" })]) {
+            await page.evaluate((j) => (globalThis as any).faustPlayground.scene.recallScene(j), bad);
+            expect(await state(page)).toEqual(opened);
+        }
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("drops the modules that no longer compile, with a warning", async () => {
         const { page, errors } = await openApp();
         await loadExample(page, "patch_big.json");
