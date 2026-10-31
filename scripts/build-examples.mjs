@@ -71,7 +71,7 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
 }
 
 // Modulation example: an LFO modulates the frequency of an oscillator (exponential vibrato), a
-// clock triggers an ADSR envelope that scales the volume.
+// clock triggers an ADSR envelope that opens the volume from 0 (± with the slider at its minimum).
 {
     const page = await openApp();
     const saved = await page.evaluate(async () => {
@@ -102,8 +102,10 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
         scene.patch.connectBus(volume, "output");
         scene.patch.connect({ module: clock, port: 0 }, { module: adsr, port: 0 });
         await scene.modulate({ module: lfo, port: 0 }, oscillator, widget(oscillator, "Frequency"), "modulate");
-        await scene.modulate({ module: adsr, port: 0 }, volume, widget(volume, "Volume"), "scale");
+        await scene.modulate({ module: adsr, port: 0 }, volume, widget(volume, "Volume"), "modulate");
         setParam(lfo, "Rate", 5);
+        setParam(volume, "Volume", 0);              // the envelope opens the volume from 0 ...
+        setParam(volume, "depth", 0.75);            // ... up to 0.75 (like a VCA)
         setParam(oscillator, "depth", 0.02);        // vibrato: +0.06 octave up to 2400 Hz, −0.04 octave down to 70 Hz
         scene.sceneName = "Modulation_Example";
         return scene.saveScene(false);

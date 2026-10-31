@@ -213,7 +213,8 @@
    "inputs": 2,
    "outputs": 2,
    "params": {
-    "/Volume/Volume": 0.75
+    "/Volume/Volume": 0,
+    "/Volume/depth_Volume": 0.75
    },
    "acc": [
     {
@@ -224,13 +225,22 @@
      "amid": 0,
      "amax": 10,
      "enabled": true
+    },
+    {
+     "address": "/Volume/depth_Volume",
+     "axis": 0,
+     "curve": 0,
+     "amin": -10,
+     "amid": 0,
+     "amax": 10,
+     "enabled": false
     }
    ],
    "modulations": [
     {
      "widget": "/Volume/Volume",
      "target": "Volume",
-     "mode": "scale",
+     "mode": "modulate",
      "min": 0,
      "max": 1,
      "exponential": false

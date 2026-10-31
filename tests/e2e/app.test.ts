@@ -192,7 +192,7 @@ describe("application", () => {
                 // the modulations are recalled (modules compiled with their effective code)
                 const modulated = await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.getModules()
                     .flatMap((m: any) => m.modulations.map((x: any) => `${m.name}:${x.spec.mode}${x.spec.exponential ? ":exp" : ""}`)));
-                expect(modulated).toEqual(["SOscillator:modulate:exp", "Volume:scale"]);
+                expect(modulated).toEqual(["SOscillator:modulate:exp", "Volume:modulate"]);
                 expect(await page.locator(".cable.modulation").count()).toBe(2);
                 // the depth rows stay hidden after a recall (shown on the ports)
                 expect(await page.evaluate(() => Array.from(document.querySelectorAll(".widget.modulation-depth"))

@@ -9,6 +9,8 @@
   signal from 0 to 1 covers the whole range). To be evaluated in use.
 - Patches saved with "scale" or "drive" on a slider still load and play as before; these modes are no
   longer offered.
+- The modulation example uses ± on the volume: slider at 0, depth 0.75, the ADSR envelope opens it.
+  The precompiled examples are rebuilt with libfaust 2.90.19.
 - Test of the export with modulations: the tolerance accounts for the phase drift of an oscillator whose
   frequency is modulated (float32 rounding of its frequency, integrated over time).
 
