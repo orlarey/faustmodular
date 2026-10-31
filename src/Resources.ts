@@ -39,6 +39,7 @@ export class Resources {
     modulationScale: string;
     modulationDrive: string;
     modulationDepth: string;
+    modulationPortHint: string;
     forceStereoExport: string;
     modulesNotExported: string;
     errorLocalStorage: string;

@@ -38,7 +38,7 @@
    "outputs": 1,
    "params": {
     "/SOscillator/Oscillator/Frequency": 300,
-    "/SOscillator/Oscillator/depth_1": 1
+    "/SOscillator/Oscillator/depth_Frequency": 0.02
    },
    "acc": [
     {
@@ -51,7 +51,7 @@
      "enabled": true
     },
     {
-     "address": "/SOscillator/Oscillator/depth_1",
+     "address": "/SOscillator/Oscillator/depth_Frequency",
      "axis": 0,
      "curve": 0,
      "amin": -10,
@@ -81,7 +81,7 @@
    "inputs": 0,
    "outputs": 1,
    "params": {
-    "/LFO/LFO/Rate": 1,
+    "/LFO/LFO/Rate": 5,
     "/LFO/LFO/Shape__sine__triangle__square__saw_": 0
    },
    "acc": [
@@ -150,10 +150,10 @@
    "outputs": 1,
    "params": {
     "/ADSR/ADSR/Gate": 0,
-    "/ADSR/ADSR/Attack": 0.009999999776482582,
-    "/ADSR/ADSR/Decay": 0.20000000298023224,
+    "/ADSR/ADSR/Attack": 0.01,
+    "/ADSR/ADSR/Decay": 0.2,
     "/ADSR/ADSR/Sustain": 0.5,
-    "/ADSR/ADSR/Release": 0.30000001192092896
+    "/ADSR/ADSR/Release": 0.3
    },
    "acc": [
     {

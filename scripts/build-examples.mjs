@@ -90,7 +90,13 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
         const adsr = await add("modulation/ADSR.dsp", 450, 400);
         const volume = await add("effects/Volume.dsp", 850, 250);
         const widget = (id, label) => scene.widgetsOf(scene.getModuleById(id)).find((w) => w.label.startsWith(label)).address;
-        const setParam = (id, label, value) => scene.getModuleById(id).moduleFaust.getDSP().setParamValue(widget(id, label), value);
+        // through the interface, as a user would (the saved values are those of the interface)
+        const setParam = (id, label, value) => {
+            const controler = scene.getModuleById(id).moduleControles.find((c) => c.itemParam.label.startsWith(label));
+            const slider = controler.faustInterfaceView.slider;
+            slider.value = String(Math.round((value - parseFloat(controler.itemParam.min)) / parseFloat(controler.itemParam.step)));
+            slider.dispatchEvent(new Event("input"));
+        };
         scene.patch.connect({ module: oscillator, port: 0 }, { module: volume, port: 0 });
         scene.patch.connect({ module: oscillator, port: 0 }, { module: volume, port: 1 });
         scene.patch.connectBus(volume, "output");

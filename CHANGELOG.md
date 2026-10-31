@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.0 (2026-10-31)
+
+- **Modulation ports**: each modulation now has its own port, inside the module next to its widget, clear
+  of the audio input ports. An icon shows its type (± modulate, × scale, → drive) and, for "modulate", a
+  ring shows its depth: the arc length is |depth|, clockwise and orange when positive, counterclockwise
+  and blue when negative. Drag the port vertically to set the depth live (no recompilation, 0.01 per
+  pixel), double click to set it back to 1. Modulation cables end on these ports; dropping a cable on one
+  adds a source. The "depth" control row under the widget is gone.
+- The depth of a modulation is named after its widget (`depth_<widget>`) instead of its rank: removing
+  another modulation of the module no longer shifts the depths.
+- Saved parameter values are those shown by the interface. The values read back from an AudioWorklet node
+  (`getParamValue`) may lag behind, e.g. for a value set while the audio context is suspended.
+
 ## 2.1.0 (2026-10-30)
 
 Widget modulation: an audio output can now be connected to a widget (slider, button, checkbox) of a

@@ -24,8 +24,10 @@ channels.
 Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded.
 
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and,
-after a short hover, release it on a type in the palette: **±** modulates around the slider (with a
-depth control; exponentially for frequencies), **×** scales it, **⇐** drives it with the signal. The
+after a short hover, release it on a type in the palette: **±** modulates around the slider
+(exponentially for frequencies), **×** scales it, **→** drives it with the signal. The modulation then
+gets a port next to its widget, showing its type and, for **±**, its depth as a ring: drag the port
+vertically to set the depth, double click to set it back to 1. The
 "Modulation" category of the library holds LFOs, random, clock, ADSR and envelope follower sources.
 Patches with modulations are saved in format version 3.
 

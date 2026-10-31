@@ -127,12 +127,25 @@ export function octaves(min: number, max: number): number {
     return min > 0 && max > min ? Math.log2(max / min) / 2 : 5;
 }
 
-// Faust circuit replacing the widget w by f(w, m); `index` names the depth slider.
-export function circuit(spec: ModulationSpec, index: number): string {
+// Name of the depth slider of a modulation, from its target: stable when other modulations of the
+// module are added or removed, and when the patch is saved and recalled. Characters that Faust
+// would interpret in a label ("/" makes groups, "[" metadata...) are replaced by "_".
+export function depthKey(spec: ModulationSpec): string {
+    return spec.target.replace(/[^A-Za-z0-9_ -]/g, "_");
+}
+
+// The depth slider of a modulation among the widgets of the module's DSP.
+export function depthWidget(widgets: WidgetDescription[], spec: ModulationSpec): WidgetDescription | undefined {
+    return widgets.find((w) => w.meta[DEPTH_METADATA] == depthKey(spec));
+}
+
+// Faust circuit replacing the widget w by f(w, m).
+export function circuit(spec: ModulationSpec): string {
     const clip = `max(${float(spec.min)}) : min(${float(spec.max)})`;
     switch (spec.mode) {
         case "modulate": {
-            const depth = `hslider("[${DEPTH_METADATA}:${index}][style:knob]depth ${index}", 1, -1, 1, 0.01) : si.smoo`;
+            const key = depthKey(spec);
+            const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", 1, -1, 1, 0.01) : si.smoo`;
             return spec.exponential
                 // (2.0, _ : pow) is 2^x; note that pow(2.0) would be x^2 (partial application binds the 2nd argument)
                 ? `(_, (*(${float(octaves(spec.min, spec.max))} * (${depth})) : (2.0, _ : pow)) : * : ${clip})`
@@ -155,7 +168,7 @@ export function modulatedCode(code: string, numInputs: number, modulations: Modu
     const pairs: string[] = [];
     for (let i = 0; i < k; i++) pairs.push(`(${numInputs + i + 1},${i + 1})`);
     for (let i = 0; i < numInputs; i++) pairs.push(`(${i + 1},${k + i + 1})`);
-    const targets = modulations.map((spec, i) => `${JSON.stringify(spec.target)} : ${circuit(spec, i + 1)}`).join(",\n    ");
+    const targets = modulations.map((spec) => `${JSON.stringify(spec.target)} : ${circuit(spec)}`).join(",\n    ");
     return `import("stdfaust.lib");\n`
         + `process = route(${numInputs + k},${numInputs + k},${pairs.join(",")})\n`
         + `  : [${targets}\n    -> environment{\n${code}\n}.process];\n`;

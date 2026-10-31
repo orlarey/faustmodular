@@ -29,6 +29,7 @@
   "modulationScale": "scale",
   "modulationDrive": "drive",
   "modulationDepth": "± depth",
+  "modulationPortHint": "drag vertically to set the depth, double click to set it back to 1",
   "errorLocalStorage": "Your browser does not support local storage",
   "errorConnectionCloud": "Unable to connect to Google Drive",
   

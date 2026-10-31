@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import {
-    allowedModes, isModulable, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, octaves, WidgetDescription, widgetTarget,
+    allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, octaves, WidgetDescription, widgetTarget,
 } from "../../src/model/Modulation";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { compileJson, getCompiler } from "../helpers/faust";
@@ -89,12 +89,12 @@ describe("effective code", () => {
     it("± moduler: clip(w + D·m·(max−min)/2), with a depth adjusted live", async () => {
         const code = await modulated(MODULE, 2, [["gain", "modulate"]]);
         close((await run(code, [1, 0, 0.6])).out[0], 0.8);
-        close((await run(code, [1, 0, 0.6], { "depth 1": 0.5 })).out[0], 0.65);
-        close((await run(code, [1, 0, 0.6], { "depth 1": -1 })).out[0], 0.2);
+        close((await run(code, [1, 0, 0.6], { "depth gain": 0.5 })).out[0], 0.65);
+        close((await run(code, [1, 0, 0.6], { "depth gain": -1 })).out[0], 0.2);
         close((await run(code, [1, 0, 3])).out[0], 1);                     // clipped to the range of the widget
         // the depth slider is marked, and cannot itself be modulated
-        const depth = (await run(code, [1, 0, 0])).widgets.find((w) => w.label == "depth 1")!;
-        expect(depth.meta).toMatchObject({ modulation: "1" });
+        const depth = (await run(code, [1, 0, 0])).widgets.find((w) => w.label == "depth gain")!;
+        expect(depth.meta).toMatchObject({ modulation: "gain" });
         expect(isModulable(depth)).toBe(false);
     });
 
@@ -129,7 +129,7 @@ describe("effective code", () => {
         const r = await run(code, [2, 1, 0.4, 0.5]);
         expect(r.inputs).toBe(4);
         expect(r.out[0]).toBeCloseTo(2 * 0.5 * 0.5, 5);
-        expect(r.widgets.filter((w) => w.meta.modulation).map((w) => w.label)).toEqual(["depth 1"]);
+        expect(r.widgets.filter((w) => w.meta.modulation).map((w) => w.label)).toEqual(["depth A_level"]);
     });
 
     it("matches labels written with spaces before their metadata (library modules)", async () => {
@@ -137,6 +137,18 @@ describe("effective code", () => {
         const osc = wrap("Oscillator", `process = hslider("Frequency [unit:Hz] [acc:0 1 -10 0 10]", 300, 70, 2400, 0.01);`);
         const code = await modulated(osc, 0, [["/Frequency", "drive"]]);
         close((await run(code, [500])).out[0], 500);
+    });
+
+    it("names the depth of a modulation after its widget: unchanged when another modulation is removed", async () => {
+        const widgets = await widgetsOf(MODULE);
+        const spec = (suffix: string) => modulationSpec(widgets.find((w) => w.address.endsWith(suffix))!, widgets, "modulate");
+        const depths = async (specs: ReturnType<typeof spec>[]) =>
+            listWidgets((await compileJson("m", modulatedCode(MODULE, 2, specs))).ui).filter((w) => w.meta.modulation).map((w) => w.address).sort();
+        const both = await depths([spec("/gain"), spec("/B/level")]);
+        expect(both).toEqual(["/M/B/depth_B_level", "/M/depth_gain"]);
+        expect(await depths([spec("/B/level")])).toEqual(["/M/B/depth_B_level"]);
+        const compiled = listWidgets((await compileJson("m", modulatedCode(MODULE, 2, [spec("/gain")]))).ui);
+        expect(depthWidget(compiled, spec("/gain"))!.address).toBe("/M/depth_gain");
     });
 
     it("leaves a module without modulation unchanged", () => {

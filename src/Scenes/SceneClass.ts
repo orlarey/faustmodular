@@ -13,7 +13,7 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Message } from "../Messages";
-import { allowedModes, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
+import { allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
@@ -70,6 +70,8 @@ export class Scene {
         this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
             allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),
             modulate: (from, moduleId, widget, mode) => this.modulate(from, moduleId, widget, mode),
+            getDepth: (moduleId, modulation) => this.getDepth(moduleId, modulation),
+            setDepth: (moduleId, modulation, depth) => this.setDepth(moduleId, modulation, depth),
         });
         this.integrateOutput();
         this.integrateInput();
@@ -263,9 +265,16 @@ export class Scene {
     updatePatchFromModules(isPrecompiled: boolean): void {
         for (var module of this.fModuleList) {
             var dsp = module.moduleFaust.getDSP();
+            // values of the interface (what the user sees): getParamValue reads the AudioParam of an
+            // AudioWorklet node, which may lag behind (e.g. a value set while the context is suspended)
+            var shown = new Map<string, number>();
+            module.moduleControles.forEach((c) => {
+                var value = parseFloat(c.value);
+                if (!isNaN(value)) shown.set(c.itemParam.address, value);
+            });
             var params: Record<string, number> = {};
             for (var path of dsp.getParams() ?? []) {
-                params[path] = dsp.getParamValue(path);
+                params[path] = shown.get(path) ?? dsp.getParamValue(path);
             }
             var acc: AccMapping[] = module.moduleControles.map((controler) => {
                 var slider = controler.accelerometerSlider;
@@ -398,6 +407,41 @@ export class Scene {
             this.fWidgets.set(dsp, widgets);
         }
         return widgets;
+    }
+
+    // Depth slider of a "modulate" modulation in the current DSP of its module (absent while the
+    // module is being recompiled with a new modulation).
+    private depthOf(moduleId: ModuleId, modulationId: string): { module: ModuleClass; address: string } | undefined {
+        var module = this.getModuleById(moduleId);
+        var modulation = this.patch.getModule(moduleId)?.modulations.find((m) => m.id == modulationId);
+        if (!module || !modulation || modulation.spec.mode != "modulate") return undefined;
+        var widget = depthWidget(this.widgetsOf(module), modulation.spec);
+        return widget ? { module, address: widget.address } : undefined;
+    }
+
+    // Read from the interface state, updated at once (the parameter value of an AudioWorklet node is
+    // only updated when the audio thread reports it).
+    getDepth(moduleId: ModuleId, modulationId: string): number | undefined {
+        var depth = this.depthOf(moduleId, modulationId);
+        if (!depth) return undefined;
+        var controler = depth.module.moduleControles.find((c) => c.itemParam.address == depth!.address);
+        var value = controler ? parseFloat(controler.value) : NaN;
+        return isNaN(value) ? depth.module.moduleFaust.getDSP().getParamValue(depth.address) : value;
+    }
+
+    // Sets a depth through its (hidden) slider, so that the interface state, saved with the patch and
+    // kept across recompilations, follows.
+    setDepth(moduleId: ModuleId, modulationId: string, value: number): void {
+        var depth = this.depthOf(moduleId, modulationId);
+        if (!depth) return;
+        var controler = depth.module.moduleControles.find((c) => c.itemParam.address == depth!.address);
+        var slider = controler?.faustInterfaceView.slider;
+        if (controler && slider) {
+            slider.value = String(Math.round((value - parseFloat(controler.itemParam.min)) / parseFloat(controler.itemParam.step)));
+            slider.dispatchEvent(new Event("input"));
+        } else {
+            depth.module.moduleFaust.getDSP().setParamValue(depth.address, value);
+        }
     }
 
     // Modulation types a cable may choose for a widget: those allowed for its kind, or the type of

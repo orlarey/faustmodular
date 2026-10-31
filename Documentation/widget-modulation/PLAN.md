@@ -203,3 +203,32 @@ valeurs des paramètres sont conservées et les connexions existantes sont gard�
 | 2 | Ouverture de la palette | après un **court délai** au survol du widget |
 | 3 | Plusieurs types sur un même widget | **non** : un seul type par widget (plusieurs sources s'additionnent) |
 | 4 | Sources de modulation dans la bibliothèque | **oui**, comme dans les synthés modulaires : LFO bipolaires [−1, 1] (sinus, triangle, carré, dent de scie), aléatoire échantillonné-bloqué, ADSR déclenchée par une gate [0, 1], suiveur d'enveloppe [0, 1] |
+
+### Évolution (2026-10-31) : ports de modulation
+
+À la demande de l'utilisateur, après les premiers essais : chaque modulation a son **port**, avec
+une icône du type et le dosage. Les icônes au trait s'inspirent de faustcode (`orlarey/faustcode`).
+
+- **Position** : le port est placé dans le module, à gauche de son widget, à sa hauteur. Le module
+  élargit sa marge gauche (`has-modulations`). Placé sur le bord, le port serait entré en collision
+  avec les ports audio d'entrée, centrés sur ce même bord.
+- **Icône** : SVG au trait (± moduler, × doser, → piloter).
+- **Profondeur** (mode ±) : un anneau. La longueur de l'arc vaut |profondeur| ; il part du haut et
+  tourne dans le sens horaire (orange) si elle est positive, anti-horaire (bleu) si elle est
+  négative.
+- **Réglage** :
+  - glisser verticalement sur le port, à raison de 0,01 par pixel, sans recompilation ;
+  - double-clic pour revenir à 1 ;
+  - la valeur passe par le slider de profondeur, masqué. L'état de l'interface, sauvé avec le
+    patch et conservé à la recompilation, suit donc le réglage.
+- **Câbles** : les câbles de modulation aboutissent au port, et déposer un câble sur un port ajoute
+  une source.
+- **Corrections associées** :
+  - les profondeurs sont nommées d'après leur widget (`depth_<cible>`) et non plus par rang ;
+    supprimer une modulation décalait les profondeurs des suivantes ;
+  - la sauvegarde lit les valeurs de l'interface : `getParamValue` lit l'`AudioParam` du nœud
+    AudioWorklet, qui ne suit pas une valeur fixée pendant que le contexte est suspendu (mesuré :
+    elle restait à 1 après réglage à −0,4, alors que le son correspondait bien à −0,4).
+- **Tests** : port du bon type ; géométrie (au centre, à la hauteur du widget, dans le module, sans
+  chevauchement avec les ports audio) ; réglage de la profondeur au glisser, mesuré dans le son
+  (0,75, puis 0,4 à −0,4, puis 0,75 après double-clic), sans changement de DSP ; profondeur sauvée.

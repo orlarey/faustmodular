@@ -38,7 +38,7 @@
    "outputs": 8,
    "params": {
     "/OscillatorBank8/Oscillator_Bank_8/Fundamental": 110,
-    "/OscillatorBank8/Oscillator_Bank_8/Level": 0.30000001192092896
+    "/OscillatorBank8/Oscillator_Bank_8/Level": 0.3
    },
    "acc": [
     {
@@ -71,13 +71,13 @@
    "inputs": 4,
    "outputs": 2,
    "params": {
-    "/Mixer4to2/Mixer_4_to_2/Channels/1/Gain": 0.699999988079071,
+    "/Mixer4to2/Mixer_4_to_2/Channels/1/Gain": 0.7,
     "/Mixer4to2/Mixer_4_to_2/Channels/1/Pan": 0.125,
-    "/Mixer4to2/Mixer_4_to_2/Channels/2/Gain": 0.699999988079071,
+    "/Mixer4to2/Mixer_4_to_2/Channels/2/Gain": 0.7,
     "/Mixer4to2/Mixer_4_to_2/Channels/2/Pan": 0.375,
-    "/Mixer4to2/Mixer_4_to_2/Channels/3/Gain": 0.699999988079071,
+    "/Mixer4to2/Mixer_4_to_2/Channels/3/Gain": 0.7,
     "/Mixer4to2/Mixer_4_to_2/Channels/3/Pan": 0.625,
-    "/Mixer4to2/Mixer_4_to_2/Channels/4/Gain": 0.699999988079071,
+    "/Mixer4to2/Mixer_4_to_2/Channels/4/Gain": 0.7,
     "/Mixer4to2/Mixer_4_to_2/Channels/4/Pan": 0.875
    },
    "acc": [
@@ -165,8 +165,8 @@
    "inputs": 4,
    "outputs": 4,
    "params": {
-    "/MultiDelay4/Multi_Delay_4/Feedback": 0.4000000059604645,
-    "/MultiDelay4/Multi_Delay_4/Time": 0.11999999731779099,
+    "/MultiDelay4/Multi_Delay_4/Feedback": 0.4,
+    "/MultiDelay4/Multi_Delay_4/Time": 0.12,
     "/MultiDelay4/Multi_Delay_4/Wet": 0.5
    },
    "acc": [

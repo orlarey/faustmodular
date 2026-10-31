@@ -13,8 +13,12 @@
 
     Each pointer is tracked separately (pointerId), so several cables can be drawn at once
     on a touch screen. Cables are redrawn when a module moves or changes size; cables closing
-    a cycle (delayed in the audio graph) are dashed. Modulation cables end on their widget, with a
-    badge showing the modulation type.
+    a cycle (delayed in the audio graph) are dashed.
+
+    Each modulation has its own port, inside the module next to its widget: an icon shows its type
+    and, for "modulate", a ring shows its depth (arc length = |depth|, clockwise when positive).
+    Dragging a "modulate" port vertically sets the depth live; a double click sets it back to 1.
+    Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
 import type { ModulationMode } from "../model/Modulation";
@@ -25,12 +29,34 @@ import { Utilitary } from "../Utilitary";
 // Hovering time of a widget before its modulation palette opens.
 export const PALETTE_DELAY = 250;
 
-export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", scale: "×", drive: "⇐" };
+export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", scale: "×", drive: "→" };
+
+// Stroke icons of the modulation types (24 x 24 viewBox, drawn with currentColor).
+export const MODE_ICONS: Record<ModulationMode, string> = {
+    modulate: "M12 4v9M7.5 8.5h9M7.5 19h9",       // ±
+    scale: "M7 7l10 10M17 7L7 17",                 // ×
+    drive: "M4 12h14M13 7l5 5-5 5",                // → the signal drives the widget
+};
+
+// Modulation port geometry (px) and depth change per pixel of vertical drag.
+const MODULATION_PORT_SIZE = 24;
+const DEPTH_PER_PIXEL = 0.01;
 
 // What the view needs from the scene to modulate widgets.
 export interface ModulationHandler {
     allowedModes(module: ModuleId, widget: string): ModulationMode[];
     modulate(from: PortRef, module: ModuleId, widget: string, mode: ModulationMode): Promise<boolean>;
+    // depth of a "modulate" modulation (undefined until its DSP exists), and its live change
+    getDepth(module: ModuleId, modulation: string): number | undefined;
+    setDepth(module: ModuleId, modulation: string, depth: number): void;
+}
+
+interface DepthDrag {
+    module: ModuleId;
+    modulation: string;
+    port: HTMLElement;
+    startY: number;
+    startDepth: number;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -83,7 +109,7 @@ const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .
 
 export class PatchView {
     private fCables = new Map<ConnectionId, SVGPathElement>();
-    private fBadges = new Map<ConnectionId, SVGTextElement>();
+    private fDepthDrags = new Map<number, DepthDrag>();
     private fContainers = new Map<HTMLElement, ModuleId>();
     private fCableDrags = new Map<number, CableDrag>();
     private fModuleDrags = new Map<number, ModuleDrag>();
@@ -113,10 +139,12 @@ export class PatchView {
         container.addEventListener("pointercancel", (e) => this.onPointerUp(e, false));
         this.fResizeObserver?.observe(container);
         this.markWidgets(module.moduleId);
+        this.renderModulationPorts(module.moduleId);
         this.redrawModule(module.moduleId);
     }
 
     redrawModule(id: ModuleId): void {
+        this.placeModulationPorts(id);
         this.fPatch.getConnections()
             .filter((c) => c.from.module == id || c.to.module == id)
             .forEach((c) => this.redrawCable(c));
@@ -141,8 +169,6 @@ export class PatchView {
             case "connectionRemoved":
                 this.fCables.get(event.connection.id)?.remove();
                 this.fCables.delete(event.connection.id);
-                this.fBadges.get(event.connection.id)?.remove();
-                this.fBadges.delete(event.connection.id);
                 this.updateFeedbackStyle();
                 break;
             case "arityChanged":
@@ -151,6 +177,7 @@ export class PatchView {
                 if (module && this.isShown(module)) {
                     this.renderPorts(module);
                     this.markWidgets(event.module.id);
+                    this.renderModulationPorts(event.module.id);
                     this.redrawModule(event.module.id);
                 }
                 break;
@@ -183,13 +210,6 @@ export class PatchView {
         const path = document.createElementNS(SVG_NS, "path") as SVGPathElement;
         const modulation = this.fPatch.modulationAt(connection.to.module, connection.to.port);
         path.setAttribute("class", modulation ? `cable modulation modulation-${modulation.spec.mode}` : "cable");
-        if (modulation) {
-            const badge = document.createElementNS(SVG_NS, "text") as SVGTextElement;
-            badge.setAttribute("class", "cable-badge");
-            badge.textContent = MODE_SYMBOLS[modulation.spec.mode];
-            this.fSvg.appendChild(badge);
-            this.fBadges.set(connection.id, badge);
-        }
         path.dataset.connection = connection.id;
         path.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -208,21 +228,9 @@ export class PatchView {
         if (!path || !from) return;
         const modulation = this.fPatch.getModule(connection.to.module) && this.fPatch.modulationAt(connection.to.module, connection.to.port);
         if (modulation) {
-            // ends on the left border of the module, at the height of the widget (of the title when
-            // the widget is hidden), like a side port: the badge stays visible outside the module
-            const view = this.fLookup(connection.to.module)?.moduleView;
-            if (!view) return;
-            const widget = this.widgetElement(connection.to.module, modulation.widget);
-            const rect = widget?.getBoundingClientRect();
-            const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
-            const border = view.getModuleContainer().getBoundingClientRect().left;
-            const end = this.toCanvas(border, anchor.top + anchor.height / 2);
-            path.setAttribute("d", PatchView.curve(this.center(from), end));
-            const badge = this.fBadges.get(connection.id);
-            if (badge) {
-                badge.setAttribute("x", String(end.x - 16));
-                badge.setAttribute("y", String(end.y - 6));
-            }
+            // ends on the modulation port, next to the widget
+            const port = this.modulationPort(connection.to.module, modulation.id);
+            if (port) path.setAttribute("d", PatchView.curve(this.center(from), this.center(port)));
             return;
         }
         const to = this.fLookup(connection.to.module)?.moduleView.getPort("in", connection.to.port);
@@ -246,6 +254,97 @@ export class PatchView {
         for (const modulation of state.modulations) {
             this.widgetElement(id, modulation.widget)?.classList.add("modulated", "modulated-" + modulation.spec.mode);
         }
+    }
+
+    /******************** MODULATION PORTS ********************/
+
+    private modulationPort(module: ModuleId, modulation: string): HTMLElement | null {
+        const container = this.fLookup(module)?.moduleView.getModuleContainer();
+        return container ? container.querySelector(`.modulation-port[data-modulation="${CSS.escape(modulation)}"]`) : null;
+    }
+
+    // One port per modulation, with the icon of its type and the ring of its depth.
+    private renderModulationPorts(id: ModuleId): void {
+        const container = this.fLookup(id)?.moduleView.getModuleContainer();
+        const state = this.fPatch.getModule(id);
+        if (!container || !state) return;
+        container.querySelectorAll(".modulation-port").forEach((port) => port.remove());
+        container.classList.toggle("has-modulations", state.modulations.length > 0);
+        state.modulations.forEach((modulation, i) => {
+            const mode = modulation.spec.mode;
+            const port = document.createElement("div");
+            port.className = `port port-input modulation-port modulation-${mode}`;
+            port.draggable = false;
+            port.dataset.module = id;
+            port.dataset.dir = "in";
+            port.dataset.port = String(state.numInputs + i);
+            port.dataset.modulation = modulation.id;
+            port.style.width = port.style.height = MODULATION_PORT_SIZE + "px";
+            const size = MODULATION_PORT_SIZE;
+            const r = size / 2 - 1.5;
+            port.innerHTML = `<svg viewBox="0 0 ${size} ${size}" aria-hidden="true">`
+                + `<circle class="depth-track" cx="${size / 2}" cy="${size / 2}" r="${r}"/>`
+                + `<circle class="depth-arc" cx="${size / 2}" cy="${size / 2}" r="${r}"/>`
+                + `<g transform="translate(${size * 0.22} ${size * 0.22}) scale(${(size * 0.56) / 24})"><path class="mode-icon" d="${MODE_ICONS[mode]}"/></g>`
+                + `</svg>`;
+            if (mode == "modulate") {
+                port.addEventListener("dblclick", (e) => {
+                    e.stopPropagation();
+                    this.fModulation?.setDepth(id, modulation.id, 1);
+                    this.showDepth(port, id, modulation.id);
+                });
+            }
+            container.appendChild(port);
+            this.showDepth(port, id, modulation.id);
+        });
+        this.placeModulationPorts(id);
+    }
+
+    // Each port in the left margin of the module, at the height of its widget (of the title when
+    // the widget is hidden: module minimized, code being edited).
+    private placeModulationPorts(id: ModuleId): void {
+        const view = this.fLookup(id)?.moduleView;
+        const state = this.fPatch.getModule(id);
+        if (!view || !state) return;
+        const box = view.getModuleContainer().getBoundingClientRect();
+        for (const modulation of state.modulations) {
+            const port = this.modulationPort(id, modulation.id);
+            if (!port) continue;
+            const widget = this.widgetElement(id, modulation.widget);
+            const rect = widget?.getBoundingClientRect();
+            const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
+            port.style.left = "13px";
+            port.style.top = (anchor.top + anchor.height / 2 - box.top - MODULATION_PORT_SIZE / 2) + "px";
+        }
+    }
+
+    // Depth ring (and tooltip) of a modulation port.
+    private showDepth(port: HTMLElement, id: ModuleId, modulationId: string): void {
+        const modulation = this.fPatch.getModule(id)?.modulations.find((m) => m.id == modulationId);
+        const arc = port.querySelector(".depth-arc") as SVGCircleElement | null;
+        if (!modulation || !arc) return;
+        const labels: Record<ModulationMode, string> = {
+            modulate: Utilitary.messageResource.modulationModulate,
+            scale: Utilitary.messageResource.modulationScale,
+            drive: Utilitary.messageResource.modulationDrive,
+        };
+        const title = `${MODE_SYMBOLS[modulation.spec.mode]} ${labels[modulation.spec.mode]}`;
+        if (modulation.spec.mode != "modulate") {
+            port.title = title;
+            return;
+        }
+        const depth = this.fModulation?.getDepth(id, modulationId);
+        const size = MODULATION_PORT_SIZE;
+        const circumference = 2 * Math.PI * (size / 2 - 1.5);
+        const amount = depth === undefined ? 1 : Math.min(1, Math.abs(depth));
+        arc.setAttribute("stroke-dasharray", `${amount * circumference} ${circumference}`);
+        // from the top, clockwise for a positive depth, counterclockwise for a negative one
+        arc.setAttribute("transform", (depth ?? 1) < 0
+            ? `translate(${size} 0) scale(-1 1) rotate(-90 ${size / 2} ${size / 2})`
+            : `rotate(-90 ${size / 2} ${size / 2})`);
+        port.classList.toggle("negative", (depth ?? 1) < 0);
+        port.dataset.depth = depth === undefined ? "" : depth.toFixed(2);
+        port.title = `${title} : ${Utilitary.messageResource.modulationDepth} ${depth === undefined ? "" : depth.toFixed(2)}\n${Utilitary.messageResource.modulationPortHint}`;
     }
 
     private updateFeedbackStyle(): void {
@@ -276,14 +375,35 @@ export class PatchView {
         if (e.pointerType == "mouse" && e.button != 0) return;
         const target = e.target as HTMLElement;
         const port = target.closest(".port") as HTMLElement | null;
-        if (port && port.dataset.module == module.moduleId) {
+        if (port && port.dataset.module == module.moduleId && port.classList.contains("modulation-modulate")) {
+            this.startDepthDrag(e, module, port);
+        } else if (port && port.dataset.module == module.moduleId) {
             this.startCableDrag(e, module, port);
         } else if (!target.closest(INTERACTIVE)) {
             this.startModuleDrag(e, module);
         }
     }
 
+    // Vertical drag on a "modulate" port: depth from −1 to 1 (up increases), adjusted live.
+    private startDepthDrag(e: PointerEvent, module: ModuleClass, port: HTMLElement): void {
+        e.stopPropagation();
+        e.preventDefault();
+        const modulation = port.dataset.modulation!;
+        const depth = this.fModulation?.getDepth(module.moduleId, modulation);
+        if (depth === undefined) return;        // module being recompiled
+        port.setPointerCapture(e.pointerId);
+        port.classList.add("adjusting");
+        this.fDepthDrags.set(e.pointerId, { module: module.moduleId, modulation, port, startY: e.clientY, startDepth: depth });
+    }
+
     private onPointerMove(e: PointerEvent): void {
+        const depthDrag = this.fDepthDrags.get(e.pointerId);
+        if (depthDrag) {
+            const depth = Math.max(-1, Math.min(1, depthDrag.startDepth + (depthDrag.startY - e.clientY) * DEPTH_PER_PIXEL));
+            this.fModulation?.setDepth(depthDrag.module, depthDrag.modulation, Math.round(depth * 100) / 100);
+            this.showDepth(depthDrag.port, depthDrag.module, depthDrag.modulation);
+            return;
+        }
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
             const view = moduleDrag.module.moduleView;
@@ -300,6 +420,12 @@ export class PatchView {
     }
 
     private onPointerUp(e: PointerEvent, commit: boolean): void {
+        const depthDrag = this.fDepthDrags.get(e.pointerId);
+        if (depthDrag) {
+            this.fDepthDrags.delete(e.pointerId);
+            depthDrag.port.classList.remove("adjusting");
+            return;
+        }
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
             this.fModuleDrags.delete(e.pointerId);

@@ -502,7 +502,8 @@ describe("widget modulation (scene API)", () => {
             const s = (globalThis as any).faustPlayground.scene;
             const dsp = s.getModuleById(m).moduleFaust.getDSP();
             const address = s.widgetsOf(s.getModuleById(m)).find((w: any) => w.meta.modulation).address;
-            dsp.setParamValue(address, -1);
+            // as the modulation port does: through the interface state, saved with the patch
+            s.setDepth(m, s.patch.getModule(m).modulations[0].id, -1);
             (globalThis as any).dspBefore = dsp;
             return address;
         }, gain);
@@ -571,18 +572,29 @@ describe("widget modulation (interface)", () => {
         expect(await page.locator(".modulation-palette").count()).toBe(0);
         expect(await page.locator(`${await widget(page, osc, "freq")}.modulated-scale`).count()).toBe(1);
         expect(await page.locator(".cable.modulation").count()).toBe(1);
-        expect(await page.locator(".cable-badge").textContent()).toBe("×");
-        // the cable ends on the left border of the module, at the height of the widget
-        const end = await page.evaluate(([m, sel]) => {
+        // a modulation port of its type, at the height of the widget, inside the module, clear of the
+        // audio ports; the cable ends at its center
+        expect(await page.locator(`.modulation-port.modulation-scale[data-module="${osc}"]`).count()).toBe(1);
+        const geometry = await page.evaluate(([m, sel]) => {
             const s = (globalThis as any).faustPlayground.scene;
             const path = document.querySelector(".cable.modulation") as SVGPathElement;
             const p = path.getPointAtLength(path.getTotalLength());
             const svg = path.ownerSVGElement!.getBoundingClientRect();
+            const port = document.querySelector(".modulation-port")!.getBoundingClientRect();
             const box = s.getModuleById(m).moduleView.fModuleContainer.getBoundingClientRect();
             const w = document.querySelector(sel)!.getBoundingClientRect();
-            return [p.x + svg.left - box.left, p.y + svg.top - (w.top + w.height / 2)];
+            const audio = Array.from(document.querySelectorAll(`.port[data-module="${m}"]:not(.modulation-port)`)).map((e) => e.getBoundingClientRect());
+            return {
+                end: [p.x + svg.left - (port.left + port.width / 2), p.y + svg.top - (port.top + port.height / 2)],
+                height: port.top + port.height / 2 - (w.top + w.height / 2),
+                inside: port.left >= box.left && port.right <= w.left,
+                clear: audio.every((a) => a.right <= port.left || a.left >= port.right || a.bottom <= port.top || a.top >= port.bottom),
+            };
         }, [osc, await widget(page, osc, "freq")] as [string, string]);
-        end.forEach((d: number) => expect(Math.abs(d)).toBeLessThan(1));
+        geometry.end.forEach((d: number) => expect(Math.abs(d)).toBeLessThan(1));
+        expect(Math.abs(geometry.height)).toBeLessThan(1);
+        expect(geometry.inside).toBe(true);
+        expect(geometry.clear).toBe(true);
         expect(lfo).toBeDefined();
         expect(errors).toEqual([]);
         await page.close();
@@ -645,7 +657,56 @@ describe("widget modulation (interface)", () => {
         }
         await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 0, osc);
         expect(await modulations(page, osc)).toEqual([]);
-        expect(await page.locator(".cable.modulation, .cable-badge, .widget.modulated").count()).toBe(0);
+        expect(await page.locator(".cable.modulation, .modulation-port, .widget.modulated").count()).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("sets the depth by dragging the ± port, live, and back to 1 by double click", async () => {
+        const { page, errors } = await openApp();
+        // constant source 0.5 modulating a level of 0.5 over [0, 1]: output 0.5 + D·0.5·0.5
+        const half = await addModule(page, "Half", 'process = vgroup("Half", 0.5);', 150);
+        const level = await addModule(page, "Level", 'process = vgroup("Level", hslider("level", 0.5, 0, 1, 0.01));', 650);
+        const output = () => page.evaluate(async (m) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(m);
+            await node.context.resume();
+            const analyser = node.context.createAnalyser();
+            node.connect(analyser);
+            await new Promise((r) => setTimeout(r, 500));
+            const buffer = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(buffer);
+            node.disconnect(analyser);
+            return buffer[buffer.length - 1];
+        }, level);
+        expect(await page.evaluate(async ([f, o]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            return s.modulate({ module: f, port: 0 }, o, s.widgetsOf(s.getModuleById(o)).find((w: any) => w.label == "level").address, "modulate");
+        }, [half, level])).toBe(true);
+        const portSel = `.modulation-port.modulation-modulate[data-module="${level}"]`;
+        await page.waitForSelector(portSel);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.00");
+        expect(await output()).toBeCloseTo(0.75, 3);
+        const dsp = await page.evaluateHandle((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP(), level);
+
+        // 140 px down: D = 1 − 1.4 = −0.4 (counterclockwise ring), output 0.5 − 0.1 = 0.4
+        const p = await centerOf(page, portSel);
+        await page.mouse.move(p.x, p.y);
+        await page.mouse.down();
+        await page.mouse.move(p.x, p.y + 140, { steps: 10 });
+        await page.mouse.up();
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.40");
+        expect(await page.locator(`${portSel}.negative`).count()).toBe(1);
+        expect(await output()).toBeCloseTo(0.4, 3);
+        // live: same DSP (no recompilation), and no cable was drawn from the port
+        expect(await page.evaluate(([d, m]) => d === (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP(), [dsp, level] as const)).toBe(true);
+        expect((await state(page)).connections).toHaveLength(1);
+        // saved with the patch, under the name of its widget
+        const saved = JSON.parse(await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false)));
+        expect(saved.modules.find((m: any) => m.id == level).params["/Level/depth_level"]).toBeCloseTo(-0.4, 5);
+
+        await page.dblclick(portSel);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.00");
+        expect(await output()).toBeCloseTo(0.75, 3);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
