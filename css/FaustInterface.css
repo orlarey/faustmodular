@@ -698,9 +698,6 @@ span.titleAcc {
 .widget.modulation-depth {
 	display: none;				/* the depth is shown and set on the modulation port */
 }
-.moduleFaust.has-modulations .content {
-	padding-left: 2.9em;		/* room for the modulation ports, clear of the audio input ports */
-}
 .modulation-port {
 	padding: 0;
 	cursor: ns-resize;

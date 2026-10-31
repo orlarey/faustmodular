@@ -211,7 +211,7 @@ une icône du type et le dosage. Les icônes au trait s'inspirent de faustcode (
 
 - **Position** : le port est placé dans le module, à gauche de son widget, à sa hauteur. Le module
   élargit sa marge gauche (`has-modulations`). Placé sur le bord, le port serait entré en collision
-  avec les ports audio d'entrée, centrés sur ce même bord.
+  avec les ports audio d'entrée, centrés sur ce même bord. (Remplacé en 2.3.0 : voir ci-dessous.)
 - **Icône** : SVG au trait (± moduler, × doser, → piloter).
 - **Profondeur** (mode ±) : un anneau. La longueur de l'arc vaut |profondeur| ; il part du haut et
   tourne dans le sens horaire (orange) si elle est positive, anti-horaire (bleu) si elle est
@@ -232,3 +232,33 @@ une icône du type et le dosage. Les icônes au trait s'inspirent de faustcode (
 - **Tests** : port du bon type ; géométrie (au centre, à la hauteur du widget, dans le module, sans
   chevauchement avec les ports audio) ; réglage de la profondeur au glisser, mesuré dans le son
   (0,75, puis 0,4 à −0,4, puis 0,75 après double-clic), sans changement de DSP ; profondeur sauvée.
+
+### Évolution (2026-10-31, version 2.3.0) : ports audio en bas, ports de modulation sur le bord
+
+À la demande de l'utilisateur, comme sur les synthés modulaires (Eurorack) : les entrées-sorties
+audio passent sur le bord inférieur du module, ce qui libère le bord gauche pour les ports de
+modulation.
+
+- **Ports audio** (`ModuleView.setPorts`) : à cheval sur le bord inférieur ; entrées (vert) depuis
+  la gauche, sorties (rouge) depuis la droite, séparées d'un écart de 16 px. Taille/pas : 30/36 px
+  jusqu'à 4 ports par côté, 24/28 jusqu'à 8, 18/20 au-delà. Le module s'élargit pour les contenir
+  (largeur minimale = somme des pas + marges), soit environ 2 × 32 × 20 = 1280 px au maximum de
+  32 canaux par côté ; un padding bas réserve la demi-hauteur des ports.
+- **Ports de modulation** : à cheval sur le bord gauche, à la hauteur du centre de leur widget ;
+  la marge `has-modulations` est supprimée. Ils ne peuvent plus chevaucher les ports audio.
+- **Câbles** (`PatchView.curve`) : courbes de Bézier orientées par port, tangente verticale vers
+  le bas pour les ports audio, horizontale vers la gauche pour les ports de modulation ; la
+  longueur des tangentes vaut max(40, d/2), d étant la distance des extrémités. Les câbles audio
+  « pendent » donc entre les modules.
+- **Réglage fin** : le glisser est incrémental, Δprofondeur = −Δy · r, avec r = 0,01 par pixel, ou
+  0,001 avec Maj ; Maj peut être enfoncée ou relâchée en cours de geste sans saut de valeur. La
+  valeur est arrondie à 10⁻³, et le slider de profondeur a un pas de 0,001 (auparavant 0,01, qui
+  aurait quantifié le réglage fin).
+- **Correction** : `recallAccValues` réécrivait `className` des contrôles au rappel d'un patch ; la
+  classe `modulation-depth` disparaissait et les lignes de profondeur, masquées, réapparaissaient.
+  Seules les classes de l'accéléromètre (`x`, `y`, `z`, `disabledAcc`) sont maintenant modifiées.
+- **Tests (e2e)** : ports audio à moins de 2 px du bord inférieur, entrées dans la moitié gauche,
+  sorties dans la moitié droite ; port de modulation centré sur le bord gauche ; avec Maj, 140 px
+  vers le bas font passer la profondeur de 1 à 0,860, mesuré dans le son (0,5 + 0,86 · 0,25 =
+  0,715) ; un geste mixte (20 px sans Maj puis 100 px avec) donne 0,560 ; lignes de profondeur
+  masquées après rappel de l'exemple de modulation.

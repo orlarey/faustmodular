@@ -446,7 +446,8 @@ suppression, sauvegarde/rappel).
 
 **État : fait.**
 - **Ports** (`ModuleView.setPorts`) : un port par canal, entrées à gauche (vert)
-  et sorties à droite (rouge), numérotés à partir de 1 dès qu'il y en a plus
+  et sorties à droite (rouge) — depuis la 2.3.0, sur le bord inférieur (voir
+  Documentation/widget-modulation/PLAN.md, « ports audio en bas ») —, numérotés à partir de 1 dès qu'il y en a plus
   d'un. Taille et pas diminuent au-delà de 4 puis de 8 ports. Les colonnes sont
   centrées entre la barre de titre et le pied de module, et le module grandit
   pour les contenir (le pied reste en bas). Chaque port porte `data-module`,

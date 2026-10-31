@@ -617,7 +617,9 @@ export class Scene {
                     acc.isEnabled = controle.enabled;
                     AccelerometerHandler.curveSplitter(acc);
 
-                    group.className = "control-group";
+                    // only the accelerometer classes are reset: the others (widget, modulation-depth,
+                    // modulated...) belong to the view
+                    group.classList.remove("x", "y", "z", "disabledAcc");
                     group.classList.add(Axis[controle.axis]);
                     if (!controle.enabled) {
                         group.classList.add("disabledAcc");

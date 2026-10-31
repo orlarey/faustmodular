@@ -194,6 +194,10 @@ describe("application", () => {
                     .flatMap((m: any) => m.modulations.map((x: any) => `${m.name}:${x.spec.mode}${x.spec.exponential ? ":exp" : ""}`)));
                 expect(modulated).toEqual(["SOscillator:modulate:exp", "Volume:scale"]);
                 expect(await page.locator(".cable.modulation").count()).toBe(2);
+                // the depth rows stay hidden after a recall (shown on the ports)
+                expect(await page.evaluate(() => Array.from(document.querySelectorAll(".widget.modulation-depth"))
+                    .map((e) => getComputedStyle(e).display))).toEqual(["none"]);
+                expect(await page.locator(".modulation-port").count()).toBe(2);
             }
             if (file == "Multichannel_Example") {
                 // sound out of the stereo mixer and of the 4 echoes
@@ -241,6 +245,18 @@ describe("application", () => {
             paths: 5,
         });
         expect(await cableMisalignment(page)).toBeLessThan(1);
+        // audio ports astride the bottom edge of their module, inputs on the left, outputs on the right
+        const ports = await page.evaluate(() => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const box = s.getModuleById("3").moduleView.fModuleContainer.getBoundingClientRect();
+            return Array.from(document.querySelectorAll('.port[data-module="3"]')).map((p) => {
+                const r = p.getBoundingClientRect();
+                return { dir: (p as HTMLElement).dataset.dir, dy: r.top + r.height / 2 - box.bottom, x: r.left + r.width / 2 - box.left, width: box.width };
+            });
+        });
+        ports.forEach((p: any) => expect(Math.abs(p.dy)).toBeLessThan(2));
+        expect(ports.filter((p: any) => p.dir == "in").every((p: any) => p.x < ports[0].width / 2)).toBe(true);
+        expect(ports.filter((p: any) => p.dir == "out").every((p: any) => p.x > ports[0].width / 2)).toBe(true);
 
         const body = await bodyOf(page, "3");
         const before = await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.getModule("3"));
@@ -572,8 +588,8 @@ describe("widget modulation (interface)", () => {
         expect(await page.locator(".modulation-palette").count()).toBe(0);
         expect(await page.locator(`${await widget(page, osc, "freq")}.modulated-scale`).count()).toBe(1);
         expect(await page.locator(".cable.modulation").count()).toBe(1);
-        // a modulation port of its type, at the height of the widget, inside the module, clear of the
-        // audio ports; the cable ends at its center
+        // a modulation port of its type, at the height of the widget, astride the left edge, clear of
+        // the audio ports (bottom edge); the cable ends at its center
         expect(await page.locator(`.modulation-port.modulation-scale[data-module="${osc}"]`).count()).toBe(1);
         const geometry = await page.evaluate(([m, sel]) => {
             const s = (globalThis as any).faustPlayground.scene;
@@ -587,13 +603,13 @@ describe("widget modulation (interface)", () => {
             return {
                 end: [p.x + svg.left - (port.left + port.width / 2), p.y + svg.top - (port.top + port.height / 2)],
                 height: port.top + port.height / 2 - (w.top + w.height / 2),
-                inside: port.left >= box.left && port.right <= w.left,
+                astride: Math.abs(port.left + port.width / 2 - box.left) < 2,
                 clear: audio.every((a) => a.right <= port.left || a.left >= port.right || a.bottom <= port.top || a.top >= port.bottom),
             };
         }, [osc, await widget(page, osc, "freq")] as [string, string]);
         geometry.end.forEach((d: number) => expect(Math.abs(d)).toBeLessThan(1));
         expect(Math.abs(geometry.height)).toBeLessThan(1);
-        expect(geometry.inside).toBe(true);
+        expect(geometry.astride).toBe(true);
         expect(geometry.clear).toBe(true);
         expect(lfo).toBeDefined();
         expect(errors).toEqual([]);
@@ -684,7 +700,7 @@ describe("widget modulation (interface)", () => {
         }, [half, level])).toBe(true);
         const portSel = `.modulation-port.modulation-modulate[data-module="${level}"]`;
         await page.waitForSelector(portSel);
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.00");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.000");
         expect(await output()).toBeCloseTo(0.75, 3);
         const dsp = await page.evaluateHandle((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP(), level);
 
@@ -694,7 +710,7 @@ describe("widget modulation (interface)", () => {
         await page.mouse.down();
         await page.mouse.move(p.x, p.y + 140, { steps: 10 });
         await page.mouse.up();
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.40");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.400");
         expect(await page.locator(`${portSel}.negative`).count()).toBe(1);
         expect(await output()).toBeCloseTo(0.4, 3);
         // live: same DSP (no recompilation), and no cable was drawn from the port
@@ -705,8 +721,27 @@ describe("widget modulation (interface)", () => {
         expect(saved.modules.find((m: any) => m.id == level).params["/Level/depth_level"]).toBeCloseTo(-0.4, 5);
 
         await page.dblclick(portSel);
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.00");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.000");
         expect(await output()).toBeCloseTo(0.75, 3);
+
+        // with Shift, ten times finer: 140 px down = −0.14 (output 0.5 + 0.86·0.25 = 0.715); pressing
+        // Shift during the gesture does not make the value jump
+        await page.mouse.move(p.x, p.y);
+        await page.mouse.down();
+        await page.keyboard.down("Shift");
+        await page.mouse.move(p.x, p.y + 140, { steps: 10 });
+        await page.mouse.up();
+        await page.keyboard.up("Shift");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.860");
+        expect(await output()).toBeCloseTo(0.715, 3);
+        await page.mouse.move(p.x, p.y);
+        await page.mouse.down();
+        await page.mouse.move(p.x, p.y + 20, { steps: 2 });         // −0.2
+        await page.keyboard.down("Shift");
+        await page.mouse.move(p.x, p.y + 120, { steps: 5 });        // −0.1 more
+        await page.keyboard.up("Shift");
+        await page.mouse.up();
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.560");
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

@@ -52,9 +52,9 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
             while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 50));
             return scene.getModules()[before].moduleId;
         };
-        const bank = await add("multichannel/OscillatorBank8.dsp", 250, 150);
-        const mixer = await add("multichannel/Mixer4to2.dsp", 700, 80);
-        const delay = await add("multichannel/MultiDelay4.dsp", 700, 480);
+        const bank = await add("multichannel/OscillatorBank8.dsp", 100, 140);
+        const mixer = await add("multichannel/Mixer4to2.dsp", 480, 60);
+        const delay = await add("multichannel/MultiDelay4.dsp", 880, 60);
         const connect = (a, i, b, j) => scene.patch.connect({ module: a, port: i }, { module: b, port: j });
         for (let k = 0; k < 4; k++) {
             connect(bank, k, mixer, k);

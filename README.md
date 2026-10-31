@@ -11,8 +11,8 @@ Version 2 is multichannel: modules have one port per input and output channel, c
 
 ## Connecting modules
 
-Each module has one port per input channel (green, on the left) and one port per output channel
-(red, on the right). Physical input and output modules have as many ports as the audio devices have
+Each module has one port per input channel (green) and one port per output channel (red), astride its
+bottom edge as on modular synthesizers: inputs from the left, outputs from the right. Physical input and output modules have as many ports as the audio devices have
 channels.
 
 - Drag from a port and release on a port of the other kind to connect these two channels. Several
@@ -26,8 +26,9 @@ Patches are saved in format version 2; patches saved by FaustPlayground 1.x can 
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and,
 after a short hover, release it on a type in the palette: **±** modulates around the slider
 (exponentially for frequencies), **×** scales it, **→** drives it with the signal. The modulation then
-gets a port next to its widget, showing its type and, for **±**, its depth as a ring: drag the port
-vertically to set the depth, double click to set it back to 1. The
+gets a port astride the left edge of the module, at the height of its widget, showing its type and,
+for **±**, its depth as a ring: drag the port vertically to set the depth (hold Shift for a fine
+adjustment), double click to set it back to 1. The
 "Modulation" category of the library holds LFOs, random, clock, ADSR and envelope follower sources.
 Patches with modulations are saved in format version 3.
 

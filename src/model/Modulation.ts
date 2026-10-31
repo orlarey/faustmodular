@@ -145,7 +145,8 @@ export function circuit(spec: ModulationSpec): string {
     switch (spec.mode) {
         case "modulate": {
             const key = depthKey(spec);
-            const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", 1, -1, 1, 0.01) : si.smoo`;
+            // step 0.001: the fine adjustment of the modulation port (Shift)
+            const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", 1, -1, 1, 0.001) : si.smoo`;
             return spec.exponential
                 // (2.0, _ : pow) is 2^x; note that pow(2.0) would be x^2 (partial application binds the 2nd argument)
                 ? `(_, (*(${float(octaves(spec.min, spec.max))} * (${depth})) : (2.0, _ : pow)) : * : ${clip})`

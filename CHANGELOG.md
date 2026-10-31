@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.3.0 (2026-10-31)
+
+- **Audio ports at the bottom of the modules**, as on modular synthesizers: inputs (green) from the left,
+  outputs (red) from the right, astride the bottom edge. The module widens to hold them (up to 32 ports
+  per side: their size and pitch decrease beyond 4 and 8 ports). Cables leave and reach these ports
+  vertically and hang between modules.
+- **Modulation ports astride the left edge**, at the height of their widget: the left edge is now free,
+  so the module no longer widens its left margin for them. Modulation cables reach them horizontally.
+- **Fine depth adjustment**: drag a modulation port with Shift held for 0.001 per pixel (0.01 without);
+  the change is incremental, so Shift can be pressed or released during a drag. The depth slider has a
+  step of 0.001.
+- The modulation and multichannel examples are laid out for the new ports.
+- Fix: loading a patch reset the classes of the controls (accelerometer state), so the hidden depth rows
+  of the modulations reappeared under their widget.
+
 ## 2.2.0 (2026-10-31)
 
 - **Modulation ports**: each modulation now has its own port, inside the module next to its widget, clear

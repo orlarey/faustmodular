@@ -29,7 +29,7 @@
   "modulationScale": "doser",
   "modulationDrive": "piloter",
   "modulationDepth": "± profondeur",
-  "modulationPortHint": "glisser verticalement pour régler la profondeur, double-clic pour la remettre à 1",
+  "modulationPortHint": "glisser verticalement pour régler la profondeur (Maj : réglage fin), double-clic pour la remettre à 1",
   "errorLocalStorage": "Votre navigateur ne permet pas la sauvegarde locale",
   "errorConnectionCloud": "Connexion à Google Drive impossible",
   

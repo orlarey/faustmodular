@@ -32,8 +32,8 @@
    "kind": "faust",
    "name": "OscillatorBank8",
    "code": "process = vgroup(\"OscillatorBank8\",environment{declare name \"Oscillator Bank 8\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- 8 sine oscillators on 8 outputs: the harmonics 1 to 8 of a fundamental\n- Output k plays harmonic k with an amplitude 1/k\n- To spread them in space: connect the outputs to the ports of a spatializer or of the output\n\n*/\n\nprocess = vgroup(\"Oscillator Bank 8\", par(i, 8, os.osc(f0 * (i + 1)) * level / (i + 1)));\n\nf0 = hslider(\"Fundamental[unit:Hz]\", 110, 40, 440, 1) : si.smoo;\nlevel = hslider(\"Level\", 0.3, 0, 1, 0.01) : si.smoo;\n}.process);",
-   "x": 250,
-   "y": 150,
+   "x": 100,
+   "y": 140,
    "inputs": 0,
    "outputs": 8,
    "params": {
@@ -66,8 +66,8 @@
    "kind": "faust",
    "name": "Mixer4to2",
    "code": "process = vgroup(\"Mixer4to2\",environment{declare name \"Mixer 4 to 2\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- 4 inputs mixed to stereo (2 outputs), with a gain and a pan for each input\n\n*/\n\nprocess = vgroup(\"Mixer 4 to 2\", hgroup(\"Channels\", par(i, 4, channel(i))) :> _, _);\n\nchannel(i) = vgroup(\"%j\", *(gain) <: *(cos(a)), *(sin(a)))\nwith {\n\tj = i + 1;\n\tgain = vslider(\"Gain\", 0.7, 0, 1, 0.01) : si.smoo;\n\ta = hslider(\"Pan\", (i + 0.5) / 4, 0, 1, 0.01) : si.smoo : *(ma.PI / 2);\n};\n}.process);",
-   "x": 700,
-   "y": 80,
+   "x": 480,
+   "y": 60,
    "inputs": 4,
    "outputs": 2,
    "params": {
@@ -160,8 +160,8 @@
    "kind": "faust",
    "name": "MultiDelay4",
    "code": "process = vgroup(\"MultiDelay4\",environment{declare name \"Multi Delay 4\";\ndeclare author \"GRAME\";\nimport(\"stdfaust.lib\");\n\n/* =============== DESCRIPTION ================\n\n- 4 independent echoes: 4 inputs, 4 outputs\n- The delay of channel k is Time x k (k = 1 to 4), with a common feedback and dry/wet mix\n\n*/\n\nprocess = vgroup(\"Multi Delay 4\", par(i, 4, echo(i + 1)));\n\necho(k) = _ <: *(1 - wet), (+ ~ (de.delay(65536, d) * feedback) : *(wet)) :> _\nwith {\n\td = time * k * ma.SR : min(65535);\n};\n\ntime = hslider(\"Time[unit:s]\", 0.12, 0.01, 0.3, 0.001) : si.smoo;\nfeedback = hslider(\"Feedback\", 0.4, 0, 0.95, 0.01);\nwet = hslider(\"Wet\", 0.5, 0, 1, 0.01) : si.smoo;\n}.process);",
-   "x": 700,
-   "y": 480,
+   "x": 880,
+   "y": 60,
    "inputs": 4,
    "outputs": 4,
    "params": {

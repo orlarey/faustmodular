@@ -120,17 +120,21 @@ export class ModuleView {
     }
 
     /******************** PORTS ********************/
-    // One port per channel, stacked on the left (inputs) and right (outputs) sides.
-    // Each port carries data-module, data-dir ("in" | "out") and data-port (0-based) for hit testing.
+    // One port per channel, on the bottom edge as on a modular synthesizer: inputs (green) in a row
+    // from the left, outputs (red) in a row ending on the right. The left edge is kept for the
+    // modulation ports (PatchView). Each port carries data-module, data-dir ("in" | "out") and
+    // data-port (0-based) for hit testing.
 
     setPorts(moduleId: string, numInputs: number, numOutputs: number): void {
         this.clearPorts();
         this.fInputPorts = this.createPorts(moduleId, "in", numInputs);
         this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs);
-        // tall enough for the longest column of ports, between the title bar and the footer
-        var height = Math.max(numInputs * ModuleView.portLayout(numInputs).pitch, numOutputs * ModuleView.portLayout(numOutputs).pitch);
-        var margins = this.portMargins();
-        this.fModuleContainer.style.minHeight = height > 0 ? (height + margins.top + margins.bottom + 8) + "px" : "";
+        // wide enough for both rows, and room under the content for the half of the ports inside
+        var rows = [numInputs, numOutputs].filter((n) => n > 0);
+        var width = rows.reduce((sum, n) => sum + n * ModuleView.portLayout(n).pitch, 0) + ModuleView.PORT_INSET * 2 + (rows.length > 1 ? ModuleView.PORT_GAP : 0);
+        var size = Math.max(0, ...rows.map((n) => ModuleView.portLayout(n).size));
+        this.fModuleContainer.style.minWidth = rows.length > 0 ? width + "px" : "";
+        this.fModuleContainer.style.paddingBottom = size > 0 ? (size / 2 + 2) + "px" : "";
     }
 
     clearPorts(): void {
@@ -143,11 +147,9 @@ export class ModuleView {
         return (dir == "in" ? this.fInputPorts : this.fOutputPorts)[index];
     }
 
-    // Space kept free above and below the ports: title bar (close/minimize buttons) and footer
-    // (edit button) of Faust modules; none for the physical input and output modules.
-    private portMargins(): { top: number; bottom: number } {
-        return this.fName == "input" || this.fName == "output" ? { top: 0, bottom: 0 } : { top: 34, bottom: 26 };
-    }
+    // Distance of the rows from the corners, and between the input and output rows (px).
+    static PORT_INSET = 10;
+    static PORT_GAP = 16;
 
     // Port size and spacing shrink when there are many ports.
     static portLayout(count: number): { size: number; pitch: number } {
@@ -158,7 +160,6 @@ export class ModuleView {
 
     private createPorts(moduleId: string, dir: "in" | "out", count: number): HTMLElement[] {
         var layout = ModuleView.portLayout(count);
-        var margins = this.portMargins();
         var ports: HTMLElement[] = [];
         for (var i = 0; i < count; i++) {
             var port = document.createElement("div");
@@ -169,9 +170,14 @@ export class ModuleView {
             port.dataset.port = String(i);
             port.title = (dir == "in" ? "input " : "output ") + (i + 1);
             port.style.width = port.style.height = layout.size + "px";
-            // centered in the space between the margins
-            port.style.top = "calc(50% + " + ((margins.top - margins.bottom) / 2 + (i - (count - 1) / 2) * layout.pitch - layout.size / 2) + "px)";
-            port.style[dir == "in" ? "left" : "right"] = (-layout.size / 2 - 2) + "px";
+            // astride the bottom edge; inputs numbered from the left, outputs ending on the right
+            port.style.bottom = (-layout.size / 2) + "px";
+            var offset = ModuleView.PORT_INSET + (layout.pitch - layout.size) / 2;
+            if (dir == "in") {
+                port.style.left = (offset + i * layout.pitch) + "px";
+            } else {
+                port.style.right = (offset + (count - 1 - i) * layout.pitch) + "px";
+            }
             var dot = document.createElement("span");
             dot.draggable = false;
             if (count > 1) {

@@ -15,9 +15,11 @@
     on a touch screen. Cables are redrawn when a module moves or changes size; cables closing
     a cycle (delayed in the audio graph) are dashed.
 
-    Each modulation has its own port, inside the module next to its widget: an icon shows its type
-    and, for "modulate", a ring shows its depth (arc length = |depth|, clockwise when positive).
-    Dragging a "modulate" port vertically sets the depth live; a double click sets it back to 1.
+    Audio ports are on the bottom edge of the modules, and their cables hang between them as patch
+    cords. Each modulation has its own port, astride the left edge at the height of its widget: an
+    icon shows its type and, for "modulate", a ring shows its depth (arc length = |depth|, clockwise
+    when positive). Dragging a "modulate" port vertically sets the depth live (0.01 per pixel, 0.001
+    with Shift); a double click sets it back to 1.
     Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
@@ -38,9 +40,15 @@ export const MODE_ICONS: Record<ModulationMode, string> = {
     drive: "M4 12h14M13 7l5 5-5 5",                // → the signal drives the widget
 };
 
-// Modulation port geometry (px) and depth change per pixel of vertical drag.
+// Modulation port geometry (px) and depth change per pixel of vertical drag (with Shift: fine).
 const MODULATION_PORT_SIZE = 24;
 const DEPTH_PER_PIXEL = 0.01;
+const FINE_DEPTH_PER_PIXEL = 0.001;
+
+// Direction in which a cable leaves a port: down for the audio ports (bottom edge), left for the
+// modulation ports (left edge).
+const DOWN: Point = { x: 0, y: 1 };
+const LEFT: Point = { x: -1, y: 0 };
 
 // What the view needs from the scene to modulate widgets.
 export interface ModulationHandler {
@@ -55,8 +63,8 @@ interface DepthDrag {
     module: ModuleId;
     modulation: string;
     port: HTMLElement;
-    startY: number;
-    startDepth: number;
+    lastY: number;
+    depth: number;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -230,12 +238,12 @@ export class PatchView {
         if (modulation) {
             // ends on the modulation port, next to the widget
             const port = this.modulationPort(connection.to.module, modulation.id);
-            if (port) path.setAttribute("d", PatchView.curve(this.center(from), this.center(port)));
+            if (port) path.setAttribute("d", PatchView.curve(this.center(from), DOWN, this.center(port), LEFT));
             return;
         }
         const to = this.fLookup(connection.to.module)?.moduleView.getPort("in", connection.to.port);
         if (to) {
-            path.setAttribute("d", PatchView.curve(this.center(from), this.center(to)));
+            path.setAttribute("d", PatchView.curve(this.center(from), DOWN, this.center(to), DOWN));
         }
     }
 
@@ -300,7 +308,7 @@ export class PatchView {
         this.placeModulationPorts(id);
     }
 
-    // Each port in the left margin of the module, at the height of its widget (of the title when
+    // Each port astride the left edge of the module, at the height of its widget (of the title when
     // the widget is hidden: module minimized, code being edited).
     private placeModulationPorts(id: ModuleId): void {
         const view = this.fLookup(id)?.moduleView;
@@ -313,7 +321,7 @@ export class PatchView {
             const widget = this.widgetElement(id, modulation.widget);
             const rect = widget?.getBoundingClientRect();
             const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
-            port.style.left = "13px";
+            port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
             port.style.top = (anchor.top + anchor.height / 2 - box.top - MODULATION_PORT_SIZE / 2) + "px";
         }
     }
@@ -343,8 +351,8 @@ export class PatchView {
             ? `translate(${size} 0) scale(-1 1) rotate(-90 ${size / 2} ${size / 2})`
             : `rotate(-90 ${size / 2} ${size / 2})`);
         port.classList.toggle("negative", (depth ?? 1) < 0);
-        port.dataset.depth = depth === undefined ? "" : depth.toFixed(2);
-        port.title = `${title} : ${Utilitary.messageResource.modulationDepth} ${depth === undefined ? "" : depth.toFixed(2)}\n${Utilitary.messageResource.modulationPortHint}`;
+        port.dataset.depth = depth === undefined ? "" : depth.toFixed(3);
+        port.title = `${title} : ${Utilitary.messageResource.modulationDepth} ${depth === undefined ? "" : depth.toFixed(3)}\n${Utilitary.messageResource.modulationPortHint}`;
     }
 
     private updateFeedbackStyle(): void {
@@ -363,10 +371,16 @@ export class PatchView {
         return { x: clientX - svgRect.left, y: clientY - svgRect.top };
     }
 
-    // Horizontal tangents at both ends, also for cables going backwards.
-    static curve(a: Point, b: Point): string {
-        const c = Math.max(40, Math.abs(b.x - a.x) / 2);
-        return `M${a.x},${a.y} C${a.x + c},${a.y} ${b.x - c},${b.y} ${b.x},${b.y}`;
+    // Cable from a to b, leaving a in the direction da and b in the direction db: two audio ports
+    // (both down) give a hanging cable, as with patch cords. A zero direction (the pointer end of a
+    // cable being drawn) has no tangent.
+    static curve(a: Point, da: Point, b: Point, db: Point): string {
+        const c = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) / 2);
+        return `M${a.x},${a.y} C${a.x + da.x * c},${a.y + da.y * c} ${b.x + db.x * c},${b.y + db.y * c} ${b.x},${b.y}`;
+    }
+
+    private static direction(port: HTMLElement): Point {
+        return port.classList.contains("modulation-port") ? LEFT : DOWN;
     }
 
     /******************** POINTER INTERACTIONS ********************/
@@ -393,14 +407,17 @@ export class PatchView {
         if (depth === undefined) return;        // module being recompiled
         port.setPointerCapture(e.pointerId);
         port.classList.add("adjusting");
-        this.fDepthDrags.set(e.pointerId, { module: module.moduleId, modulation, port, startY: e.clientY, startDepth: depth });
+        this.fDepthDrags.set(e.pointerId, { module: module.moduleId, modulation, port, lastY: e.clientY, depth });
     }
 
     private onPointerMove(e: PointerEvent): void {
         const depthDrag = this.fDepthDrags.get(e.pointerId);
         if (depthDrag) {
-            const depth = Math.max(-1, Math.min(1, depthDrag.startDepth + (depthDrag.startY - e.clientY) * DEPTH_PER_PIXEL));
-            this.fModulation?.setDepth(depthDrag.module, depthDrag.modulation, Math.round(depth * 100) / 100);
+            // by steps from the previous position, so that pressing or releasing Shift does not jump
+            const rate = e.shiftKey ? FINE_DEPTH_PER_PIXEL : DEPTH_PER_PIXEL;
+            depthDrag.depth = Math.max(-1, Math.min(1, depthDrag.depth + (depthDrag.lastY - e.clientY) * rate));
+            depthDrag.lastY = e.clientY;
+            this.fModulation?.setDepth(depthDrag.module, depthDrag.modulation, Math.round(depthDrag.depth * 1000) / 1000);
             this.showDepth(depthDrag.port, depthDrag.module, depthDrag.modulation);
             return;
         }
@@ -474,7 +491,9 @@ export class PatchView {
     private moveCable(drag: CableDrag, e: PointerEvent): void {
         const start = this.center(drag.element);
         const pointer = this.toCanvas(e.clientX, e.clientY);
-        drag.path.setAttribute("d", drag.dir == "out" ? PatchView.curve(start, pointer) : PatchView.curve(pointer, start));
+        const none: Point = { x: 0, y: 0 };
+        const leaving = PatchView.direction(drag.element);
+        drag.path.setAttribute("d", drag.dir == "out" ? PatchView.curve(start, leaving, pointer, none) : PatchView.curve(pointer, none, start, leaving));
         const target = this.findTarget(drag, e);
         this.setTarget(drag, target);
         this.updatePalette(drag, target);
