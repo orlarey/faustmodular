@@ -35,8 +35,8 @@ export class MenuView {
     saveView: SaveView;
     exportView: ExportView;
     accEditView: AccelerometerEditView;
-    menuColorDefault: string = "rgba(227, 64, 80, 0.73)";
-    menuColorSelected: string = "rgb(209, 64, 80)";
+    menuColorDefault: string = "var(--fp-menu-bg)";
+    menuColorSelected: string = "var(--fp-menu-bg-selected)";
 
     init(htmlContainer: HTMLElement): void {
         var menuContainer: HTMLElement = document.createElement('div');

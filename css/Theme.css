@@ -1,0 +1,357 @@
+/*	Theme.css — the look of faustcode (https://github.com/orlarey/faustcode), loaded last.
+	Dark charcoal stage, night-blue panels with 8 px corners, small letter-spaced capitals for
+	titles, a mint accent, pills for buttons and values, monospace for numbers and code.
+	The colours are tokens: the rest of the file only uses them. */
+
+:root {
+	--fp-bg: #1f1f1f;
+	--fp-grid: rgba(255, 255, 255, 0.035);
+	--fp-panel: #141922;
+	--fp-panel-soft: #121720;
+	--fp-value-bg: #0d171f;
+	--fp-text: #b0b0b0;
+	--fp-text-quiet: #93a8af;
+	--fp-title: rgba(205, 238, 245, 0.92);
+	--fp-value: #c6d8df;
+	--fp-pill-text: #d8fbe9;
+	--fp-accent: #7af0c0;
+	--fp-accent-border: rgba(176, 255, 220, 0.32);
+	--fp-accent-border-soft: rgba(176, 255, 220, 0.16);
+	--fp-pill-bg: linear-gradient(180deg, rgba(152, 255, 210, 0.14), rgba(152, 255, 210, 0.05));
+	--fp-pill-bg-hover: linear-gradient(180deg, rgba(152, 255, 210, 0.22), rgba(152, 255, 210, 0.08));
+	--fp-in: #4fd6a3;			/* audio inputs */
+	--fp-out: #f0876a;			/* audio outputs */
+	--fp-mod: #ffb35c;			/* widget modulation */
+	--fp-cable: rgba(198, 216, 223, 0.55);
+	--fp-mono: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+	--fp-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+	/* used by MenuView for the selected menu button */
+	--fp-menu-bg: transparent;
+	--fp-menu-bg-selected: rgba(152, 255, 210, 0.16);
+}
+
+/* Stage: charcoal with a faint grid, as faustcode's scope */
+body {
+	background: var(--fp-bg);
+	background-image:
+		linear-gradient(var(--fp-grid) 1px, transparent 1px),
+		linear-gradient(90deg, var(--fp-grid) 1px, transparent 1px);
+	background-size: 24px 24px;
+	font-family: var(--fp-sans);
+	color: var(--fp-text);
+}
+
+/* Header: a bar with the app name, pills, the patch name in a mono pill */
+div#buttonsMenu {
+	background: var(--fp-panel);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.88);
+	box-shadow: none;
+	height: 42px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 12px;
+	box-sizing: border-box;
+}
+div#buttonsMenu::before {
+	content: "FAUSTPLAYGROUND";
+	font-weight: 600;
+	font-size: 13px;
+	letter-spacing: 0.12em;
+	color: var(--fp-title);
+	margin-right: 14px;
+}
+.buttonsMenu {
+	float: none;
+	width: auto;
+	height: 26px;
+	line-height: 24px;
+	padding: 0 14px;
+	box-sizing: border-box;
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	background: var(--fp-pill-bg);
+	color: var(--fp-pill-text);
+	font-size: 13px;
+	font-weight: 500;
+	text-transform: none;
+}
+.buttonsMenu:hover {
+	background: var(--fp-pill-bg-hover) !important;
+	color: #effff7;
+}
+.buttonsLittleMenu {
+	float: none;
+	width: 28px;
+	height: 28px;
+	margin: 0 2px;
+	background-size: 18px !important;
+	background-position: 50% !important;
+	background-repeat: no-repeat !important;
+	opacity: 0.75;
+}
+.buttonsLittleMenu:hover {
+	opacity: 1;
+}
+.sceneTitle {
+	float: none;
+	margin-left: auto;
+	font: 13px var(--fp-mono);
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	padding: 3px 14px;
+}
+
+/* Menu contents (library, load, save, export) */
+div#contentsMenu {
+	background: var(--fp-panel-soft);
+	color: var(--fp-text);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+}
+.libraryTitles, .exportTitle {
+	color: var(--fp-title);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+ul.librarySelects {
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 8px;
+	box-shadow: none;
+}
+li {
+	font-size: 13px;
+}
+li > a {
+	color: var(--fp-text);
+	border-radius: 4px;
+}
+li > a:hover {
+	color: var(--fp-pill-text);
+	background: var(--fp-pill-bg-hover);
+	box-shadow: none;
+}
+.ps-container > .ps-scrollbar-y-rail > .ps-scrollbar-y {
+	background-color: var(--fp-accent);
+}
+
+/* Modules: night-blue panels, title in small capitals */
+.moduleFaust {
+	background: var(--fp-panel);
+	color: var(--fp-text);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 8px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.moduleFaust h6 {
+	color: var(--fp-title);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	margin: 0;
+	padding: 10px 40px 9px;
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+}
+.moduleFaust .close, .moduleFaust .minus, .moduleFaust .max, .edit,
+#moduleInput > .content, #moduleOutput > .content {
+	filter: invert(0.85);
+}
+.moduleFaust .content {
+	padding: 12px 16px 14px;
+}
+
+/* Controls: quiet labels, values in mono chips, mint sliders */
+.slider-info .label, .slider-info .value {
+	color: var(--fp-text-quiet);
+}
+.slider-info .label {
+	font-size: 11px;
+	letter-spacing: 0.04em;
+}
+.slider-info .value {
+	font: 11px var(--fp-mono);
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border-radius: 4px;
+	padding: 1px 6px;
+}
+input[type="range"] {
+	background: rgba(176, 255, 220, 0.18);
+	height: 3px;
+	border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+	background-color: var(--fp-accent);
+	border: 2px solid var(--fp-panel);
+	box-shadow: 0 0 0 1px var(--fp-accent-border);
+	width: 16px;
+	height: 16px;
+}
+.disabledAcc > input[type="range"]::-webkit-slider-thumb {
+	background-color: var(--fp-accent);
+}
+input[type="range"]::-moz-range-thumb,
+.disabledAcc > input[type="range"]::-moz-range-thumb {
+	background-color: var(--fp-accent);
+	border: 2px solid var(--fp-panel);
+	width: 14px;
+	height: 14px;
+}
+.moduleFaust input[type="button"] {
+	font: 12px var(--fp-sans);
+	color: var(--fp-pill-text);
+	background: var(--fp-pill-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	padding: 3px 14px;
+	cursor: pointer;
+}
+.moduleFaust input[type="button"]:active {
+	background: var(--fp-pill-bg-hover);
+}
+
+/* Ports: inputs mint, outputs coral, ringed with the panel colour */
+.port {
+	background: var(--fp-panel);
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.port-input span {
+	background: var(--fp-in);
+	color: var(--fp-value-bg);
+}
+.port-output span {
+	background: var(--fp-out);
+	color: var(--fp-value-bg);
+}
+.port:hover, .port.port-target {
+	box-shadow: 0 0 0 3px var(--fp-accent);
+}
+.moduleFaust.bus-target {
+	box-shadow: 0 0 0 3px var(--fp-accent), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* Cables */
+.cable {
+	stroke: var(--fp-cable);
+	stroke-width: 3.5;
+}
+.cable:hover {
+	stroke: var(--fp-out);
+}
+.cable.dragging {
+	stroke: var(--fp-accent);
+}
+.cable.modulation {
+	stroke: var(--fp-mod);
+	stroke-width: 2.5;
+}
+
+/* Widget modulation */
+.widget.modulated {
+	box-shadow: -3px 0 0 var(--fp-mod);
+}
+.widget.widget-target {
+	outline-color: var(--fp-mod);
+}
+.modulation-port {
+	background: var(--fp-panel);
+	color: var(--fp-mod);
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.modulation-port .depth-track {
+	stroke: rgba(255, 179, 92, 0.25);
+}
+.modulation-port .depth-arc {
+	stroke: var(--fp-mod);
+}
+.modulation-palette {
+	background: var(--fp-panel);
+	border: 1px solid var(--fp-accent-border-soft);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+.modulation-mode {
+	color: var(--fp-pill-text);
+}
+.modulation-mode.mode-target {
+	background: var(--fp-mod);
+	color: var(--fp-value-bg);
+}
+.moduleFaust.compiling {
+	box-shadow: 0 0 0 3px rgba(255, 179, 92, 0.6), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* Code editing */
+.edit-inline {
+	color: var(--fp-text-quiet);
+}
+.edit-inline:hover, .edit:hover {
+	background-color: rgba(176, 255, 220, 0.1);
+}
+.moduleFaust textarea.textArea {
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 6px;
+	padding: 8px;
+	caret-color: var(--fp-accent);
+}
+.moduleFaust .edit-error {
+	color: #ffb4a8;
+	background: rgba(176, 40, 40, 0.25);
+}
+
+/* Messages and loading, as faustcode's notices */
+.messageContainer {
+	background: var(--fp-panel);
+	color: var(--fp-pill-text);
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+}
+div#loadingPage {
+	background-color: rgba(20, 25, 34, 0.85);
+}
+#footer, #footer a {
+	color: var(--fp-text-quiet) !important;
+}
+
+/* Fixes for the dark look */
+div#menuContainer {
+	z-index: 20;				/* above the ports of the modules */
+}
+.slider-info .label {
+	width: auto;
+}
+.slider-info .value {
+	width: auto;
+	font-weight: normal;
+	text-transform: none;
+}
+.moduleFaust h6:empty {
+	display: none;				/* physical input and output modules */
+}
+#ChrisLine, #ChrisLine a {
+	color: var(--fp-text-quiet) !important;
+	font-style: normal;
+}
+#ChrisLine a {
+	text-decoration: underline;
+	text-decoration-color: var(--fp-accent-border);
+}
+.logoGrame {
+	filter: invert(0.85);
+}
+/* accelerometer axes: distinct, quieter hues */
+.x > input[type="range"]::-webkit-slider-thumb { background-color: #e06c75; }
+.y > input[type="range"]::-webkit-slider-thumb { background-color: #98c379; }
+.z > input[type="range"]::-webkit-slider-thumb { background-color: #61afef; }
+.x > input[type="range"]::-moz-range-thumb { background-color: #e06c75; }
+.y > input[type="range"]::-moz-range-thumb { background-color: #98c379; }
+.z > input[type="range"]::-moz-range-thumb { background-color: #61afef; }
+/* after the axes: a slider without accelerometer stays mint (one rule per engine: a selector
+   list mixing -webkit- and -moz- pseudo-elements is dropped whole) */
+.disabledAcc > input[type="range"]::-webkit-slider-thumb { background-color: var(--fp-accent); }
+.disabledAcc > input[type="range"]::-moz-range-thumb { background-color: var(--fp-accent); }

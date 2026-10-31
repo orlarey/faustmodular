@@ -230,7 +230,7 @@ export class Menu {
     editMenu() {
         switch (this.currentMenuChoices) {
             case MenuChoices.null:
-                this.menuView.editButtonMenu.style.backgroundColor = "#00C50D";
+                this.menuView.editButtonMenu.style.backgroundColor = this.menuView.menuColorSelected;
                 this.menuView.editButtonMenu.style.boxShadow = "yellow 0px 0px 51px inset";
                 this.accEdit.editAction();
                 this.currentMenuChoices = MenuChoices.edit;
@@ -244,7 +244,7 @@ export class Menu {
                 break;
             default:
                 this.cleanMenu();
-                this.menuView.editButtonMenu.style.backgroundColor = "#00C50D";
+                this.menuView.editButtonMenu.style.backgroundColor = this.menuView.menuColorSelected;
                 this.menuView.editButtonMenu.style.boxShadow = "yellow 0px 0px 51px inset";
                 this.accEdit.editAction();
                 this.menuView.contentsMenu.style.display = "none";
