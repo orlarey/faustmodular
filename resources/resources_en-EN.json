@@ -4,11 +4,7 @@
   "chrisWilson": "Chris Wilson",
   "loading": "Loading",
   "drop": "Drop here",
-
-
   "noFileOnCloud": "No file found on Google Drive",
-  
-  
   "errorObjectNotFaustCompatible": "Content is not compatible with Faust",
   "errorLoading": "Error while loading the scene",
   "errorGettingAudioInput": "Could not enable microphone or audio input",
@@ -18,7 +14,7 @@
   "errorNoWebAudioAPI": "It appears that your browser does not support the Web Audio API. Try with a more recent version of the browser",
   "errorOccuredMessage": "An error has occured:",
   "errorFactory": "The provided Faust code is not correct: ",
-  "errorJsonCorrupted": "This file is corrupt and cannot be loaded", 
+  "errorJsonCorrupted": "This file is corrupt and cannot be loaded",
   "errorCreateDSP": "Cannot create the DSP file, the Faust code contains errors",
   "errorCreateModuleRecall": "An error occured while creating the module, the save file is probably corrupt",
   "errorConnectionRecall": "An error occured while connecting modules, the save file is probably corrupt",
@@ -32,8 +28,6 @@
   "modulationPortHint": "drag vertically to set the depth (Shift: fine), double click to set it back to 1",
   "errorLocalStorage": "Your browser does not support local storage",
   "errorConnectionCloud": "Unable to connect to Google Drive",
-  
-  
   "saveDownload": "Download the scene: ",
   "rulesSceneName": "Only alphabet letters and numbers are accepted. Spaces, apostrophes and accents are automatically replaced. The name cannot start with a number. It must be between 1 and 50 characters.",
   "precompileOption": "Precompiled (heavier)",
@@ -44,12 +38,8 @@
   "buttonConnectCloud": "Connect to Google Drive",
   "buttonCloudSave": "Save online",
   "buttonLogoutCloud": "Log out",
-
-
   "confirmSuppr": "Do you really want to delete this Patch?",
   "confirmReplace": "The name you are using already exists, if you continue the existing file will be replaced. You can rename the scene in the Export tab. Replace?",
- 
-  
   "buttonLibrary": "Library",
   "buttonLoad": "Load",
   "buttonEdit": "Edit",
@@ -87,5 +77,10 @@
   "axisZ": "Z axis: ",
   "axis0": "off: ",
   "checkBox": "enable/disable accelerometer",
-  "noDeviceMotion": "It appears that your browser does not support the Device Motion API, you will therefore be unable to access the accelerometers of your device."
+  "noDeviceMotion": "It appears that your browser does not support the Device Motion API, you will therefore be unable to access the accelerometers of your device.",
+  "editInFaustcode": "Edit the code in faustcode: every successful compilation (Cmd/Ctrl-S) updates the module",
+  "editInline": "Integrated editor (Ctrl/Cmd-Enter: compile, Escape: close)",
+  "faustcodePopupBlocked": "The browser blocked the faustcode window: allow pop-ups for this site",
+  "faustcodeNoAnswer": "faustcode does not answer ({url}): this version may not know the link with the playground. The integrated editor (</>) is still available",
+  "faustcodeUpdateFailed": "{name}: the code received from faustcode was not applied ({error})"
 }

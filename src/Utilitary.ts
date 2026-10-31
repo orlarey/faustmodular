@@ -133,5 +133,7 @@ export interface CompileFaust {
     y: number,
     callback: (factory: FaustDspFactory) => void,
     // false: the scene keeps playing during the compilation (recompilations of a modulated module)
-    mute?: boolean
+    mute?: boolean,
+    // compilation errors are passed to it instead of being shown as a message
+    onError?: (error: string) => void
 }

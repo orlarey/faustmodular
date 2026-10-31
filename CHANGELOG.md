@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.4.0 (2026-10-31)
+
+- **Editing in faustcode**: the pencil of a module opens its code in
+  [faustcode](https://github.com/orlarey/faustcode) (syntax highlighting, completion, errors at their line,
+  block diagram, scope and spectrum, documentation, MCP), in a window reused for all the modules. Each save
+  that compiles (Cmd/Ctrl-S) recompiles the module in place: the sound goes on, the slider values, the
+  modulations and the connections whose ports still exist are kept. A code with errors stays in faustcode
+  and the module keeps playing its last valid version. The windows talk with `postMessage`
+  (`src/FaustcodeLink.ts`); the faustcode URL can be changed with `?faustcode=<url>`. This needs a faustcode
+  with the playground link (webapp 0.13.0).
+- **Integrated editor** (`</>` button), fixed and improved:
+  - it shows the user's code only, without the `vgroup`/`environment` wrapping of the module;
+  - a code with errors no longer empties the module: its DSP and interface are kept, the editor stays
+    open with the text and the errors, numbered as the lines of the user's code;
+  - Ctrl/Cmd-Enter or Ctrl/Cmd-S compiles, Escape closes without compiling, Tab indents; monospace font;
+  - the scene keeps playing during the compilation.
+- Module codes are wrapped with line breaks around the user's code: a final line comment no longer
+  comments out the closing brace (`src/model/ModuleCode.ts`).
+
 ## 2.3.0 (2026-10-31)
 
 - **Audio ports at the bottom of the modules**, as on modular synthesizers: inputs (green) from the left,

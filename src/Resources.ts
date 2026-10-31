@@ -40,6 +40,11 @@ export class Resources {
     modulationDrive: string;
     modulationDepth: string;
     modulationPortHint: string;
+    editInFaustcode: string;
+    editInline: string;
+    faustcodePopupBlocked: string;
+    faustcodeNoAnswer: string;
+    faustcodeUpdateFailed: string;
     forceStereoExport: string;
     modulesNotExported: string;
     errorLocalStorage: string;

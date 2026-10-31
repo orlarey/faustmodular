@@ -32,6 +32,14 @@ adjustment), double click to set it back to 1. The
 "Modulation" category of the library holds LFOs, random, clock, ADSR and envelope follower sources.
 Patches with modulations are saved in format version 3.
 
+## Editing the code of a module
+
+The pencil of a module opens its code in [faustcode](https://github.com/orlarey/faustcode), in a window
+reused for all the modules: each save that compiles (Cmd/Ctrl-S) updates the module in place, keeping its
+sound, slider values, modulations and connections; a code with errors stays in faustcode. The `</>` button
+opens a simpler integrated editor (Ctrl/Cmd-Enter compiles, Escape closes). The faustcode URL can be set
+with `?faustcode=<url>` (e.g. a local faustcode).
+
 The export generates a single Faust program equivalent to the patch (`src/export/FaustExporter.ts`):
 one instance per module, sums at the inputs, feedback cables delayed by one sample, and only the
 modules that reach the output. The application gets the physical inputs that are used and all the
@@ -77,6 +85,9 @@ Tests use [Vitest](https://vitest.dev/), in three projects (`vitest.config.mjs`)
 Run one project with `npx vitest run --project node`. The browser and e2e projects need Chromium for
 Playwright (`npx playwright install chromium`). In the browser console, `faustPlayground.scene.patch`
 gives access to the patch model.
+
+The e2e test of the link with the real faustcode runs when `FAUSTCODE_DIR` names a checkout of faustcode
+(`FAUSTCODE_DIR=../faustcode npm test`); otherwise the link is tested with a stub that follows the protocol.
 
 The library test compiles every module listed in `public/faust-modules/index.json` and snapshots its
 number of inputs and outputs: after an intended change, update the snapshot with `npx vitest run -u`.

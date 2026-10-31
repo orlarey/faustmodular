@@ -20,6 +20,8 @@ import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/
 import { ModuleClass } from "../Modules/ModuleClass";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
+import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
+import { rewrapModuleCode, unwrapModuleCode, userCode, userError } from "../model/ModuleCode";
 import { SceneView } from "./SceneView";
 
 export const INPUT_ID: ModuleId = "input";
@@ -45,6 +47,7 @@ export class Scene {
     patch: Patch = new Patch();
     audioGraph: AudioGraph;
     patchView: PatchView;
+    faustcodeLink: FaustcodeLink<ModuleClass>;
     //-- Audio Input/Output
     fAudioOutput: ModuleClass;
     fAudioInput: ModuleClass;
@@ -67,6 +70,13 @@ export class Scene {
         this.integrateSceneInBody();
         this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
         var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
+        this.faustcodeLink = new FaustcodeLink<ModuleClass>(faustcodeUrl(), {
+            isAlive: (module) => this.fModuleList.includes(module),
+            nameOf: (module) => module.moduleFaust.getName(),
+            codeOf: (module) => userCode(module.moduleFaust.getSource()),
+            apply: (module, code) => this.editModuleCode(module, code),
+            notify: (message) => { new Message(message) },
+        });
         this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
             allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),
             modulate: (from, moduleId, widget, mode) => this.modulate(from, moduleId, widget, mode),
@@ -158,6 +168,7 @@ export class Scene {
     }
 
     removeModule(module: ModuleClass): void {
+        this.faustcodeLink.forget(module);
         var index = this.fModuleList.indexOf(module);
         if (index >= 0) {
             this.fModuleList.splice(index, 1);
@@ -386,9 +397,9 @@ export class Scene {
         return factories.get(shaKey) ?? null;
     }
 
-    private async compile(name: string, code: string, x: number, y: number, mute: boolean = true): Promise<FaustDspFactory | null> {
+    private async compile(name: string, code: string, x: number, y: number, mute: boolean = true, onError?: (error: string) => void): Promise<FaustDspFactory | null> {
         var result: FaustDspFactory | null = null;
-        await this.compileFaust({ name, sourceCode: code, x, y, mute, callback: (factory) => { result = factory } });
+        await this.compileFaust({ name, sourceCode: code, x, y, mute, onError, callback: (factory) => { result = factory } });
         return result;
     }
 
@@ -526,9 +537,10 @@ export class Scene {
 
     // Compiles the new code of an edited module with its modulations: the modulations of widgets that
     // no longer exist are removed (and reported), the others follow the new code.
-    async compileModuleCode(module: ModuleClass, name: string, code: string): Promise<FaustDspFactory | null> {
+    // Errors are passed to onError if given (shown as messages otherwise).
+    async compileModuleCode(module: ModuleClass, name: string, code: string, onError?: (error: string) => void, mute: boolean = true): Promise<FaustDspFactory | null> {
         var state = module.moduleId !== undefined ? this.patch.getModule(module.moduleId) : undefined;
-        var base = await this.compile(name, code, module.moduleView.x, module.moduleView.y);
+        var base = await this.compile(name, code, module.moduleView.x, module.moduleView.y, mute, onError);
         if (!base || !state || state.modulations.length == 0) return base;
         var json = JSON.parse(base.json);
         var widgets = listWidgets(json.ui);
@@ -547,12 +559,46 @@ export class Scene {
             new Message(Utilitary.messageResource.modulationsRemoved.replace("{widgets}", dropped.join(", ")));
         }
         if (state.modulations.length == 0) return base;
-        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y);
+        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y, mute, onError);
         if (factory && JSON.parse(factory.json).inputs != json.inputs + state.modulations.length) {
-            new Message(Utilitary.messageResource.modulationFailed.replace("{reason}", "unexpected number of inputs"));
+            var error = Utilitary.messageResource.modulationFailed.replace("{reason}", "unexpected number of inputs");
+            if (onError) onError(error); else new Message(error);
             return null;
         }
         return factory;
+    }
+
+    // Replaces the code of a module by edited user code (integrated editor, faustcode): rewrapped in
+    // the group of the module, so that its parameters keep their addresses and values; with its
+    // modulations; after the pending recompilations of the module. The scene keeps playing.
+    // Resolves with null when done, or with the reason of the failure (the module keeps its DSP).
+    editModuleCode(module: ModuleClass, edited: string): Promise<string | null> {
+        var id = module.moduleId;
+        var task = async (): Promise<string | null> => {
+            if (!this.getModules().includes(module)) return "the module was removed";
+            var name = module.moduleFaust.getName();
+            var code = rewrapModuleCode(module.moduleFaust.getSource(), edited);
+            var error: string | null = null;
+            var container = module.moduleView.getModuleContainer();
+            container.classList.add("compiling");
+            var factory = await this.compileModuleCode(module, name, code, (e) => { error = e }, false);
+            container.classList.remove("compiling");
+            if (!factory) {
+                error = error ?? Utilitary.messageResource.errorCreateDSP;
+                return unwrapModuleCode(code) ? userError(error) : error;
+            }
+            if (!this.getModules().includes(module)) return "the module was removed";
+            return await module.replaceDSP(factory, { name, code }) ? null : (module.lastError ?? Utilitary.messageResource.errorCreateDSP);
+        };
+        var result = (this.fRecompilations.get(id) ?? Promise.resolve(true)).then(task, task);
+        this.fRecompilations.set(id, result.then((error) => error == null));
+        return result;
+    }
+
+    // Edits the code of a module in faustcode (see FaustcodeLink).
+    editInFaustcode(module: ModuleClass): void {
+        module.closeEditor();
+        this.faustcodeLink.edit(module);
     }
 
     // Creates a module from its description: precompiled factory if any, otherwise compilation.

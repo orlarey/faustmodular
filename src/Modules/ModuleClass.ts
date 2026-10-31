@@ -13,6 +13,7 @@ import { AccelerometerHandler } from "../Accelerometer";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
 import { DEPTH_METADATA } from "../model/Modulation";
+import { userCode } from "../model/ModuleCode";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 
 interface DSPCallback { (): void; }
@@ -26,15 +27,13 @@ export class ModuleClass {
     moduleControles: FaustInterfaceControler[] = [];
 
     private deleteCallback: (module: ModuleClass) => void;
+    // why the last createDSP failed (shown by the code editors)
+    lastError: string | null = null;
     private fModuleInterfaceParams: { [label: string]: string } = {};
 
-    eventOpenEditHandler: () => void;
-    eventCloseEditHandler: (event: Event) => void;
     compileFaust: (conpileFaust: CompileFaust) => Promise<void>;
 
     constructor(id: number, x: number, y: number, name: string, htmlElementModuleContainer: HTMLElement, removeModuleCallBack: (m: ModuleClass) => void, compileFaust: (compileFaust: CompileFaust) => Promise<void>) {
-        this.eventCloseEditHandler = (event: Event) => { this.recompileSource(event as MouseEvent, this) }
-        this.eventOpenEditHandler = () => { this.edit() }
         this.compileFaust = compileFaust;
 
         this.deleteCallback = removeModuleCallBack;
@@ -53,6 +52,7 @@ export class ModuleClass {
             this.moduleView.textArea.addEventListener("touchend", (e) => { e.stopPropagation() });
             this.moduleView.textArea.addEventListener("touchmove", (e) => { e.stopPropagation() });
             this.moduleView.textArea.addEventListener("mousedown", (e) => { e.stopPropagation() });
+            this.moduleView.textArea.addEventListener("keydown", (e) => { this.editorKey(e) });
         }
         if (this.moduleView.closeButton != undefined) {
             this.moduleView.closeButton.addEventListener("click", () => { this.deleteModule(); });
@@ -67,8 +67,13 @@ export class ModuleClass {
             this.moduleView.maxButton.addEventListener("touchend", () => { this.maxModule(); });
         }
         if (this.moduleView.fEditImg != undefined) {
-            this.moduleView.fEditImg.addEventListener("click", this.eventOpenEditHandler);
-            this.moduleView.fEditImg.addEventListener("touchend", this.eventOpenEditHandler);
+            // the pencil edits the code in faustcode (FaustcodeLink)
+            this.moduleView.fEditImg.title = Utilitary.messageResource.editInFaustcode;
+            this.moduleView.fEditImg.addEventListener("click", () => { Utilitary.currentScene.editInFaustcode(this) });
+        }
+        if (this.moduleView.fEditInline != undefined) {
+            this.moduleView.fEditInline.title = Utilitary.messageResource.editInline;
+            this.moduleView.fEditInline.addEventListener("click", () => { this.isEditing() ? this.validateEdit() : this.edit() });
         }
     }
 
@@ -110,10 +115,12 @@ export class ModuleClass {
     //--- Create and Update are called once a source code is compiled and the factory exists
     async createDSP(factory: FaustDspFactory, callback: DSPCallback): Promise<void> {
         this.moduleFaust.factory = factory;
+        this.lastError = null;
         try {
             if (factory != null) {
                 const { inputs, outputs } = JSON.parse(factory.json);
                 if (inputs > MAX_CHANNELS || outputs > MAX_CHANNELS) {
+                    this.lastError = `${Utilitary.messageResource.errorCreateDSP} : ${inputs} inputs and ${outputs} outputs, the maximum is ${MAX_CHANNELS}`;
                     new Message(`${Utilitary.messageResource.errorCreateDSP} : ${inputs} inputs and ${outputs} outputs, the maximum is ${MAX_CHANNELS}`);
                     Utilitary.hideFullPageLoading();
                     return;
@@ -136,7 +143,8 @@ export class ModuleClass {
                 throw new Error("create DSP Error : null factory");
             }
         } catch (e) {
-            new Message(Utilitary.messageResource.errorCreateDSP + " : " + e)
+            this.lastError = Utilitary.messageResource.errorCreateDSP + " : " + e;
+            new Message(this.lastError)
             Utilitary.hideFullPageLoading();
         }
     }
@@ -191,50 +199,76 @@ export class ModuleClass {
             // faust.deleteDSPInstance(todelete);
     }
     /******************** EDIT SOURCE & RECOMPILE *************************/
+    // The integrated editor shows the user's code (without the group of the module, model/ModuleCode).
+    // While it is open, the module keeps playing its current DSP; its interface is hidden. A code that
+    // does not compile leaves the DSP as it is and the editor open, with the errors under the code.
+    // Ctrl/Cmd-Enter or Ctrl/Cmd-S (or the </> button) compiles, Escape closes without compiling.
+
+    isEditing(): boolean {
+        return this.moduleView.textArea != undefined && this.moduleView.textArea.style.display != "none";
+    }
+
     edit(): void {
-
-        this.saveInterfaceParams();
-
-        var event: CustomEvent = new CustomEvent("codeeditevent")
-        document.dispatchEvent(event);
-
-        this.deleteFaustInterface();
-
-        this.moduleView.textArea.style.display = "block";
-        this.moduleView.textArea.value = this.moduleFaust.fSource;
-        this.redrawCables();
-        this.moduleView.fEditImg.style.backgroundImage = "url(" + Utilitary.baseImg + "enter.png)";
-        this.moduleView.fEditImg.addEventListener("click", this.eventCloseEditHandler);
-        this.moduleView.fEditImg.addEventListener("touchend", this.eventCloseEditHandler);
-        this.moduleView.fEditImg.removeEventListener("click", this.eventOpenEditHandler);
-        this.moduleView.fEditImg.removeEventListener("touchend", this.eventOpenEditHandler);
+        if (this.isEditing()) return;
+        document.dispatchEvent(new CustomEvent("codeeditevent"));   // closes the menus
+        this.moduleView.textArea.value = userCode(this.moduleFaust.fSource);
+        this.showEditor(true);
+        this.moduleView.textArea.focus();
     }
 
-    //---- Update ModuleClass with new name/code source
-    update(name: string, code: string): void {
+    // Closes the integrated editor without compiling.
+    closeEditor(): void {
+        if (this.isEditing()) this.showEditor(false);
+    }
 
-        var event: CustomEvent = new CustomEvent("codeeditevent")
-        document.dispatchEvent(event);
+    async validateEdit(): Promise<boolean> {
+        var view = this.moduleView;
+        view.fEditInline.classList.add("busy");
+        var error = await Utilitary.currentScene.editModuleCode(this, view.textArea.value);
+        view.fEditInline.classList.remove("busy");
+        if (error != null) {
+            view.editError.textContent = error;
+            view.editError.style.display = "block";
+            this.redrawCables();
+            return false;
+        }
+        this.showEditor(false);
+        return true;
+    }
+
+    private showEditor(shown: boolean): void {
+        var view = this.moduleView;
+        view.textArea.style.display = shown ? "block" : "none";
+        view.fInterfaceContainer.style.display = shown ? "none" : "";
+        view.editError.textContent = "";
+        view.editError.style.display = "none";
+        view.fEditInline.textContent = shown ? "\u2713" : "</>";
+        view.fModuleContainer.classList.toggle("editing", shown);
+        this.redrawCables();
+    }
+
+    private editorKey(e: KeyboardEvent): void {
+        e.stopPropagation();
+        if ((e.ctrlKey || e.metaKey) && (e.key == "Enter" || e.key == "s")) {
+            e.preventDefault();
+            this.validateEdit();
+        } else if (e.key == "Escape") {
+            e.preventDefault();
+            this.closeEditor();
+        } else if (e.key == "Tab" && !e.shiftKey) {
+            // indentation instead of leaving the editor
+            e.preventDefault();
+            var area = this.moduleView.textArea;
+            area.setRangeText("    ", area.selectionStart, area.selectionEnd, "end");
+        }
+    }
+
+    // Replaces the code of the module (code dropped on it): `code` is a complete module code.
+    update(name: string, code: string): Promise<boolean> {
         // compiled with the widget modulations of the module, if any (Scene.compileModuleCode)
-        Utilitary.currentScene.compileModuleCode(this, name, code)
+        return Utilitary.currentScene.compileModuleCode(this, name, code)
             .then((factory) => factory ? this.replaceDSP(factory, { name, code }) : false)
-            .then(() => Utilitary.hideFullPageLoading());
-    }
-
-    //---- React to recompilation triggered by click on icon
-    private recompileSource(event: MouseEvent, module: ModuleClass): void {
-        Utilitary.showFullPageLoading();
-        var dsp_code: string = this.moduleView.textArea.value;
-        this.moduleView.textArea.style.display = "none";
-        this.redrawCables();
-        // the parameter values saved by edit() are given back to the new DSP (replaceDSP)
-        module.update(this.moduleView.fTitle.textContent!, dsp_code);
-
-        module.moduleView.fEditImg.style.backgroundImage = "url(" + Utilitary.baseImg + "edit.png)";
-        module.moduleView.fEditImg.addEventListener("click", this.eventOpenEditHandler);
-        module.moduleView.fEditImg.addEventListener("touchend", this.eventOpenEditHandler);
-        module.moduleView.fEditImg.removeEventListener("click", this.eventCloseEditHandler);
-        module.moduleView.fEditImg.removeEventListener("touchend", this.eventCloseEditHandler);
+            .then((done) => { Utilitary.hideFullPageLoading(); return done; });
     }
 
     /***************** CREATE/DELETE the DSP Interface ********************/

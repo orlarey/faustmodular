@@ -37,6 +37,7 @@ import { FAUST_COMPILE_OPTIONS } from "./FaustOptions";
 import { faustWasmEnv } from "./Main";
 import { Message } from "./Messages";
 import { ModuleClass } from "./Modules/ModuleClass";
+import { wrapModuleCode } from "./model/ModuleCode";
 
 //object containg info necessary to compile faust code
 
@@ -101,7 +102,9 @@ export class App {
             if (!faustMonoDspGenerator.factory) throw new Error("Faust DSP is not compiled");
             compileFaust.callback(faustMonoDspGenerator.factory);
         } catch (error) {
-            new Message(String(error))
+            // shown by the caller (code editors), or as a message
+            if (compileFaust.onError) compileFaust.onError(String(error));
+            else new Message(String(error))
         }
 
         if (currentScene && mute) { currentScene.unmuteScene() };
@@ -250,7 +253,7 @@ export class App {
         var filename: string = url.toString().split('/').pop()!;
         filename = filename.toString().split('.').shift()!;
         Utilitary.getXHR(url, (codeFaust) => {
-            var dsp_code: string = "process = vgroup(\"" + filename + "\",environment{" + codeFaust + "}.process);";
+            var dsp_code: string = wrapModuleCode(filename, codeFaust);
 
             if (module == null) {
                 app.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, filename, dsp_code, x, y) } });
@@ -262,7 +265,7 @@ export class App {
 
     // used for dsp code faust
     uploadCodeFaust(app: App, module: ModuleClass | null, x: number, y: number, e: DragEvent, dsp_code: string) {
-        dsp_code = "process = vgroup(\"" + "TEXT" + "\",environment{" + dsp_code + "}.process);";
+        dsp_code = wrapModuleCode("TEXT", dsp_code);
         if (!module) {
             app.compileFaust({ name: "TEXT", sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, "TEXT", dsp_code, x, y) } });
         } else {
@@ -296,7 +299,7 @@ export class App {
         }
 
         reader.onloadend = (e) => {
-            dsp_code = "process = vgroup(\"" + filename + "\",environment{" + reader.result + "}.process);";
+            dsp_code = wrapModuleCode(filename, String(reader.result));
 
             if (!module && type == "dsp") {
                 this.compileFaust({ name: filename, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { this.createModule(factory, filename, dsp_code, x, y) } });

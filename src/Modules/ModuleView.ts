@@ -9,7 +9,7 @@
     DIV --> fInterfaceContainer
     DIV --> fCloseButton
     DIV --> fFooter
-    IMG --> fEditImg
+    DIV --> fEditImg (edit in faustcode), fEditInline (integrated editor)
     ===================*/
 
 import { HTMLInterfaceContainer } from "../Utilitary";
@@ -31,6 +31,8 @@ export class ModuleView {
     fOutputPorts: HTMLElement[] = [];
     contentModule: HTMLElement;
     textArea: HTMLTextAreaElement;
+    editError: HTMLElement;         // compilation errors of the integrated editor
+    fEditInline: HTMLDivElement;    // opens (and validates) the integrated editor
     miniButton: HTMLDivElement;
     maxButton: HTMLDivElement;
     closeButton: HTMLDivElement;
@@ -66,9 +68,15 @@ export class ModuleView {
             textArea.className = "textArea"
             textArea.value = "";
             textArea.style.display = "none";
-            textArea.contentEditable = "true";
+            textArea.spellcheck = false;
             this.textArea = textArea;
             fModuleContainer.appendChild(textArea);
+
+            var editError = document.createElement("pre");
+            editError.className = "edit-error";
+            editError.style.display = "none";
+            this.editError = editError;
+            fModuleContainer.appendChild(editError);
 
             var fFooter: HTMLElement = document.createElement("footer");
             fFooter.id = "moduleFooter";
@@ -99,6 +107,13 @@ export class ModuleView {
             this.fEditImg = fEditImg;
 
             fFooter.appendChild(fEditImg);
+
+            var fEditInline = document.createElement("div");
+            fEditInline.className = "edit-inline";
+            fEditInline.draggable = false;
+            fEditInline.textContent = "</>";
+            this.fEditInline = fEditInline;
+            fFooter.appendChild(fEditInline);
             fModuleContainer.appendChild(fFooter);
         }
 
