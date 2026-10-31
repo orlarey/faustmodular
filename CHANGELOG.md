@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.7.0 (2026-10-31)
+
+- **± modulate now starts from the slider value.** With u = depth · signal, bounded to [−1, 1]: u = 0
+  leaves the slider value, u = 1 reaches the maximum of the widget, u = −1 its minimum, linearly in
+  between (w + u·(max − w) going up, w + u·(w − min) going down). The depth sets the excursion around
+  the current value; negative, it inverts it. Frequencies follow the same rule in octaves
+  (w·(max/w)^u, w·(w/min)^u). Before, ± added depth · signal · (max − min)/2 and clipped, which lost
+  part of the excursion when the slider was near a bound.
+
 ## 2.6.1 (2026-10-31)
 
 - Dependencies updated (`npm audit`: 0 vulnerabilities): Vite 8.3.5 (several advisories of its dev

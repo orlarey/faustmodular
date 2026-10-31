@@ -14,9 +14,12 @@
     module: the route moves them in front, where Faust expects them.
 
     Modulation types (as in modular synthesizers):
-    - "modulate" (±): clip(w + D·m·(max−min)/2), or clip(w·2^(D·m·N)) for frequencies (exponential,
-      N = half the range of the widget in octaves); D is a depth slider of the circuit (−1..1), so
-      it is adjusted live without recompiling;
+    - "modulate" (±): the slider is the rest position. With u = D·m bounded to [−1, 1], D being a
+      depth slider of the circuit (−1..1, adjusted live without recompiling): u = 0 leaves the
+      slider value w, u = 1 reaches the maximum, u = −1 the minimum, linearly in between:
+          w + u·(max − w)  if u ≥ 0,      w + u·(w − min)  if u < 0;
+      for frequencies (exponential, minimum > 0) the same in octaves:
+          w·(max/w)^u      if u ≥ 0,      w·(w/min)^u      if u < 0;
     - "scale" (×): w·m;
     - "drive" (⇐): clip(m); the widget stays in the interface but has no effect.
 */
@@ -122,11 +125,6 @@ function float(x: number): string {
     return /[.eE]/.test(s) ? s : s + ".0";
 }
 
-// Half of the range of a frequency widget, in octaves (5 when the minimum is not positive).
-export function octaves(min: number, max: number): number {
-    return min > 0 && max > min ? Math.log2(max / min) / 2 : 5;
-}
-
 // Name of the depth slider of a modulation, from its target: stable when other modulations of the
 // module are added or removed, and when the patch is saved and recalled. Characters that Faust
 // would interpret in a label ("/" makes groups, "[" metadata...) are replaced by "_".
@@ -147,10 +145,12 @@ export function circuit(spec: ModulationSpec): string {
             const key = depthKey(spec);
             // step 0.001: the fine adjustment of the modulation port (Shift)
             const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", 1, -1, 1, 0.001) : si.smoo`;
-            return spec.exponential
-                // (2.0, _ : pow) is 2^x; note that pow(2.0) would be x^2 (partial application binds the 2nd argument)
-                ? `(_, (*(${float(octaves(spec.min, spec.max))} * (${depth})) : (2.0, _ : pow)) : * : ${clip})`
-                : `(_, *(${float((spec.max - spec.min) / 2)} * (${depth})) : + : ${clip})`;
+            // u = D·m, bounded: the excursion around the slider value, as a fraction of the way to a bound
+            const u = `(*(${depth}) : max(-1.0) : min(1.0))`;
+            const [lo, hi] = [float(spec.min), float(spec.max)];
+            return spec.exponential && spec.min > 0
+                ? `(_, ${u} : \\(w, u).(w * pow(select2(u < 0, ${hi} / w, w / ${lo}), u)) : ${clip})`
+                : `(_, ${u} : \\(w, u).(w + u * select2(u < 0, ${hi} - w, w - ${lo})) : ${clip})`;
         }
         case "scale":
             return "*";

@@ -104,7 +104,7 @@ for (const name of ["Small_Exemple", "Small_Exemple_Precompile", "Big_Exemple", 
         await scene.modulate({ module: lfo, port: 0 }, oscillator, widget(oscillator, "Frequency"), "modulate");
         await scene.modulate({ module: adsr, port: 0 }, volume, widget(volume, "Volume"), "scale");
         setParam(lfo, "Rate", 5);
-        setParam(oscillator, "depth", 0.02);        // ±0.05 octave
+        setParam(oscillator, "depth", 0.02);        // vibrato: +0.06 octave up to 2400 Hz, −0.04 octave down to 70 Hz
         scene.sceneName = "Modulation_Example";
         return scene.saveScene(false);
     });

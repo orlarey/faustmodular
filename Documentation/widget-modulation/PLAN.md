@@ -262,3 +262,25 @@ modulation.
   vers le bas font passer la profondeur de 1 à 0,860, mesuré dans le son (0,5 + 0,86 · 0,25 =
   0,715) ; un geste mixte (20 px sans Maj puis 100 px avec) donne 0,560 ; lignes de profondeur
   masquées après rappel de l'exemple de modulation.
+
+### Évolution (2026-10-31, version 2.7.0) : ± relatif à la position du slider
+
+À la demande de l'utilisateur, après essai : le ± ajoutait D·m·(max − min)/2 autour du slider, puis
+rognait aux bornes. Avec un slider proche d'une borne, la moitié de la course était perdue dans le
+rognage, et la même modulation n'avait pas le même effet selon la position du slider.
+
+- **Nouvelle règle** : la position du slider w est la position de repos. Avec u = D·m borné à
+  [−1, 1] : u = 0 laisse w, u = 1 atteint le maximum, u = −1 le minimum, linéairement entre les deux :
+  w + u·(max − w) si u ≥ 0, w + u·(w − min) si u < 0. La profondeur D règle la course autour de la
+  valeur courante ; négative, elle inverse le sens.
+- **Fréquences** (`[unit:Hz]`, `[scale:log]`, minimum > 0) : la même règle en octaves,
+  w·(max/w)^u si u ≥ 0, w·(w/min)^u si u < 0. Un minimum ≤ 0 retombe sur la règle linéaire (le
+  repli à 5 octaves de N disparaît, avec la fonction `octaves`).
+- **Circuit Faust** : `(_, (*(D) : max(-1) : min(1)) : \(w, u).(w + u * select2(u < 0, max - w, w - min)) : clip)`,
+  et `w * pow(select2(u < 0, max / w, w / min), u)` pour les fréquences.
+- **Tests** : slider décentré (0,8 : +0,5 donne 0,9, −0,5 donne 0,4), profondeur 0,5 et −0,25,
+  bornes atteintes à ±1, fréquences (440 Hz dans 20–20 000 : ±1 donne les bornes, +0,5 donne
+  440·√(20 000/440)). En float32, la profondeur lissée par `si.smoo` se stabilise ~10⁻⁵ sous 1, erreur
+  que l'exposant multiplie par ln(max/w) ≈ 3,8 : tolérance relative 3·10⁻⁴ (0,5 cent) pour les
+  fréquences. Le test de bout en bout passe de 0,925 / 0,675 à 0,85 / 0,6 (slider à 0,8, m = 0,25,
+  D = ±1).

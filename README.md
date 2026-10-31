@@ -25,8 +25,8 @@ Patches are saved in format version 2; patches saved by FaustPlayground 1.x can 
 patch replaces the current scene.
 
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and,
-after a short hover, release it on a type in the palette: **±** modulates around the slider
-(exponentially for frequencies), **×** scales it, **→** drives it with the signal. The modulation then
+after a short hover, release it on a type in the palette: **±** modulates from the slider value (a
+signal of +1 reaches the maximum, −1 the minimum; in octaves for frequencies), **×** scales it, **→** drives it with the signal. The modulation then
 gets a port astride the left edge of the module, at the height of its widget, showing its type and,
 for **±**, its depth as a ring: drag the port vertically to set the depth (hold Shift for a fine
 adjustment), double click to set it back to 1. The

@@ -576,9 +576,9 @@ describe("widget modulation (scene API)", () => {
         expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.length, gain)).toBe(0);
         expect(await outputOf(page, gain)).toBeCloseTo(0.8, 5);
 
-        // ± moduler: 0.8 + D·0.25·(1 − 0)/2, D adjusted live (no recompilation)
+        // ± moduler around the slider (0.8), u = D·0.25: 0.8 + u·(1 − 0.8) up, 0.8 + u·(0.8 − 0) down; D adjusted live
         expect(await modulate("modulate")).toBe(true);
-        expect(await outputOf(page, gain)).toBeCloseTo(0.925, 3);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.85, 3);
         const depth = await page.evaluate((m) => {
             const s = (globalThis as any).faustPlayground.scene;
             const dsp = s.getModuleById(m).moduleFaust.getDSP();
@@ -589,7 +589,7 @@ describe("widget modulation (scene API)", () => {
             return address;
         }, gain);
         expect(depth).toMatch(/depth/);
-        expect(await outputOf(page, gain)).toBeCloseTo(0.675, 3);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.6, 3);
         expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP() === (globalThis as any).dspBefore, gain)).toBe(true);
 
         // saved in version 3, then recalled: same modulation, same values
@@ -603,7 +603,7 @@ describe("widget modulation (scene API)", () => {
             return { id: m.moduleId, inputs: m.moduleFaust.getDSP().getNumInputs(), modulations: s.patch.getModule(m.moduleId).modulations.map((x: any) => x.spec.mode) };
         });
         expect(recalled).toMatchObject({ inputs: 2, modulations: ["modulate"] });
-        expect(await outputOf(page, recalled.id)).toBeCloseTo(0.675, 3);
+        expect(await outputOf(page, recalled.id)).toBeCloseTo(0.6, 3);
         expect(errors).toEqual([]);
         await page.close();
     }, 180_000);

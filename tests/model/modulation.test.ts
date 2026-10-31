@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import {
-    allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, octaves, WidgetDescription, widgetTarget,
+    allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, WidgetDescription, widgetTarget,
 } from "../../src/model/Modulation";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { compileJson, getCompiler } from "../helpers/faust";
@@ -86,26 +86,36 @@ describe("effective code", () => {
         expect(r.out[1]).toBeCloseTo(40, 5);
     });
 
-    it("± moduler: clip(w + D·m·(max−min)/2), with a depth adjusted live", async () => {
+    it("± moduler: the slider is the rest position, +1 reaches the maximum and −1 the minimum", async () => {
+        // u = D·m bounded to [−1, 1]: w + u·(max − w) if u ≥ 0, w + u·(w − min) if u < 0
         const code = await modulated(MODULE, 2, [["gain", "modulate"]]);
-        close((await run(code, [1, 0, 0.6])).out[0], 0.8);
-        close((await run(code, [1, 0, 0.6], { "depth gain": 0.5 })).out[0], 0.65);
-        close((await run(code, [1, 0, 0.6], { "depth gain": -1 })).out[0], 0.2);
-        close((await run(code, [1, 0, 3])).out[0], 1);                     // clipped to the range of the widget
+        close((await run(code, [1, 0, 0])).out[0], 0.5);                   // m = 0: the slider value
+        close((await run(code, [1, 0, 1])).out[0], 1);                     // m = 1: the maximum
+        close((await run(code, [1, 0, -1])).out[0], 0);                    // m = −1: the minimum
+        // a slider off centre (0.8): the way up (0.2) and the way down (0.8) are scaled apart
+        close((await run(code, [1, 0, 0.5], { gain: 0.8 })).out[0], 0.9);
+        close((await run(code, [1, 0, -0.5], { gain: 0.8 })).out[0], 0.4);
+        // the depth sets the excursion, live; a negative depth inverts it
+        close((await run(code, [1, 0, 1], { gain: 0.8, "depth gain": 0.5 })).out[0], 0.9);
+        close((await run(code, [1, 0, 1], { gain: 0.8, "depth gain": -0.25 })).out[0], 0.6);
+        close((await run(code, [1, 0, 3], { gain: 0.8 })).out[0], 1);      // beyond ±1: bounded
         // the depth slider is marked, and cannot itself be modulated
         const depth = (await run(code, [1, 0, 0])).widgets.find((w) => w.label == "depth gain")!;
         expect(depth.meta).toMatchObject({ modulation: "gain" });
         expect(isModulable(depth)).toBe(false);
     });
 
-    it("± moduler a frequency: clip(w·2^(D·m·N)), N = half the range in octaves", async () => {
+    it("± moduler a frequency: the same in octaves, w·(max/w)^u or w·(w/min)^u", async () => {
         const osc = wrap("Osc", `process = hslider("freq[unit:Hz]", 440, 20, 20000, 1);`);
         const code = await modulated(osc, 0, [["freq", "modulate"]]);
-        const n = octaves(20, 20000);
-        expect(n).toBeCloseTo(Math.log2(1000) / 2, 10);
-        close((await run(code, [0.5])).out[0], 440 * 2 ** (0.5 * n));
-        close((await run(code, [-0.25])).out[0], 440 * 2 ** (-0.25 * n));
-        close((await run(code, [-1])).out[0], 20);                          // clipped
+        // In float32 the smoothed depth (si.smoo) settles ~1e-5 short of 1, an error that the exponent
+        // multiplies by ln(max/w) ≈ 3.8: relative tolerance 3e-4 (0.5 cent).
+        const near = (actual: number, expected: number) => expect(Math.abs(actual / expected - 1)).toBeLessThan(3e-4);
+        near((await run(code, [0])).out[0], 440);
+        near((await run(code, [0.5])).out[0], 440 * Math.sqrt(20000 / 440));     // half the octaves up to the maximum
+        near((await run(code, [-0.25])).out[0], 440 * (440 / 20) ** -0.25);
+        near((await run(code, [1])).out[0], 20000);
+        near((await run(code, [-1])).out[0], 20);
     });
 
     it("× doser: w·m; ⇐ piloter: clip(m), the widget staying in the interface", async () => {
