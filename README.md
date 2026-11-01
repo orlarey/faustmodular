@@ -20,6 +20,10 @@ channels.
 - Release on the body of another module instead to connect all the channels at once: output
   `k mod n` goes to input `k mod m` (Faust's `<:` and `:>` when one number of channels divides the other).
 - Click on a cable to delete it. Dashed cables close a cycle and are delayed by 128 samples.
+- Shift-click modules, or drag a rectangle on the empty stage, to select several modules and move them
+  together.
+- Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
+  Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 
 Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded. Opening a
 patch replaces the current scene.

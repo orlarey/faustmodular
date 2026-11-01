@@ -22,12 +22,24 @@ import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
 import { rewrapModuleCode, unwrapModuleCode, userCode, userError } from "../model/ModuleCode";
+import { History } from "./History";
 import { SceneView } from "./SceneView";
 
 export const INPUT_ID: ModuleId = "input";
 export const OUTPUT_ID: ModuleId = "output";
 
 // What is needed to recreate a module from a patch file (v1 or v2).
+// A state of the scene for undo and redo (History): what the user can change.
+interface SceneSnapshot {
+    modules: Array<{
+        id: ModuleId; name: string; code: string; x: number; y: number; numInputs: number;
+        params: Record<string, number>;
+        modulations: Array<{ widget: string; spec: ModulationSpec }>;
+    }>;
+    io: Array<{ id: ModuleId; x: number; y: number }>;        // physical input and output modules
+    connections: string[];                                      // "from:port>to:port", sorted
+}
+
 interface ModuleDescription {
     id: ModuleId;
     name: string;
@@ -47,6 +59,7 @@ export class Scene {
     patch: Patch = new Patch();
     audioGraph: AudioGraph;
     patchView: PatchView;
+    history: History;
     faustcodeLink: FaustcodeLink<ModuleClass>;
     //-- Audio Input/Output
     fAudioOutput: ModuleClass;
@@ -101,6 +114,136 @@ export class Scene {
                 }
             }
         });
+        // selection rectangle on the empty stage, undo and redo
+        this.patchView.attachStage(this.sceneView.fSceneContainer);
+        this.history = new History({
+            capture: () => this.captureSnapshot(),
+            restore: (state) => this.restoreSnapshot(state),
+            changed: () => document.dispatchEvent(new CustomEvent("historychange")),
+        });
+        this.history.reset();
+        document.addEventListener("keydown", (e) => {
+            var target = e.target as HTMLElement | null;
+            if (target?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]")) return;
+            var key = e.key.toLowerCase();
+            if ((e.ctrlKey || e.metaKey) && key == "z") {
+                e.preventDefault();
+                if (e.shiftKey) this.redo(); else this.undo();
+            } else if ((e.ctrlKey || e.metaKey) && key == "y") {
+                e.preventDefault();
+                this.redo();
+            }
+        });
+    }
+
+    /*********************** UNDO / REDO ***************************/
+    // See History. A state lists the Faust modules (code, position, parameter values, modulations),
+    // the positions of the physical modules and the connections.
+
+    undo(): Promise<void> { return this.history.undo(); }
+    redo(): Promise<void> { return this.history.redo(); }
+
+    async captureSnapshot(): Promise<string> {
+        await Promise.all(Array.from(this.fRecompilations.values()));
+        var snapshot: SceneSnapshot = { modules: [], io: [], connections: [] };
+        for (var state of this.patch.getModules()) {
+            if (state.kind != "faust") {
+                snapshot.io.push({ id: state.id, x: state.x, y: state.y });
+                continue;
+            }
+            var module = this.getModuleById(state.id);
+            var params: Record<string, number> = {};
+            module?.moduleControles.forEach((c) => {
+                var value = parseFloat(c.value);
+                if (!isNaN(value)) params[c.itemParam.address] = value;
+            });
+            snapshot.modules.push({
+                id: state.id, name: state.name, code: state.code, x: state.x, y: state.y, numInputs: state.numInputs, params,
+                modulations: state.modulations.map((m) => ({ widget: m.widget, spec: m.spec })),
+            });
+        }
+        // in the order of the ids: a module created again (undo of a removal) is not at the same place in the patch
+        snapshot.modules.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+        snapshot.connections = this.patch.getConnections().map((c) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort();
+        return JSON.stringify(snapshot);
+    }
+
+    // Brings the scene to a state: only what differs is changed (a parameter value does not
+    // recompile anything; a module is recompiled when its code or its modulations differ).
+    async restoreSnapshot(json: string): Promise<void> {
+        var target: SceneSnapshot = JSON.parse(json);
+        await Promise.all(Array.from(this.fRecompilations.values()));
+        var wanted = new Set(target.modules.map((m) => m.id));
+        for (var module of this.fModuleList.slice()) {
+            if (!wanted.has(module.moduleId)) module.deleteModule();
+        }
+        for (var t of target.modules) {
+            var existing = this.getModuleById(t.id);
+            if (!existing) {
+                await this.createModule({ id: t.id, name: t.name, code: t.code, x: t.x, y: t.y, params: t.params, acc: [], numInputs: t.numInputs, modulations: t.modulations }, true);
+                continue;
+            }
+            var state = this.patch.getModule(t.id)!;
+            var sameModulations = JSON.stringify(state.modulations.map((m) => ({ widget: m.widget, spec: m.spec }))) == JSON.stringify(t.modulations);
+            if (!sameModulations) {
+                state.modulations.slice().forEach((m) => this.patch.removeModulation(t.id, m.id));
+                t.modulations.forEach((m) => this.patch.addModulation(t.id, m.widget, m.spec));
+            }
+            if (state.code != t.code) {
+                var factory = await this.compileModuleCode(existing, t.name, t.code, undefined, false);
+                if (factory) await existing.replaceDSP(factory, { name: t.name, code: t.code });
+            } else if (!sameModulations) {
+                await this.recompileModulations(existing);
+            }
+            this.restoreParams(existing, t.params);
+            this.moveModule(existing, t.x, t.y);
+            this.patchView.refreshModule(t.id);
+        }
+        for (var io of target.io) {
+            var physical = io.id == INPUT_ID ? this.fAudioInput : io.id == OUTPUT_ID ? this.fAudioOutput : undefined;
+            if (physical) this.moveModule(physical, io.x, io.y);
+        }
+        var key = (c: Connection) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`;
+        var wantedConnections = new Set(target.connections);
+        this.patch.getConnections().filter((c) => !wantedConnections.has(key(c))).forEach((c) => this.patch.disconnect(c.id));
+        var present = new Set(this.patch.getConnections().map(key));
+        for (var k of target.connections) {
+            if (present.has(k)) continue;
+            var [from, to] = k.split(">").map((end) => { var i = end.lastIndexOf(":"); return { module: end.slice(0, i), port: Number(end.slice(i + 1)) }; });
+            try {
+                this.patch.connect(from, to);
+            } catch (e) {
+                console.warn(`undo/redo: connection ${k} not restored`, e);
+            }
+        }
+    }
+
+    // Parameter values through the interface (what the user sees, and saves).
+    private restoreParams(module: ModuleClass, params: Record<string, number>): void {
+        for (var address in params) {
+            var value = params[address];
+            var controler = module.moduleControles.find((c) => c.itemParam.address == address);
+            if (!controler || parseFloat(controler.value) == value) continue;
+            var slider = controler.faustInterfaceView.slider;
+            if (slider) {
+                slider.value = String(Math.round((value - parseFloat(controler.itemParam.min)) / parseFloat(controler.itemParam.step)));
+                slider.dispatchEvent(new Event("input"));
+            } else {
+                controler.value = String(value);
+                module.moduleFaust.getDSP().setParamValue(address, value);
+            }
+        }
+    }
+
+    private moveModule(module: ModuleClass, x: number, y: number): void {
+        var view = module.moduleView;
+        if (view.x == x && view.y == y) return;
+        view.x = x;
+        view.y = y;
+        view.getModuleContainer().style.left = x + "px";
+        view.getModuleContainer().style.top = y + "px";
+        this.patch.updateModule(module.moduleId, { x, y });
+        this.patchView.redrawModule(module.moduleId);
     }
 
     getSceneContainer(): HTMLDivElement { return this.sceneView.fSceneContainer; }
@@ -153,9 +296,10 @@ export class Scene {
 
     // Registers a module whose DSP is created: adds it to the patch, the audio graph and the view.
     // `modulations`: those of the effective code the DSP was compiled from (recalled modules).
-    addModule(module: ModuleClass, modulations: Array<{ widget: string; spec: ModulationSpec }> = []): void {
+    addModule(module: ModuleClass, modulations: Array<{ widget: string; spec: ModulationSpec }> = [], id?: ModuleId): void {
         var dsp = module.moduleFaust.getDSP();
         var state = this.patch.addModule({
+            id,
             kind: "faust",
             name: module.moduleFaust.getName(),
             code: module.moduleFaust.getSource(),
@@ -318,7 +462,10 @@ export class Scene {
 
     // A change the patch model does not see (a parameter value).
     markModified(): void {
-        if (this.fRecalling == 0) this.fModified = true;
+        if (this.fRecalling == 0) {
+            this.fModified = true;
+            this.history?.touch();
+        }
     }
 
     markSaved(): void {
@@ -381,6 +528,7 @@ export class Scene {
             } finally {
                 this.fRecalling--;
                 this.fModified = false;     // a scene just opened has nothing to save
+                this.history.reset();       // nor anything to undo
             }
         } catch (e) {
             console.error(e);
@@ -648,7 +796,8 @@ export class Scene {
     }
 
     // Creates a module from its description: precompiled factory if any, otherwise compilation.
-    private async createModule(description: ModuleDescription): Promise<ModuleClass | null> {
+    // keepId: the module gets the id of its description (undo/redo), instead of a new one.
+    private async createModule(description: ModuleDescription, keepId: boolean = false): Promise<ModuleClass | null> {
         var factory: FaustDspFactory | null = null;
         try {
             factory = description.factory ? await this.importFactory(description.factory) : null;
@@ -685,7 +834,7 @@ export class Scene {
         module.recallInterfaceParams();
         module.setFaustInterfaceControles();
         module.createFaustInterface();
-        this.addModule(module, modulations.map((m) => ({ widget: m.widget, spec: m.spec })));
+        this.addModule(module, modulations.map((m) => ({ widget: m.widget, spec: m.spec })), keepId ? description.id : undefined);
         this.recallAccValues(description.acc, module);
         return module;
     }

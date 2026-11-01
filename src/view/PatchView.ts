@@ -2,7 +2,9 @@
     Graphical view of the patch: ports of the modules, one SVG cable per connection,
     and the pointer interactions (mouse, touch and pen through Pointer Events):
 
-    - drag a module by its body;
+    - drag a module by its body: the selected modules move with it. Shift (or Ctrl, Cmd) and click
+      adds a module to the selection or removes it; dragging on the empty stage draws a rectangle
+      that selects the modules it touches; a click on the stage clears the selection;
     - drag from a port to start a cable, then release
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
@@ -92,11 +94,18 @@ interface CableDrag {
 }
 
 interface ModuleDrag {
-    module: ModuleClass;
+    clicked: ModuleClass;
     startX: number;
     startY: number;
-    left: number;
-    top: number;
+    items: Array<{ module: ModuleClass; left: number; top: number }>;
+    moved: boolean;
+}
+
+interface BandDrag {
+    startX: number;
+    startY: number;
+    element: HTMLDivElement;
+    base: Set<ModuleId>;        // selection kept (Shift), the rectangle adds to it
 }
 
 // Elements of a module that keep their own pointer behaviour (controls, buttons, editor).
@@ -124,6 +133,61 @@ export class PatchView {
     }
 
     // Shows a module of the patch: ports, cables, pointer handlers. Called once the module is in the patch.
+    /******************** SELECTION ********************/
+
+    private fSelection = new Set<ModuleId>();
+    private fBand?: { pointer: number; drag: BandDrag };
+
+    getSelection(): ModuleId[] {
+        return Array.from(this.fSelection);
+    }
+
+    select(ids: Iterable<ModuleId>): void {
+        const next = new Set(ids);
+        this.fContainers.forEach((id, container) => container.classList.toggle("selected", next.has(id)));
+        this.fSelection = next;
+    }
+
+    // The empty stage: a click clears the selection, a drag draws a selection rectangle.
+    attachStage(stage: HTMLElement): void {
+        stage.addEventListener("pointerdown", (e) => {
+            if (e.pointerType == "mouse" && e.button != 0) return;
+            const target = e.target as HTMLElement;
+            if (target.closest(".moduleFaust, .port, .cable, #menuContainer, #dialogue, .modulation-port")) return;
+            const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+            const band = document.createElement("div");
+            band.className = "selection-band";
+            document.body.appendChild(band);
+            this.fBand = { pointer: e.pointerId, drag: { startX: e.clientX, startY: e.clientY, element: band, base: additive ? new Set(this.fSelection) : new Set() } };
+            this.select(this.fBand.drag.base);
+            stage.setPointerCapture(e.pointerId);
+            this.moveBand(e);
+        });
+        stage.addEventListener("pointermove", (e) => {
+            if (this.fBand?.pointer == e.pointerId) this.moveBand(e);
+        });
+        const end = (e: PointerEvent) => {
+            if (this.fBand?.pointer != e.pointerId) return;
+            this.fBand.drag.element.remove();
+            this.fBand = undefined;
+        };
+        stage.addEventListener("pointerup", end);
+        stage.addEventListener("pointercancel", end);
+    }
+
+    private moveBand(e: PointerEvent): void {
+        const drag = this.fBand!.drag;
+        const left = Math.min(drag.startX, e.clientX), top = Math.min(drag.startY, e.clientY);
+        const right = Math.max(drag.startX, e.clientX), bottom = Math.max(drag.startY, e.clientY);
+        Object.assign(drag.element.style, { left: left + "px", top: top + "px", width: (right - left) + "px", height: (bottom - top) + "px" });
+        const inside = new Set(drag.base);
+        this.fContainers.forEach((id, container) => {
+            const r = container.getBoundingClientRect();
+            if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) inside.add(id);
+        });
+        this.select(inside);
+    }
+
     addModule(module: ModuleClass): void {
         const container = module.moduleView.getModuleContainer();
         this.fContainers.set(container, module.moduleId);
@@ -136,6 +200,14 @@ export class PatchView {
         this.markWidgets(module.moduleId);
         this.renderModulationPorts(module.moduleId);
         this.redrawModule(module.moduleId);
+    }
+
+    // Redraws the modulation ports (depth rings) and the cables of a module (undo/redo).
+    refreshModule(id: ModuleId): void {
+        if (!this.fLookup(id)) return;
+        this.markWidgets(id);
+        this.renderModulationPorts(id);
+        this.redrawModule(id);
     }
 
     redrawModule(id: ModuleId): void {
@@ -178,6 +250,7 @@ export class PatchView {
                 break;
             }
             case "moduleRemoved":
+                this.fSelection.delete(event.module.id);
                 this.fContainers.forEach((id, container) => {
                     if (id == event.module.id) {
                         this.fResizeObserver?.unobserve(container);
@@ -410,12 +483,16 @@ export class PatchView {
         }
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
-            const view = moduleDrag.module.moduleView;
-            view.x = moduleDrag.left + e.clientX - moduleDrag.startX;
-            view.y = moduleDrag.top + e.clientY - moduleDrag.startY;
-            view.getModuleContainer().style.left = view.x + "px";
-            view.getModuleContainer().style.top = view.y + "px";
-            this.redrawModule(moduleDrag.module.moduleId);
+            const dx = e.clientX - moduleDrag.startX, dy = e.clientY - moduleDrag.startY;
+            moduleDrag.moved ||= Math.abs(dx) + Math.abs(dy) > 2;
+            for (const item of moduleDrag.items) {
+                const view = item.module.moduleView;
+                view.x = item.left + dx;
+                view.y = item.top + dy;
+                view.getModuleContainer().style.left = view.x + "px";
+                view.getModuleContainer().style.top = view.y + "px";
+                this.redrawModule(item.module.moduleId);
+            }
         }
         const cableDrag = this.fCableDrags.get(e.pointerId);
         if (cableDrag) {
@@ -433,9 +510,15 @@ export class PatchView {
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
             this.fModuleDrags.delete(e.pointerId);
-            const view = moduleDrag.module.moduleView;
-            if (this.fPatch.getModule(moduleDrag.module.moduleId)) {
-                this.fPatch.updateModule(moduleDrag.module.moduleId, { x: view.x, y: view.y });
+            if (moduleDrag.moved) {
+                for (const item of moduleDrag.items) {
+                    const view = item.module.moduleView;
+                    if (this.fPatch.getModule(item.module.moduleId)) {
+                        this.fPatch.updateModule(item.module.moduleId, { x: view.x, y: view.y });
+                    }
+                }
+            } else {
+                this.select([moduleDrag.clicked.moduleId]);     // a click selects this module only
             }
         }
         const cableDrag = this.fCableDrags.get(e.pointerId);
@@ -451,15 +534,22 @@ export class PatchView {
     }
 
     private startModuleDrag(e: PointerEvent, module: ModuleClass): void {
+        const id = module.moduleId;
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            // adds the module to the selection or removes it
+            const next = new Set(this.fSelection);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            this.select(next);
+            return;
+        }
+        if (!this.fSelection.has(id)) this.select([id]);
         const container = module.moduleView.getModuleContainer();
         container.setPointerCapture(e.pointerId);
-        this.fModuleDrags.set(e.pointerId, {
-            module,
-            startX: e.clientX,
-            startY: e.clientY,
-            left: parseFloat(container.style.left) || 0,
-            top: parseFloat(container.style.top) || 0,
-        });
+        const items = Array.from(this.fSelection)
+            .map((sid) => this.fLookup(sid))
+            .filter((m): m is ModuleClass => m !== undefined)
+            .map((m) => ({ module: m, left: parseFloat(m.moduleView.getModuleContainer().style.left) || 0, top: parseFloat(m.moduleView.getModuleContainer().style.top) || 0 }));
+        this.fModuleDrags.set(e.pointerId, { clicked: module, startX: e.clientX, startY: e.clientY, items, moved: false });
     }
 
     private startCableDrag(e: PointerEvent, module: ModuleClass, port: HTMLElement): void {

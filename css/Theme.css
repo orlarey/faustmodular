@@ -244,7 +244,7 @@ input[type="range"]::-moz-range-thumb,
 /* Cables */
 .cable {
 	stroke: var(--fp-cable);
-	stroke-width: 3.5;
+	stroke-width: 5;			/* thick enough to be clicked (deleted) easily */
 }
 .cable:hover {
 	stroke: var(--fp-out);
@@ -254,7 +254,7 @@ input[type="range"]::-moz-range-thumb,
 }
 .cable.modulation {
 	stroke: var(--fp-mod);
-	stroke-width: 2.5;
+	stroke-width: 4;
 }
 
 /* Widget modulation */
@@ -378,4 +378,38 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 }
 .exempleAnchor:hover {
 	color: var(--fp-pill-text) !important;
+}
+
+/* Physical input and output modules: the icon in the middle of the module */
+#moduleInput > .content, #moduleOutput > .content {
+	box-sizing: border-box;
+	height: 100% !important;
+	min-width: 80px;
+	padding: 0 !important;
+}
+
+/* Selected modules (moved together), and the selection rectangle */
+.moduleFaust.selected {
+	border-color: var(--fp-accent);
+	box-shadow: 0 0 0 1px var(--fp-accent), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.selection-band {
+	position: fixed;
+	z-index: 15;
+	border: 1px solid var(--fp-accent);
+	background: rgba(122, 240, 192, 0.08);
+	border-radius: 3px;
+	pointer-events: none;
+}
+
+/* Undo and redo, in the header */
+.historyButton {
+	font: 18px/28px var(--fp-sans);
+	color: var(--fp-pill-text);
+	text-align: center;
+	user-select: none;
+}
+.historyButton.disabled {
+	opacity: 0.25;
+	pointer-events: none;
 }

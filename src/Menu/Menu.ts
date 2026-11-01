@@ -58,6 +58,13 @@ export class Menu {
         this.menuView.fullScreenButton.addEventListener("click", () => { this.fullScreen() });
         this.menuView.accButton.addEventListener("click", () => { this.accelerometer() });
         this.menuView.cleanButton.addEventListener("click", () => { new Confirm(Utilitary.messageResource.confirmEmptyScene, (callback) => { this.cleanScene(callback) }) });
+        this.menuView.undoButton.addEventListener("click", () => { Utilitary.currentScene.undo() });
+        this.menuView.redoButton.addEventListener("click", () => { Utilitary.currentScene.redo() });
+        document.addEventListener("historychange", () => {
+            var history = Utilitary.currentScene.history;
+            this.menuView.undoButton.classList.toggle("disabled", !history.canUndo());
+            this.menuView.redoButton.classList.toggle("disabled", !history.canRedo());
+        });
 
         //add eventListern customs
         document.addEventListener("updatename", (e) => { this.updatePatchNameToInput(e) })

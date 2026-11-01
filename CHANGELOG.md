@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.11.0 (2026-11-01)
+
+- **Undo and redo of every change**: modules added, removed, moved or recompiled (code edited in
+  faustcode), connections and disconnections, modulations and their depth, parameter values. Ctrl/Cmd-Z
+  undoes, Ctrl/Cmd-Shift-Z (or Ctrl-Y) redoes; two buttons ↶ ↷ in the header do the same. The history
+  records a state of the scene once it is quiet (400 ms): a slider dragged or a group of modules moved is
+  a single step. Undo and redo change only what differs (a parameter value recompiles nothing; a module
+  is recompiled when its code or its modulations differ; a removed module is created again with its id,
+  parameters and connections). Opening a patch starts a new history. `src/Scenes/History.ts`,
+  `Scene.captureSnapshot`, `Scene.restoreSnapshot`.
+- **Selection of several modules**, moved together: Shift (or Ctrl, Cmd) and click adds a module to the
+  selection or removes it; dragging on the empty stage draws a rectangle that selects the modules it
+  touches; a click on the stage clears the selection. Selected modules have a mint outline.
+- The microphone and speaker icons are centered in their modules.
+- Cables are thicker (5 px, modulation cables 4 px): easier to click to delete them.
+
 ## 2.10.1 (2026-11-01)
 
 - The coloured bar to the left of a modulated slider is removed: its modulation port already shows it.

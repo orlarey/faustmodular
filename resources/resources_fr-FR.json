@@ -82,5 +82,7 @@
   "faustcodePopupBlocked": "Le navigateur a bloqué l'ouverture de faustcode : autorisez les fenêtres surgissantes pour ce site",
   "faustcodeNoAnswer": "faustcode ne répond pas ({url}) : cette version ne connaît peut-être pas le lien avec faustmodular",
   "faustcodeUpdateFailed": "{name} : le code reçu de faustcode n'a pas été appliqué ({error})",
-  "confirmReplaceScene": "La scène actuelle a été modifiée depuis son dernier enregistrement. La remplacer quand même ?"
+  "confirmReplaceScene": "La scène actuelle a été modifiée depuis son dernier enregistrement. La remplacer quand même ?",
+  "undo": "Annuler (Ctrl/Cmd-Z)",
+  "redo": "Rétablir (Ctrl/Cmd-Maj-Z)"
 }

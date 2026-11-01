@@ -19,6 +19,8 @@ export class MenuView {
     editButtonMenu: HTMLElement;
     fullScreenButton: HTMLElement;
     cleanButton: HTMLElement;
+    undoButton: HTMLElement;
+    redoButton: HTMLElement;
     accButton: HTMLElement;
     loadButton: HTMLElement;
     saveButton: HTMLElement;
@@ -116,6 +118,22 @@ export class MenuView {
         buttonsMenu.appendChild(fullScreenButton);
         buttonsMenu.appendChild(accButton);
         buttonsMenu.appendChild(cleanButton);
+
+        // undo and redo (Scene.history), disabled when there is nothing to undo or redo
+        var undoButton = document.createElement("div");
+        undoButton.id = "undoButton";
+        undoButton.className = "buttonsLittleMenu historyButton disabled";
+        undoButton.textContent = "\u21B6";
+        undoButton.title = Utilitary.messageResource.undo;
+        this.undoButton = undoButton;
+        buttonsMenu.appendChild(undoButton);
+        var redoButton = document.createElement("div");
+        redoButton.id = "redoButton";
+        redoButton.className = "buttonsLittleMenu historyButton disabled";
+        redoButton.textContent = "\u21B7";
+        redoButton.title = Utilitary.messageResource.redo;
+        this.redoButton = redoButton;
+        buttonsMenu.appendChild(redoButton);
 
         this.HTMLButtonsMenu.push(libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
 
