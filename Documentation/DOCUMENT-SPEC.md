@@ -255,6 +255,16 @@ Fichier ▾
 - **Entre documents.** Les modules utilisateur appartiennent au navigateur, pas à un document : tous les documents les voient dans la bibliothèque. Copier des instances d'un document à l'autre (plus tard) ne copie que des références.
 - **Entre outils de la même origine.** faustmodular, faustcode et faustdaw, hébergés sous `orlarey.github.io`, partagent l'OPFS de cette origine. faustcode identifie déjà ses sessions par le SHA-1 du code : le magasin de codes peut devenir **commun**. Une édition dans faustcode n'aurait alors plus besoin de transporter le code par message, seulement son empreinte. C'est la « publication » du document de conception sur les applis coopérantes. Ce partage est une perspective : la version 1 garde son propre magasin, avec la même convention d'empreinte pour rendre la convergence triviale.
 
+## Perspective : fauststore \label{sec:fauststore}
+
+À plus long terme, le magasin local appelle un **magasin public** de code Faust, une sorte de GitHub spécialisé : **fauststore**. On y trouverait des codes **versionnés**, **décrits**, **catégorisés**, **classés** et éventuellement **évalués**.
+
+La thèse de ce document le prépare sans rien imposer :
+
+- les codes sont déjà identifiés par leur contenu : un code reste le même dans le magasin local et dans fauststore, sans doublon ;
+- un module utilisateur, avec la suite de ses versions, est l'unité naturelle à **publier** ; les métadonnées `declare` de Faust (nom, auteur, licence, version, description) en fournissent une première description ;
+- un module récupéré de fauststore se comporte comme un module de bibliothèque : ses instances sont attachées à une version précise, et « Mettre à jour » propose les versions publiées depuis.
+
 # Robustesse \label{sec:robustesse}
 
 - **Onglets multiples.** Deux onglets sur le même document risquent de s'écraser. Défaut retenu, comme markpage : **détecter et avertir**. Le second onglet ouvre le document en lecture seule, par `BroadcastChannel`. Plus tard : un seul onglet écrit, les autres suivent (le *lease* de faustdaw).
@@ -283,6 +293,7 @@ Points ouverts :
 - **Préréglages** de modules : enregistrer des jeux de paramètres selon le même principe (contenu identifié par empreinte), comme les préréglages de faustdaw.
 - **Synchronisation** avec Google Drive : la conserver comme cible d'export, ou la retirer.
 - **Magasin commun** avec faustcode et faustdaw (\ref{sec:partage}).
+- **fauststore**, magasin public de code Faust (\ref{sec:fauststore}) : pas pour tout de suite, mais la convention d'empreinte et les modules utilisateur versionnés le préparent.
 
 # Phases \label{sec:phases}
 
