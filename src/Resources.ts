@@ -44,6 +44,14 @@ export class Resources {
     confirmReplaceScene: string;
     undo: string;
     redo: string;
+    moduleUpdate: string;
+    moduleUpdateFailed: string;
+    titleUserModules: string;
+    userModulesEmpty: string;
+    userModuleRename: string;
+    userModuleDelete: string;
+    userModuleVersions: string;
+    confirmUserModuleDelete: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

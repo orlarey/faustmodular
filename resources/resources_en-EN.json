@@ -104,5 +104,13 @@
   "confirmEmptyTrash": "Delete the documents of the trash for good?",
   "documentStorageLocal": "This browser has no private file system (OPFS): documents are kept in the local storage, limited to a few MB.",
   "documentStorageMemory": "No storage available: documents will be lost when the tab is closed. Export them.",
-  "documentsUnavailable": "Documents are unavailable"
+  "documentsUnavailable": "Documents are unavailable",
+  "moduleUpdate": "Update: use the latest version of this module (Ctrl/Cmd-Z to go back)",
+  "moduleUpdateFailed": "{name}: the update failed ({error})",
+  "titleUserModules": "My modules",
+  "userModulesEmpty": "Drop a .dsp file on the stage, or edit a module in faustcode: it will appear here.",
+  "userModuleRename": "Rename",
+  "userModuleDelete": "Delete",
+  "userModuleVersions": "{n} versions",
+  "confirmUserModuleDelete": "Move the module “%s” to the trash? The documents using it do not change."
 }

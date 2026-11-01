@@ -2,6 +2,8 @@
 // at each state, Save, Revert, Save as, files opened as new documents, trash, migration.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Documents, LEGACY_KEY } from "../../src/documents/Documents";
+import { storedCode } from "../../src/documents/DocumentFormat";
+import { sha1 } from "../../src/documents/Sha1";
 import { MemoryStore } from "../../src/documents/FileStore";
 import { wrapModuleCode } from "../../src/model/ModuleCode";
 import { PATCH_FORMAT, PatchFileV2 } from "../../src/model/PatchFormat";
@@ -47,6 +49,23 @@ class FakeScene {
         edit(this.patch);
         this.documents.changed();
     }
+    updates = new Map<string, boolean>();
+    showUpdate(id: string, available: boolean): void {
+        this.updates.set(id, available);
+    }
+    // an edit in faustcode (Scene.editModuleCode)
+    async updateModuleCode(id: string, code: string): Promise<string | null> {
+        const m = this.patch.modules.find((x) => x.id == id)!;
+        const previous = storedCode(m.name, m.code).code;
+        m.code = wrapModuleCode(m.name, code);
+        this.documents.codeEdited(previous, code, m.name);
+        this.documents.changed();
+        return null;
+    }
+    codeOf(id: string): string {
+        const m = this.patch.modules.find((x) => x.id == id)!;
+        return storedCode(m.name, m.code).code;
+    }
 }
 
 class FakeStorage {
@@ -56,10 +75,26 @@ class FakeStorage {
     removeItem(key: string) { this.items.delete(key); }
 }
 
+const LIBRARY_OSC = 'process = os.osc(440);';            // the code of the library module Osc (patchFile)
+const OLD_OSC = 'process = os.osc(220);';                // a former version of it
+const library = async () => ({
+    modules: { "faust-modules/generators/Osc.dsp": await sha1(LIBRARY_OSC) },
+    history: { [await sha1(OLD_OSC)]: { path: "faust-modules/generators/Osc.dsp" } },
+});
+
 async function start(files = new MemoryStore(), legacyStorage: any = null) {
     const scene = new FakeScene();
-    const documents = await Documents.start(scene, { files, environment: faust, legacyStorage, untitled: "Untitled" });
+    const documents = await Documents.start(scene, {
+        files, environment: faust, legacyStorage, untitled: "Untitled", library,
+        libraryCode: async (path) => path.endsWith("Osc.dsp") ? LIBRARY_OSC : "",
+    });
     return { scene, documents, files };
+}
+
+function withCode(name: string, code: string, x = 100): PatchFileV2 {
+    const file = patchFile(name, x);
+    file.modules[2].code = wrapModuleCode("Osc", code);
+    return file;
 }
 
 const oscX = (scene: FakeScene) => scene.patch.modules.find((m) => m.id == "1")!.x;
@@ -217,5 +252,85 @@ describe("migration of the localStorage", () => {
         vi.setSystemTime(new Date(2026, 10, 9));
         await start(files, storage);
         expect(storage.getItem(LEGACY_KEY)).toBeNull();
+    });
+});
+
+describe("user modules", () => {
+    const names = (documents: Documents) => documents.store.listModules().map((m) => `${m.name}:${m.versions.length}`).sort();
+
+    it("a code of the library is a library module; any other code gets a user module, once", async () => {
+        const { documents } = await start();
+        await documents.importPatch(JSON.stringify(patchFile("Song")));                 // the library Osc
+        expect(names(documents)).toEqual([]);
+        await documents.importPatch(JSON.stringify(withCode("Mine", "process = no.noise;")));
+        expect(names(documents)).toEqual(["Osc:1"]);
+        await documents.importPatch(JSON.stringify(withCode("Again", "process = no.noise;")));
+        expect(names(documents)).toEqual(["Osc:1"]);                                    // the same code: the same module
+        expect(documents.statusOf(await sha1("process = no.noise;"))).toMatchObject({ name: "Osc" });
+        expect(documents.statusOf(await sha1(LIBRARY_OSC))).toBe("library");
+    });
+
+    it("an edit in faustcode: a new user module from a library module, a new version of a user module", async () => {
+        const { scene, documents } = await start();
+        await documents.importPatch(JSON.stringify(patchFile("Song")));
+        await scene.updateModuleCode("1", "process = os.osc(880);");
+        await documents.flush();
+        expect(names(documents)).toEqual(["Osc:1"]);
+        await scene.updateModuleCode("1", "process = os.osc(990);");
+        await documents.flush();
+        expect(names(documents)).toEqual(["Osc:2"]);
+        expect(documents.store.listModules()[0].versions).toEqual([await sha1("process = os.osc(880);"), await sha1("process = os.osc(990);")]);
+        expect(scene.updates.get("1")).toBe(false);
+    });
+
+    it("an instance of an older version gets the latest one by an update", async () => {
+        const { scene, documents } = await start();
+        await documents.importPatch(JSON.stringify(withCode("Song", "process = os.osc(880);")));
+        await scene.updateModuleCode("1", "process = os.osc(990);");
+        await documents.flush();
+        // another document still uses the first version
+        await documents.importPatch(JSON.stringify(withCode("Old", "process = os.osc(880);")));
+        expect(scene.updates.get("1")).toBe(true);
+        expect(await documents.updateInstance("1")).toBeNull();
+        await documents.flush();
+        expect(scene.codeOf("1")).toBe("process = os.osc(990);");
+        expect(scene.updates.get("1")).toBe(false);
+        expect(names(documents)).toEqual(["Osc:2"]);
+    });
+
+    it("an older version of a library module becomes a user module that can be updated to the library module", async () => {
+        const { scene, documents } = await start();
+        await documents.importPatch(JSON.stringify(withCode("Song", OLD_OSC)));
+        expect(documents.store.listModules()).toMatchObject([{ name: "Osc", basedOn: "faust-modules/generators/Osc.dsp" }]);
+        expect(scene.updates.get("1")).toBe(true);
+        await documents.updateInstance("1");
+        await documents.flush();
+        expect(scene.codeOf("1")).toBe(LIBRARY_OSC);
+        expect(scene.updates.get("1")).toBe(false);
+    });
+
+    it("a module in the trash keeps its codes; the trash emptied, it is created again when used", async () => {
+        const { documents, files } = await start();
+        await documents.importPatch(JSON.stringify(withCode("Song", "process = no.noise;")));
+        const id = documents.store.listModules()[0].id;
+        await documents.renameModule(id, "Noise");
+        await documents.trashModule(id);
+        expect(documents.store.listModules()).toEqual([]);
+        await documents.importPatch(JSON.stringify(withCode("Again", "process = no.noise;")));
+        expect(documents.store.listModules(true).map((m) => m.name)).toEqual(["Noise"]);
+        expect(documents.store.listModules()).toEqual([]);
+        expect(await documents.store.collect()).toBe(0);
+        await documents.emptyTrash();
+        expect(await files.list("modules")).toEqual([]);
+        await documents.importPatch(JSON.stringify(withCode("Third", "process = no.noise;")));
+        expect(names(documents)).toEqual(["Osc:1"]);
+    });
+
+    it("gives the latest code of a user module, to add an instance of it", async () => {
+        const { scene, documents } = await start();
+        await documents.importPatch(JSON.stringify(withCode("Song", "process = os.osc(880);")));
+        await scene.updateModuleCode("1", "process = os.osc(990);");
+        await documents.flush();
+        expect(await documents.moduleCode(documents.store.listModules()[0].id)).toEqual({ name: "Osc", code: "process = os.osc(990);" });
     });
 });

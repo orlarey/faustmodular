@@ -755,3 +755,19 @@ span.titleAcc {
 	margin: 0;
 	border-radius: 3px;
 }
+/* ↑: a newer version of the module exists */
+.moduleFaust > .update {
+	position: absolute;
+	top: 6px;
+	left: 34px;
+	width: 18px;
+	height: 18px;
+	line-height: 18px;
+	text-align: center;
+	font-size: 13px;
+	font-weight: 700;
+	border-radius: 50%;
+	color: #141922;
+	background: var(--fp-mod, #ffb35c);
+	cursor: pointer;
+}

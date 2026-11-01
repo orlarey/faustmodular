@@ -68,6 +68,14 @@ export class DocumentFormatError extends Error { }
 const connectionKey = (c: { from: { module: string; port: number }; to: { module: string; port: number } }) =>
     `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`;
 
+// The code stored for a module: the user's code if the module's code is wrapped by faustmodular in a
+// group of its name, the whole code otherwise. Its hash identifies the version.
+export function storedCode(name: string, source: string): { code: string; wrapped: boolean } {
+    const unwrapped = unwrapModuleCode(source);
+    const wrapped = unwrapped != null && wrapModuleCode(name, unwrapped.code) == source;
+    return wrapped ? { code: unwrapped!.code, wrapped } : { code: source, wrapped };
+}
+
 // The document of a scene saved as a patch file, and the codes it references (hash -> code).
 export async function documentFromPatch(file: PatchFileV2, name: string, faust: FaustEnvironment): Promise<{ document: DocumentV4; codes: Map<string, string> }> {
     const codes = new Map<string, string>();
@@ -78,9 +86,7 @@ export async function documentFromPatch(file: PatchFileV2, name: string, faust: 
             io[m.kind] = { x: m.x, y: m.y };
             continue;
         }
-        const unwrapped = unwrapModuleCode(m.code);
-        const wrapped = unwrapped != null && wrapModuleCode(m.name, unwrapped.code) == m.code;
-        const code = wrapped ? unwrapped!.code : m.code;
+        const { code, wrapped } = storedCode(m.name, m.code);
         const hash = await sha1(code);
         codes.set(hash, code);
         instances.push({

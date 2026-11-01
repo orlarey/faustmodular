@@ -94,6 +94,8 @@ export function resumeInit(app: App) {
         legacyStorage: (() => { try { return localStorage; } catch { return null; } })(),
         untitled: Utilitary.messageResource.untitled,
         notify: (message) => { new Message(message) },
+        library: async () => (await fetch("faust-modules/library-index.json")).json(),
+        libraryCode: async (path) => (await fetch(path)).text(),
     }).then((documents) => {
         access.documents = documents;
         app.menu.setDocuments(documents);

@@ -22,6 +22,7 @@ export class ModuleView {
     fName: string;
     fInterfaceContainer: HTMLInterfaceContainer;
     fEditImg: HTMLDivElement;
+    fUpdate: HTMLDivElement;
     fTitle: HTMLElement;
     fInputPorts: HTMLElement[] = [];
     fOutputPorts: HTMLElement[] = [];
@@ -82,6 +83,15 @@ export class ModuleView {
             fEditImg.draggable = false;
             this.fEditImg = fEditImg;
             fModuleContainer.appendChild(fEditImg);
+
+            // ↑ next to it, when a newer version of the module exists (documents)
+            var fUpdate = document.createElement("div");
+            fUpdate.className = "update";
+            fUpdate.draggable = false;
+            fUpdate.textContent = "\u2191";
+            fUpdate.style.display = "none";
+            this.fUpdate = fUpdate;
+            fModuleContainer.appendChild(fUpdate);
         }
 
         htmlParent.appendChild(fModuleContainer);
@@ -93,6 +103,9 @@ export class ModuleView {
         this.fTitle = fTitle;
         this.x = x;
         this.y = y;
+    }
+    setUpdateAvailable(available: boolean): void {
+        if (this.fUpdate) this.fUpdate.style.display = available ? "" : "none";
     }
     getModuleContainer(): HTMLElement {
         return this.fModuleContainer;

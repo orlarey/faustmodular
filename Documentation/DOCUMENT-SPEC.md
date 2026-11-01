@@ -382,7 +382,7 @@ Points ouverts :
 Chaque phase est utile seule.
 
 ::: note [État]
-Phase 1 livrée dans faustmodular 3.0.0. La corbeille est un état de l'index (`trashed`) plutôt qu'un dossier `trash/` ; un document migré du stockage local garde son ancien fichier (`legacy`) jusqu'à sa première ouverture ; un document vierge que personne n'a utilisé est remplacé, plutôt que gardé, par un nouveau document ou un fichier ouvert.
+Phase 2 livrée dans faustmodular 3.2.0 : le statut est calculé à partir du contenu seul (le champ `origin` n'est pas encore enregistré ; une empreinte présente dans plusieurs modules utilisateur désigne le plus récemment modifié) ; les catégories des modules utilisateur et la liste détaillée de leurs versions restent à faire (le nombre de versions est indiqué). Phase 1 livrée dans faustmodular 3.0.0. La corbeille est un état de l'index (`trashed`) plutôt qu'un dossier `trash/` ; un document migré du stockage local garde son ancien fichier (`legacy`) jusqu'à sa première ouverture ; un document vierge que personne n'a utilisé est remplacé, plutôt que gardé, par un nouveau document ou un fichier ouvert.
 :::
 
 1. **Documents.** Magasin de codes, documents en OPFS (copie validée et de travail), autosave, Nouveau, Ouvrir, Enregistrer, Revenir, Renommer, Dupliquer, Supprimer, corbeille ; migration du stockage local. La bibliothèque reste celle d'aujourd'hui. Le document enregistre déjà `faust` et `generator`, pour que les documents créés dès cette phase soient préservables.

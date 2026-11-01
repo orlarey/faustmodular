@@ -35,6 +35,11 @@ new document and never replaces one. Documents are stored in format version 4, t
 store shared by all the documents (see `Documentation/DOCUMENT-SPEC.md`); patch files of versions 1, 2
 and 3 can still be opened.
 
+**My modules**, the last column of the library, holds the user modules: a `.dsp` file dropped on the
+stage, or a module edited in faustcode, becomes one, and each edit is a new version. An instance of an
+older version shows ↑ in its title bar to update it. Modules of the library are not copied: an instance
+of a library module stays one as long as its code is the library's.
+
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and
 release it there. A slider is modulated from its value: the slider is the rest position, a signal of +1
 brings it to its maximum and −1 to its minimum (in octaves for frequencies), and the depth sets the

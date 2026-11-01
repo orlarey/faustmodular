@@ -1,13 +1,14 @@
 {
   "name": "faustmodular",
   "private": true,
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "Online platform to combine and run Faust DSP modules",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p . && tsc -p tests",
+    "library-index": "node scripts/build-library-index.mjs",
     "test": "vitest run"
   },
   "devDependencies": {

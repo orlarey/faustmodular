@@ -8,12 +8,21 @@
       one keeps its copies, a file becomes a new document;
     - one document per tab (decision 10).
 
+    User modules (phase 2): the status of an instance follows from its code. A code of the library
+    (library-index.json) is a library module; any other code belongs to the user module that has it
+    as a version, or a user module is created for it (a file dropped, an older version of a library
+    module...). A code edited in faustcode becomes a new version of the user module of the previous
+    code, or the first version of a new user module if the previous code was a library module. An
+    instance pinned to an older version gets an update (the latest version, or the current library
+    module for an older version of it).
+
     The operations are serialized; the pending step of the history is recorded first.
 */
 
 import { PatchFileV2, PATCH_FORMAT, PATCH_VERSION } from "../model/PatchFormat";
 import { DocumentFormatError, DocumentV4, FaustEnvironment, documentContent, documentFromPatch, patchFromDocument } from "./DocumentFormat";
-import { DocumentEntry, DocumentStore } from "./DocumentStore";
+import { DocumentEntry, DocumentStore, UserModule } from "./DocumentStore";
+import { sha1 } from "./Sha1";
 import { FileStore, openFileStore } from "./FileStore";
 
 // What the documents need from the scene (Scenes/SceneClass.ts).
@@ -23,6 +32,14 @@ export interface DocumentsScene {
     history: { flush(): Promise<void> };
     describePatch(): PatchFileV2;
     replaceScene(json: string, options: { keepIds?: boolean }): Promise<boolean>;
+    showUpdate?(id: string, available: boolean): void;              // an update for this instance
+    updateModuleCode?(id: string, code: string): Promise<string | null>;   // as an edit in faustcode
+}
+
+// public/faust-modules/library-index.json (scripts/build-library-index.mjs)
+export interface LibraryIndex {
+    modules: Record<string, string>;                                // path -> hash of its code
+    history: Record<string, { path: string; until?: string }>;     // hash of a past version -> path
 }
 
 export interface DocumentsOptions {
@@ -31,6 +48,8 @@ export interface DocumentsOptions {
     legacyStorage?: Storage | null;                     // the localStorage of the scenes saved before 3.0
     untitled?: string;                                  // name of a new document
     notify?: (message: string) => void;
+    library?: () => Promise<LibraryIndex>;              // the modules of the library
+    libraryCode?: (path: string) => Promise<string>;    // the code of a module of the library
 }
 
 export const LEGACY_KEY = "FaustPlayground";
@@ -43,6 +62,10 @@ export class Documents {
     private fDirty = false;
     private fQueue: Promise<unknown> = Promise.resolve();
     private fSuspended = 0;                             // the scene is being replaced: its states are not saved
+    private fLibrary = new Map<string, string>();       // hash -> path of the modules of the library
+    private fLibraryPaths = new Map<string, string>();  // path -> hash
+    private fLibraryHistory = new Map<string, string>(); // hash of a past version -> path
+    private fUpdates = new Map<string, string>();       // instance id -> hash of its code
 
     private constructor(readonly store: DocumentStore, private fScene: DocumentsScene, private fEnvironment: FaustEnvironment, private fOptions: DocumentsOptions) {
         this.fFaust = fEnvironment;
@@ -56,6 +79,13 @@ export class Documents {
             return { libfaust: "", libraries: null };
         }) : { libfaust: "", libraries: null };
         const documents = new Documents(store, scene, environment, options);
+        if (options.library) {
+            try {
+                documents.setLibrary(await options.library());
+            } catch (e) {
+                console.warn("documents: index of the library unavailable", e);
+            }
+        }
         await documents.migrate(options.legacyStorage ?? null);
         try {
             const removed = await store.collect();
@@ -80,6 +110,12 @@ export class Documents {
 
     get storage(): FileStore["kind"] {
         return this.store.files.kind;
+    }
+
+    setLibrary(index: LibraryIndex): void {
+        this.fLibrary = new Map(Object.entries(index.modules).map(([path, hash]) => [hash, path]));
+        this.fLibraryPaths = new Map(Object.entries(index.modules));
+        this.fLibraryHistory = new Map(Object.entries(index.history ?? {}).map(([hash, h]) => [hash, h.path]));
     }
 
     private serialized<T>(task: () => Promise<T>): Promise<T> {
@@ -111,8 +147,9 @@ export class Documents {
             if (!current || this.fSuspended > 0) return;
             const { document, codes } = await this.snapshot(current.name);
             const dirty = documentContent(document) != this.fCommitted;
+            await this.store.putCodes(codes);
+            await this.resolve(document);
             if (dirty) {
-                await this.store.putCodes(codes);
                 await this.store.writeWorking(current.id, document);
             } else if (this.fDirty) {
                 await this.store.writeWorking(current.id, null);
@@ -161,6 +198,7 @@ export class Documents {
                 const { document, codes } = await this.snapshot(entry.name);
                 await this.store.putCodes(codes);
                 await this.store.commit(id, document);
+                await this.resolve(document);
                 this.fCommitted = documentContent(document);
                 this.fDirty = false;
             } else {
@@ -176,12 +214,14 @@ export class Documents {
                 }
                 if (!(await this.replace(JSON.stringify(file), true))) return false;
                 this.fFaust = shown.faust;
+                const loaded = (await this.snapshot(entry.name)).document;
+                await this.resolve(loaded);
                 if (working) {
                     this.fCommitted = documentContent(committed);
                     this.fDirty = true;
                 } else {
                     // as the scene gives it back (modules that no longer compile are not there)
-                    this.fCommitted = documentContent((await this.snapshot(entry.name)).document);
+                    this.fCommitted = documentContent(loaded);
                     this.fDirty = false;
                 }
             }
@@ -221,6 +261,7 @@ export class Documents {
     private async adopt(name: string): Promise<DocumentEntry> {
         const { document, codes } = await this.snapshot(this.store.uniqueName(name));
         await this.store.putCodes(codes);
+        await this.resolve(document);
         const entry = await this.store.create(document.name, document);
         this.fCurrent = entry;
         this.fCommitted = documentContent(document);
@@ -322,6 +363,91 @@ export class Documents {
             await this.store.emptyTrash();
             await this.store.collect();
         });
+        this.emitLibrary();
+        if (typeof document != "undefined") document.dispatchEvent(new CustomEvent("documentchange"));
+    }
+
+    /******************** USER MODULES ********************/
+
+    // "library" for a code of the library, the user module having it, or undefined.
+    statusOf(hash: string): "library" | UserModule | undefined {
+        if (this.fLibrary.has(hash)) return "library";
+        return this.store.moduleOf(hash);
+    }
+
+    // Each instance of a library module or of a user module: a user module is created for the codes
+    // that are neither (named after the instance). The instances that can be updated are shown.
+    private async resolve(document: DocumentV4): Promise<void> {
+        let created = false;
+        for (const instance of document.instances) {
+            if (this.statusOf(instance.code) !== undefined) continue;
+            await this.store.createModule(instance.name, instance.code, this.fLibraryHistory.get(instance.code));
+            created = true;
+        }
+        if (created) this.emitLibrary();
+        this.fUpdates = new Map(document.instances.map((i) => [i.id, i.code]));
+        for (const instance of document.instances) this.fScene.showUpdate?.(instance.id, this.updateOf(instance.code) !== null);
+    }
+
+    private emitLibrary(): void {
+        if (typeof document != "undefined") document.dispatchEvent(new CustomEvent("librarychange"));
+    }
+
+    // The code an instance with this code can be updated to: the latest version of its user module,
+    // or the current library module for an older version of it (null: none).
+    private updateOf(hash: string): { hash?: string; path?: string } | null {
+        const status = this.statusOf(hash);
+        if (status === undefined || status == "library") return null;
+        const latest = status.versions[status.versions.length - 1];
+        if (latest != hash) return { hash: latest };
+        if (status.basedOn && status.versions.length == 1 && this.fLibraryPaths.has(status.basedOn)) return { path: status.basedOn };
+        return null;
+    }
+
+    // A code edited in faustcode (Scene.editModuleCode): a new version of the user module of the
+    // previous code, or the first version of a new user module.
+    codeEdited(previous: string, code: string, name: string): void {
+        this.serialized(async () => {
+            const hash = await sha1(code);
+            await this.store.putCodes(new Map([[hash, code]]));
+            if (this.statusOf(hash) !== undefined) return;
+            const before = this.statusOf(await sha1(previous));
+            if (before !== undefined && before != "library") {
+                await this.store.addVersion(before.id, hash);
+            } else {
+                await this.store.createModule(name, hash);
+            }
+            this.emitLibrary();
+        });
+    }
+
+    // Updates an instance to the latest version of its module (an edit: undone by Ctrl-Z).
+    async updateInstance(id: string): Promise<string | null> {
+        await this.flush();
+        const hash = this.fUpdates.get(id);
+        const target = hash ? this.updateOf(hash) : null;
+        if (!target || !this.fScene.updateModuleCode) return "no update";
+        const code = target.hash ? await this.store.getCode(target.hash) : await this.fOptions.libraryCode?.(target.path!);
+        if (code == null) return "code not found";
+        return this.fScene.updateModuleCode(id, code);
+    }
+
+    // The latest code of a user module (to add an instance of it).
+    async moduleCode(id: string): Promise<{ name: string; code: string } | null> {
+        const m = this.store.getModule(id);
+        if (!m) return null;
+        const code = await this.store.getCode(m.versions[m.versions.length - 1]);
+        return code == null ? null : { name: m.name, code };
+    }
+
+    async renameModule(id: string, name: string): Promise<void> {
+        await this.serialized(() => this.store.renameModule(id, name));
+        this.emitLibrary();
+    }
+
+    async trashModule(id: string, trashed = true): Promise<void> {
+        await this.serialized(() => this.store.setModuleTrashed(id, trashed));
+        this.emitLibrary();
         if (typeof document != "undefined") document.dispatchEvent(new CustomEvent("documentchange"));
     }
 

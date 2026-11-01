@@ -9,6 +9,7 @@ export class LibraryView {
     exempleLibrarySelect: HTMLUListElement
     multichannelLibrarySelect: HTMLUListElement
     modulationLibrarySelect: HTMLUListElement
+    userLibrarySelect: HTMLUListElement
     intrumentLibrary: HTMLElement
     effetLibrary: HTMLElement
     exempleLibrary: HTMLElement
@@ -127,6 +128,27 @@ export class LibraryView {
         modulationLibraryContent.appendChild(modulationLibraryTitle);
         modulationLibraryContent.appendChild(modulationLibrarySelect);
         libraryContent.appendChild(modulationLibraryContent)
+
+        /////////////My modules: the user modules (documents)
+
+        var userLibraryContent: HTMLElement = document.createElement("div");
+        userLibraryContent.id = "userLibraryContent";
+        userLibraryContent.className = "submenuLibraryContent";
+
+        var userLibraryTitle: HTMLSpanElement = document.createElement("span");
+        userLibraryTitle.id = "userLibraryTitle";
+        userLibraryTitle.className = "libraryTitles";
+        userLibraryTitle.appendChild(document.createTextNode(Utilitary.messageResource.titleUserModules));
+
+        var userLibrarySelect: HTMLUListElement = document.createElement("ul");
+        userLibrarySelect.id = "userLibrarySelect";
+        userLibrarySelect.className = "librarySelects";
+        Ps.initialize(userLibrarySelect, { suppressScrollX: true, theme: 'my-theme-name' });
+        this.userLibrarySelect = userLibrarySelect;
+
+        userLibraryContent.appendChild(userLibraryTitle);
+        userLibraryContent.appendChild(userLibrarySelect);
+        libraryContent.appendChild(userLibraryContent)
 
         return libraryContent;
     }

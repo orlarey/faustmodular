@@ -183,4 +183,58 @@ describe("documents", () => {
         expect(await page.evaluate(() => localStorage.getItem("FaustPlayground"))).not.toBeNull();
         await context.close();
     }, 240_000);
+
+    it("user modules: My modules lists them, an edit adds a version, ↑ updates an instance, double click adds one", async () => {
+        const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        const errors: string[] = [];
+        const page = await open(context, errors);
+        const myModules = () => page.locator("#userLibrarySelect li.userModule a").allTextContents();
+        const versions = () => page.evaluate(() => (globalThis as any).faustmodular.documents.store.listModules().map((m: any) => `${m.name}:${m.versions.length}`).sort());
+        // a module of the library is not a user module
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("dbltouchlib", { detail: location.origin + "/faust-modules/effects/Echo.dsp" })));
+        await page.waitForFunction(() => (globalThis as any).faustmodular.scene.getModules().length == 1);
+        await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
+        expect(await versions()).toEqual([]);
+        await page.locator("#libraryButtonMenu").click();
+        expect(await page.locator("#userLibrarySelect li.userModulesEmpty").count()).toBe(1);
+
+        // edited as faustcode does: a new user module, named after it
+        const edit = (code: string) => page.evaluate(async (c) => {
+            const { scene, documents } = (globalThis as any).faustmodular;
+            const error = await scene.editModuleCode(scene.getModules()[0], c);
+            await documents.flush();
+            return error;
+        }, code);
+        expect(await edit('import("stdfaust.lib");\nprocess = ef.echo(1, 0.25, 0.5);')).toBeNull();
+        expect(await versions()).toEqual(["Echo:1"]);
+        await expect.poll(myModules).toEqual(["Echo"]);
+        expect(await edit('import("stdfaust.lib");\nprocess = ef.echo(1, 0.5, 0.5);')).toBeNull();
+        expect(await versions()).toEqual(["Echo:2"]);
+
+        // back to the first version (undo): ↑ updates to the latest one
+        const update = page.locator(".moduleFaust > .update");
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.undo());
+        await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
+        await expect.poll(() => update.isVisible()).toBe(true);
+        await page.locator("#closeButton").click();
+        await update.click();
+        await expect.poll(() => update.isVisible()).toBe(false);
+        expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.getModules()[0].moduleFaust.getSource())).toContain("ef.echo(1, 0.5, 0.5)");
+
+        // double click in My modules: an instance of the latest version; rename in place
+        await page.locator("#libraryButtonMenu").click();
+        await page.locator("#userLibrarySelect li.userModule a", { hasText: "Echo" }).dblclick();
+        await page.waitForFunction(() => (globalThis as any).faustmodular.scene.getModules().length == 2);
+        expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.getModules()[1].moduleFaust.getSource())).toContain("ef.echo(1, 0.5, 0.5)");
+        await page.locator("#userLibrarySelect li.userModule").hover();
+        await page.locator("#userLibrarySelect .userModuleRename").click();
+        await page.locator("#userLibrarySelect input.userModuleName").fill("Slow echo");
+        await page.locator("#userLibrarySelect input.userModuleName").press("Enter");
+        await expect.poll(myModules).toEqual(["Slow echo"]);
+        // kept across a reload
+        await reload(page);
+        expect(await versions()).toEqual(["Slow echo:2"]);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 240_000);
 });

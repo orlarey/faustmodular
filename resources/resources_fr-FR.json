@@ -104,5 +104,13 @@
   "confirmEmptyTrash": "Supprimer définitivement les documents de la corbeille ?",
   "documentStorageLocal": "Ce navigateur n'offre pas le système de fichiers privé (OPFS) : les documents sont gardés dans le stockage local, limité à quelques Mo.",
   "documentStorageMemory": "Aucun stockage disponible : les documents seront perdus à la fermeture de l'onglet. Exportez-les.",
-  "documentsUnavailable": "Les documents ne sont pas disponibles"
+  "documentsUnavailable": "Les documents ne sont pas disponibles",
+  "moduleUpdate": "Mettre à jour : passer à la dernière version de ce module (Ctrl/Cmd-Z pour revenir)",
+  "moduleUpdateFailed": "{name} : la mise à jour a échoué ({error})",
+  "titleUserModules": "Mes modules",
+  "userModulesEmpty": "Déposez un fichier .dsp sur la scène, ou modifiez un module dans faustcode : il apparaîtra ici.",
+  "userModuleRename": "Renommer",
+  "userModuleDelete": "Supprimer",
+  "userModuleVersions": "{n} versions",
+  "confirmUserModuleDelete": "Mettre le module « %s » à la corbeille ? Les documents qui l'utilisent ne changent pas."
 }

@@ -23,6 +23,7 @@ import { PatchView } from "../view/PatchView";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
 import { rewrapModuleCode, unwrapModuleCode, userCode, userError } from "../model/ModuleCode";
 import { History } from "./History";
+import { storedCode } from "../documents/DocumentFormat";
 import { SceneView } from "./SceneView";
 
 export const INPUT_ID: ModuleId = "input";
@@ -46,6 +47,9 @@ export interface SceneDocuments {
     changed(): void;                                // a new state of the scene (history)
     importPatch(json: string): Promise<boolean>;    // a patch file opened: a new document
     flush(): Promise<void>;                         // pending saves written
+    codeEdited(previous: string, code: string, name: string): void;   // stored codes (DocumentFormat.storedCode)
+    updateInstance(id: string): Promise<string | null>;
+    moduleCode(id: string): Promise<{ name: string; code: string } | null>;
 }
 
 interface ModuleDescription {
@@ -857,6 +861,7 @@ export class Scene {
         var task = async (): Promise<string | null> => {
             if (!this.getModules().includes(module)) return "the module was removed";
             var name = module.moduleFaust.getName();
+            var previous = storedCode(name, module.moduleFaust.getSource()).code;
             var code = rewrapModuleCode(module.moduleFaust.getSource(), edited);
             var error: string | null = null;
             var container = module.moduleView.getModuleContainer();
@@ -868,7 +873,10 @@ export class Scene {
                 return unwrapModuleCode(code) ? userError(error) : error;
             }
             if (!this.getModules().includes(module)) return "the module was removed";
-            return await module.replaceDSP(factory, { name, code }) ? null : (module.lastError ?? Utilitary.messageResource.errorCreateDSP);
+            if (!(await module.replaceDSP(factory, { name, code }))) return module.lastError ?? Utilitary.messageResource.errorCreateDSP;
+            // a new version of the user module (documents/Documents.ts)
+            this.documents?.codeEdited(previous, storedCode(name, code).code, name);
+            return null;
         };
         var result = (this.fRecompilations.get(id) ?? Promise.resolve(true)).then(task, task);
         this.fRecompilations.set(id, result.then((error) => error == null));
@@ -876,6 +884,24 @@ export class Scene {
     }
 
     // Edits the code of a module in faustcode (see FaustcodeLink).
+    // An update of a module to the latest version of its user module (the ↑ of its title bar).
+    showUpdate(id: ModuleId, available: boolean): void {
+        this.getModuleById(id)?.moduleView.setUpdateAvailable(available);
+    }
+
+    updateModuleCode(id: ModuleId, code: string): Promise<string | null> {
+        var module = this.getModuleById(id);
+        return module ? this.editModuleCode(module, code) : Promise.resolve("the module was removed");
+    }
+
+    updateModule(module: ModuleClass): void {
+        if (module.moduleId !== undefined && this.documents) {
+            this.documents.updateInstance(module.moduleId).then((error) => {
+                if (error) new Message(Utilitary.messageResource.moduleUpdateFailed.replace("{name}", module.moduleFaust.getName()).replace("{error}", error));
+            });
+        }
+    }
+
     editInFaustcode(module: ModuleClass): void {
         this.faustcodeLink.edit(module);
     }

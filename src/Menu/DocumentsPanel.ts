@@ -82,6 +82,7 @@ export class DocumentsPanel {
 
         this.element.append(current, all, trash);
         document.addEventListener("documentchange", () => this.render());
+        document.addEventListener("librarychange", () => this.render());
     }
 
     setDocuments(documents: Documents): void {
@@ -110,10 +111,18 @@ export class DocumentsPanel {
         ], () => { if (entry.id != current?.id) documents.open(entry.id); })));
 
         const trashed = documents.store.list(true);
+        const modules = documents.store.listModules(true);
         this.fTrash.replaceChildren(...trashed.map((entry) => this.row(entry, false, [
             button(t.documentRestore, "documentRestore", () => documents.restore(entry.id)),
-        ])));
-        if (trashed.length > 0) {
+        ])), ...modules.map((m) => {
+            const row = this.row({ id: m.id, name: m.name, created: m.created, modified: m.modified, trashed: m.trashed }, false, [
+                button(t.documentRestore, "documentRestore moduleRestore", () => documents.trashModule(m.id, false)),
+            ]);
+            row.classList.add("moduleRow");
+            row.querySelector(".documentRowName")!.textContent = `${m.name} (${t.titleUserModules})`;
+            return row;
+        }));
+        if (trashed.length + modules.length > 0) {
             const empty = document.createElement("li");
             empty.append(button(t.documentEmptyTrash, "documentEmptyTrash", () => new Confirm(t.confirmEmptyTrash, (close) => { close(); documents.emptyTrash(); })));
             this.fTrash.append(empty);

@@ -7,6 +7,7 @@
         codes/<sha1>.dsp                codes, shared by all the documents
         libraries/<sha1>.lib            files of the Faust libraries
         environments/<sha1>.json        environments: name of a .lib file -> hash
+        modules/<id>.json               user modules: name, versions (hashes of codes), trash
 
     A code is written before the documents that reference it, and the index last. All the
     operations are serialized, so that two writes of the index never overlap.
@@ -22,6 +23,19 @@ export interface DocumentEntry {
     created: number;
     modified: number;           // last write of a copy
     trashed?: number;           // in the trash since
+}
+
+// A module of the user (Documentation/DOCUMENT-SPEC.md, "La bibliothèque de modules"): a name given
+// to a code and to the sequence of its versions. Its instances are pinned to a version (a hash).
+export interface UserModule {
+    id: string;
+    name: string;
+    category?: string;
+    versions: string[];         // hashes of codes, oldest first
+    created: number;
+    modified: number;
+    trashed?: number;
+    basedOn?: string;           // path of the library module it is an older version of
 }
 
 export interface MigrationState {
@@ -48,6 +62,7 @@ function newId(): string {
 export class DocumentStore {
     private fIndex: Index = { version: 1, documents: [] };
     private fCodes = new Set<string>();         // hashes known to be stored
+    private fModules = new Map<string, UserModule>();
     private fQueue: Promise<unknown> = Promise.resolve();
 
     private constructor(readonly files: FileStore) { }
@@ -67,6 +82,14 @@ export class DocumentStore {
             await store.rebuildIndex();     // documents without an index
         }
         for (const name of await files.list("codes")) store.fCodes.add(name.replace(/\.dsp$/, ""));
+        for (const name of await files.list("modules")) {
+            try {
+                const m = JSON.parse((await files.read(`modules/${name}`)) ?? "");
+                if (typeof m?.id == "string" && typeof m.name == "string" && Array.isArray(m.versions)) store.fModules.set(m.id, m);
+            } catch (e) {
+                console.error(`documents: user module ${name} unreadable`, e);
+            }
+        }
         return store;
     }
 
@@ -215,6 +238,10 @@ export class DocumentStore {
             }
             this.fIndex.documents = this.fIndex.documents.filter((d) => d.trashed === undefined);
             await this.writeIndex();
+            for (const m of [...this.fModules.values()].filter((m) => m.trashed !== undefined)) {
+                await this.files.remove(`modules/${m.id}.json`);
+                this.fModules.delete(m.id);
+            }
         });
     }
 
@@ -284,10 +311,12 @@ export class DocumentStore {
         return id;
     }
 
-    // Removes the codes no document references (committed or working copy, trash included).
+    // Removes the codes no document (committed or working copy) and no user module references, trash
+    // included.
     collect(): Promise<number> {
         return this.serialized(async () => {
             const live = new Set<string>();
+            for (const m of this.fModules.values()) m.versions.forEach((v) => live.add(v));
             for (const entry of this.fIndex.documents) {
                 for (const path of [committedPath(entry.id), workingPath(entry.id)]) {
                     const text = await this.files.read(path);
@@ -311,6 +340,72 @@ export class DocumentStore {
                 }
             }
             return removed;
+        });
+    }
+
+    /******************** USER MODULES ********************/
+
+    // The user modules, most recently modified first (trash excluded unless asked).
+    listModules(trashed = false): UserModule[] {
+        return [...this.fModules.values()].filter((m) => (m.trashed !== undefined) == trashed).sort((a, b) => b.modified - a.modified).map((m) => ({ ...m, versions: [...m.versions] }));
+    }
+
+    getModule(id: string): UserModule | undefined {
+        const m = this.fModules.get(id);
+        return m ? { ...m, versions: [...m.versions] } : undefined;
+    }
+
+    // The user module having this version (the most recently modified one, the trash included: a
+    // module deleted still names its codes until the trash is emptied).
+    moduleOf(hash: string): UserModule | undefined {
+        const all = [...this.fModules.values()].filter((m) => m.versions.includes(hash));
+        all.sort((a, b) => Number(a.trashed !== undefined) - Number(b.trashed !== undefined) || b.modified - a.modified);
+        return all[0] ? this.getModule(all[0].id) : undefined;
+    }
+
+    private writeModule(m: UserModule): Promise<void> {
+        return this.files.write(`modules/${m.id}.json`, JSON.stringify(m));
+    }
+
+    // A new user module whose first version is `hash` (the code must be stored before).
+    createModule(name: string, hash: string, basedOn?: string): Promise<UserModule> {
+        return this.serialized(async () => {
+            const now = Date.now();
+            const m: UserModule = { id: newId(), name: name.trim() || "Module", versions: [hash], created: now, modified: now };
+            if (basedOn) m.basedOn = basedOn;
+            await this.writeModule(m);
+            this.fModules.set(m.id, m);
+            return { ...m, versions: [...m.versions] };
+        });
+    }
+
+    addVersion(id: string, hash: string): Promise<void> {
+        return this.serialized(async () => {
+            const m = this.fModules.get(id);
+            if (!m || m.versions[m.versions.length - 1] == hash) return;
+            m.versions = [...m.versions.filter((v) => v != hash), hash];
+            m.modified = Date.now();
+            delete m.basedOn;           // edited by the user: no longer an old version of a library module
+            await this.writeModule(m);
+        });
+    }
+
+    renameModule(id: string, name: string): Promise<void> {
+        return this.serialized(async () => {
+            const m = this.fModules.get(id);
+            if (!m || !name.trim()) return;
+            m.name = name.trim();
+            m.modified = Date.now();
+            await this.writeModule(m);
+        });
+    }
+
+    setModuleTrashed(id: string, trashed: boolean): Promise<void> {
+        return this.serialized(async () => {
+            const m = this.fModules.get(id);
+            if (!m) return;
+            if (trashed) m.trashed = Date.now(); else delete m.trashed;
+            await this.writeModule(m);
         });
     }
 

@@ -63,6 +63,10 @@ export class ModuleClass {
             this.moduleView.fEditImg.title = Utilitary.messageResource.editInFaustcode;
             this.moduleView.fEditImg.addEventListener("click", () => { Utilitary.currentScene.editInFaustcode(this) });
         }
+        if (this.moduleView.fUpdate != undefined) {
+            this.moduleView.fUpdate.title = Utilitary.messageResource.moduleUpdate;
+            this.moduleView.fUpdate.addEventListener("click", () => { Utilitary.currentScene.updateModule(this) });
+        }
     }
 
     /***************  PRIVATE METHODS  ******************************/

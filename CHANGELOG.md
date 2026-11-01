@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.2.0 (2026-11-01)
+
+Phase 2 of the documents: **user modules** (`Documentation/DOCUMENT-SPEC.md`).
+
+- **My modules**, a sixth column of the library, lists the user modules: double click (or drag) adds an
+  instance of the latest version; ✎ renames in place; ✕ moves to the trash (the Documents menu restores
+  them; the documents using a module do not change).
+- **The status of a module follows from its code.** The index of the library
+  (`public/faust-modules/library-index.json`, rebuilt by `npm run library-index` and checked by a test)
+  gives the hash of each library module and of its past versions found in the git history. An instance
+  whose code is in the library is a library module; any other code belongs to the user module that has it
+  as a version, or a user module is created for it, named after the instance: a `.dsp` file dropped on the
+  stage, a module of an older patch, an older version of a library module.
+- **An edit in faustcode is a version**: editing a library module creates a user module (named like it)
+  whose first version is the new code; editing a user module adds a version to it.
+- **Instances are pinned to a version.** An instance of an older version shows **↑** in its title bar:
+  a click updates it to the latest version (or, for an older version of a library module, to the current
+  library module), as an edit, undone by Ctrl/Cmd-Z.
+- The codes of the user modules' versions are never collected. User modules live in
+  `modules/<id>.json` of the documents' storage, shared by all the documents.
+- `src/documents/DocumentStore.ts` (user modules), `Documents.statusOf`, `codeEdited`, `updateInstance`,
+  `moduleCode`; `DocumentFormat.storedCode`; `scripts/build-library-index.mjs`. Tests:
+  `tests/documents/documents.test.ts` (user modules), `tests/library/library-index.test.ts`,
+  `tests/e2e/documents.test.ts`.
+
 ## 3.1.1 (2026-11-01)
 
 - **Fix: undo moved the microphone and speakers modules to the top left corner.** Their position was not

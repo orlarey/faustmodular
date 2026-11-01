@@ -500,3 +500,41 @@ ul.documentsList {
 .sceneTitle {
 	cursor: pointer;
 }
+
+/* Library: six columns, the last one for the user modules ("My modules") */
+.submenuLibraryContent {
+	width: calc(100% / 6);
+}
+li.userModule {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+li.userModule > a {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.userModuleRename, .userModuleDelete {
+	cursor: pointer;
+	opacity: 0;
+	padding: 0 4px;
+	color: var(--fp-text-quiet);
+}
+li.userModule:hover .userModuleRename, li.userModule:hover .userModuleDelete {
+	opacity: 1;
+}
+.userModuleRename:hover, .userModuleDelete:hover {
+	color: var(--fp-pill-text);
+}
+li.userModulesEmpty {
+	padding: 8px;
+	font-size: 12px;
+	color: var(--fp-text-quiet);
+	white-space: normal;
+}
+input.userModuleName {
+	width: 100%;
+	box-sizing: border-box;
+}

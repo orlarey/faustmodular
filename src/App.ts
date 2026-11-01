@@ -250,6 +250,22 @@ export class App {
 
     //used for Url pointing at a dsp file
     uploadUrl(app: App, module: ModuleClass | null, x: number, y: number, url: string) {
+        // a user module of the library ("My modules"): its latest version
+        var userModule = /#user-module:(.+)$/.exec(url);
+        if (userModule) {
+            var documents = Utilitary.currentScene.documents;
+            if (!documents) { Utilitary.hideFullPageLoading(); return; }
+            documents.moduleCode(decodeURIComponent(userModule[1])).then((found) => {
+                if (!found) { Utilitary.hideFullPageLoading(); return; }
+                var dsp_code = wrapModuleCode(found.name, found.code);
+                if (module == null) {
+                    app.compileFaust({ name: found.name, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, found.name, dsp_code, x, y) } });
+                } else {
+                    module.update(found.name, dsp_code);
+                }
+            });
+            return;
+        }
         var filename: string = url.toString().split('/').pop()!;
         filename = filename.toString().split('.').shift()!;
         Utilitary.getXHR(url, (codeFaust) => {

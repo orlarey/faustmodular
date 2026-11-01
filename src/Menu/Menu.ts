@@ -165,6 +165,7 @@ export class Menu {
     setDocuments(documents: Documents) {
         this.documents = documents;
         this.menuView.documentsPanel.setDocuments(documents);
+        this.library.setDocuments(documents);
         this.showSceneName();
     }
 
