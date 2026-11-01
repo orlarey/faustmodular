@@ -354,7 +354,7 @@ La thèse de ce document le prépare sans rien imposer :
 
 # Décisions et points ouverts \label{sec:decisions}
 
-Décisions prises par cette spécification :
+Décisions prises par cette spécification, validées le 1er novembre 2026 :
 
 1. Un code est immuable et identifié par le SHA-1 de son texte ; le magasin garde le code de l'utilisateur, sans enveloppe.
 2. Une instance est épinglée à une version ; « Mettre à jour » est explicite et annulable.
@@ -365,11 +365,11 @@ Décisions prises par cette spécification :
 7. Copie validée et copie de travail, sauvegarde automatique de la copie de travail ; ouvrir ou importer ne remplace jamais un document.
 8. Stockage OPFS ; collecte des codes et des bibliothèques par marquage depuis les modules, les documents et l'historique ouvert.
 9. Fichier exporté autonome, en JSON, format version 4.
+10. Un document par onglet : Ouvrir remplace le document affiché, l'autre garde sa copie de travail ; deux documents à la fois, ce sont deux onglets. Plusieurs documents dans un même onglet (le *workspace* de faustdaw) reste possible plus tard, sans changer le format.
 
 Points ouverts :
 
 - **Persister l'historique d'annulation** avec la copie de travail, comme le prévoit faustdaw, pour le retrouver après un rechargement.
-- **Workspace** : un seul document ouvert par onglet (proposé pour la version 1), ou plusieurs documents ouverts entre lesquels on bascule.
 - **Préréglages** de modules : enregistrer des jeux de paramètres selon le même principe (contenu identifié par empreinte), comme les préréglages de faustdaw.
 - **Synchronisation** avec Google Drive : la conserver comme cible d'export, ou la retirer.
 - **Magasin commun** avec faustcode et faustdaw (\ref{sec:partage}).
