@@ -53,13 +53,19 @@ div#buttonsMenu {
 	padding: 0 12px;
 	box-sizing: border-box;
 }
-div#buttonsMenu::before {
-	content: "FAUSTPLAYGROUND";
+#appName {
 	font-weight: 600;
-	font-size: 13px;
-	letter-spacing: 0.12em;
+	font-size: 14px;
+	letter-spacing: 0.04em;
 	color: var(--fp-title);
 	margin-right: 14px;
+	white-space: nowrap;
+}
+#appName .appVersion {
+	font: 12px var(--fp-mono);
+	font-weight: normal;
+	letter-spacing: 0;
+	color: var(--fp-text-quiet);
 }
 .buttonsMenu {
 	float: none;

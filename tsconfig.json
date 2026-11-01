@@ -8,6 +8,7 @@
         "allowJs": false,
         "noEmit": true,
         "isolatedModules": true,
+        "resolveJsonModule": true,
         "skipLibCheck": true,
         "strict": true,
         // Relaxed for the legacy code base; to be tightened as it is rewritten.

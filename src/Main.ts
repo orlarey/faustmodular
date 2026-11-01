@@ -15,6 +15,7 @@ import { DriveAPI } from "./DriveAPI";
 import { Resources } from "./Resources";
 import { Utilitary } from "./Utilitary";
 import { Message } from "./Messages";
+import { APP_TITLE } from "./Version";
 
 //@ts-ignore
 declare const faust: never;
@@ -33,7 +34,7 @@ export let faustWasmEnv: {
 //initialization af the app, create app and resource to get text with correct localization
 //then resumeInit on callback when text is loaded
 export async function init(): Promise<void> {
-    console.log("FaustPlayground: version 2.9.0 (2026-11-01)");
+    console.log(APP_TITLE);
     //@ts-ignore
     const faustwasm = await import("@grame/faustwasm");
     console.log(faustwasm);
@@ -80,8 +81,9 @@ export function resumeInit(app: App) {
     app.menu.setDriveApi(Utilitary.driveApi);
     Utilitary.driveApi.checkAuth();
 
-    // Access point for debugging and end-to-end tests (browser console: faustPlayground.scene.patch)
-    (globalThis as any).faustPlayground = { app, get scene() { return Utilitary.currentScene; } };
+    // Access point for debugging and end-to-end tests (browser console: faustmodular.scene.patch);
+    // faustPlayground: its name before 2.10.0
+    (globalThis as any).faustmodular = (globalThis as any).faustPlayground = { app, get scene() { return Utilitary.currentScene; } };
 
     //error catcher
     window.addEventListener("error", (e: ErrorEvent) => {

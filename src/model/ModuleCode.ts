@@ -1,5 +1,5 @@
 /*				MODULECODE.TS
-    The code of a module, as the playground stores it, is the user's code wrapped in a group named
+    The code of a module, as faustmodular stores it, is the user's code wrapped in a group named
     after the module:
 
         process = vgroup("<name>",environment{

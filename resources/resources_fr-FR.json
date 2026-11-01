@@ -80,7 +80,7 @@
   "noDeviceMotion": "Il semblerait que votre navigateur ne supporte pas l'API Device Motion, vous n'aurez donc pas accès aux accéléromètres de votre appareil.",
   "editInFaustcode": "Éditer le code dans faustcode : chaque compilation réussie (Cmd/Ctrl-S) met le module à jour",
   "faustcodePopupBlocked": "Le navigateur a bloqué l'ouverture de faustcode : autorisez les fenêtres surgissantes pour ce site",
-  "faustcodeNoAnswer": "faustcode ne répond pas ({url}) : cette version ne connaît peut-être pas le lien avec le playground. L'éditeur intégré (</>) reste disponible",
+  "faustcodeNoAnswer": "faustcode ne répond pas ({url}) : cette version ne connaît peut-être pas le lien avec faustmodular",
   "faustcodeUpdateFailed": "{name} : le code reçu de faustcode n'a pas été appliqué ({error})",
   "confirmReplaceScene": "La scène actuelle a été modifiée depuis son dernier enregistrement. La remplacer quand même ?"
 }

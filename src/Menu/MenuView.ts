@@ -10,6 +10,7 @@ import { LibraryView } from "./LibraryView";
 import { ExportView } from "./ExportView";
 import { SaveView } from "./SaveView";
 import { Utilitary } from "../Utilitary";
+import { APP_NAME, APP_VERSION } from "../Version";
 
 export class MenuView {
     menuContainer: HTMLElement;
@@ -96,6 +97,16 @@ export class MenuView {
         if (!Utilitary.isAccelerometerOn) {
             accButton.style.opacity = "0.2";
         }
+
+        // the name and the version of the application, as faustcode shows them
+        var appName = document.createElement("div");
+        appName.id = "appName";
+        appName.textContent = APP_NAME + " ";
+        var appVersion = document.createElement("span");
+        appVersion.className = "appVersion";
+        appVersion.textContent = APP_VERSION;
+        appName.appendChild(appVersion);
+        buttonsMenu.appendChild(appName);
 
         buttonsMenu.appendChild(libraryButtonMenu);
         buttonsMenu.appendChild(loadButtonMenu)

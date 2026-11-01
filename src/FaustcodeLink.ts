@@ -3,25 +3,25 @@
     workbench running in another window: syntax highlighting, completion, errors at their line,
     block diagram, oscilloscope and spectrum, documentation, MCP.
 
-    The playground opens faustcode (FAUSTCODE_URL, with ?link=playground) in a window named
-    "faustcode-playground", reused for all the modules. The two windows exchange messages with
+    faustmodular opens faustcode (FAUSTCODE_URL, with ?link=modular) in a window named
+    "faustcode-modular", reused for all the modules. The two windows exchange messages with
     postMessage (they may have different origins); every message has a `type` and the `protocol`
     version (LINK_PROTOCOL):
 
-        faustcode → playground   faustcode-link-ready   { }                        ready to edit
-        playground → faustcode   faustcode-link-edit    { id, name, code }         edit this code
-        faustcode → playground   faustcode-link-code    { id, code }               compiled new code
-        playground → faustcode   faustcode-link-result  { id, ok, error? }         applied or not
-        playground → faustcode   faustcode-link-close   { id }                     module removed
+        faustcode → faustmodular   faustcode-link-ready   { }                      ready to edit
+        faustmodular → faustcode   faustcode-link-edit    { id, name, code }       edit this code
+        faustcode → faustmodular   faustcode-link-code    { id, code }             compiled new code
+        faustmodular → faustcode   faustcode-link-result  { id, ok, error? }       applied or not
+        faustmodular → faustcode   faustcode-link-close   { id }                   module removed
 
     `id` designates a module of this page (random, so that a faustcode window kept open does not
     update a module of a patch loaded later); `code` is the user's code, without the group of the
     module (model/ModuleCode). faustcode sends the code of a linked session each time it compiles
     without error (Cmd/Ctrl-S); a code with errors stays in faustcode, and the module keeps playing
-    its current DSP. The playground only accepts messages from the faustcode window, with the
+    its current DSP. faustmodular only accepts messages from the faustcode window, with the
     origin of FAUSTCODE_URL, and sends its messages to that origin only.
 
-    The faustcode URL can be changed with the parameter ?faustcode=<url> of the playground (a local
+    The faustcode URL can be changed with the parameter ?faustcode=<url> of faustmodular (a local
     faustcode, tests).
 */
 
@@ -29,7 +29,7 @@ import { Utilitary } from "./Utilitary";
 
 export const FAUSTCODE_URL = "https://orlarey.github.io/faustcode/";
 export const LINK_PROTOCOL = 1;
-export const WINDOW_NAME = "faustcode-playground";
+export const WINDOW_NAME = "faustcode-modular";
 // faustcode loads libfaust (a few MB) before answering
 export const READY_TIMEOUT_MS = 30_000;
 
@@ -85,7 +85,7 @@ export class FaustcodeLink<M extends object> {
         const message = this.message("faustcode-link-edit", { id, name: this.fHost.nameOf(module), code: this.fHost.codeOf(module) });
         if (!this.fWindow || this.fWindow.closed) {
             const url = new URL(this.fUrl, location.href);
-            url.searchParams.set("link", "playground");
+            url.searchParams.set("link", "modular");
             this.fReady = false;
             this.fPending = [message];
             this.fWindow = window.open(url.href, WINDOW_NAME);
@@ -136,7 +136,7 @@ export class FaustcodeLink<M extends object> {
                 const module = this.fModules.get(data.id);
                 let error: string | null;
                 if (!module || !this.fHost.isAlive(module)) {
-                    error = "the module is no longer in the playground";
+                    error = "the module is no longer in faustmodular";
                 } else {
                     error = await this.fHost.apply(module, data.code);
                     if (error != null) {

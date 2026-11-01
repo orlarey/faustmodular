@@ -113,7 +113,7 @@ export function isPatchFileV2(data: unknown): boolean {
 // location of the first problem found.
 export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string } {
     if (!isObject(data) || data.format != PATCH_FORMAT) {
-        throw new PatchFormatError("not a FaustPlayground patch file");
+        throw new PatchFormatError("not a faustmodular patch file");
     }
     if (data.version != PATCH_VERSION && data.version != PATCH_VERSION_MODULATIONS) {
         throw new PatchFormatError(`unsupported patch version ${String(data.version)}`);

@@ -1,13 +1,12 @@
-# Faust Playground
+# faustmodular
 
-Faust playground is a Web platform designed to enable children to learn basic audio programming in a simple and graphic way. In particular, it allows them to develop musical instruments for Android smartphones.
-
-Version 2 is multichannel: modules have one port per input and output channel, connected cable by cable. See the [changelog](CHANGELOG.md).
-
-## Useful links
-
-- [https://faustplayground.grame.fr](https://faustplayground.grame.fr): official FaustPlayground website
-- [https://github.com/grame-cncm/faustplayground](https://github.com/grame-cncm/faustplayground): GitHub repository
+faustmodular is a modular synthesizer in the browser, built with [Faust](https://faust.grame.fr): modules
+written in Faust, with one port per audio channel, connected cable by cable, whose widgets can be
+modulated by signals; the code of a module is edited in [faustcode](https://github.com/orlarey/faustcode).
+It started as an extension of [FaustPlayground](https://faustplayground.grame.fr)
+([GitHub](https://github.com/grame-cncm/faustplayground)), a Web platform designed to teach audio
+programming to children, and was called FaustPlayground (extended) up to version 2.9.0. See the
+[changelog](CHANGELOG.md).
 
 ## Connecting modules
 
@@ -86,7 +85,7 @@ Tests use [Vitest](https://vitest.dev/), in three projects (`vitest.config.mjs`)
 - `e2e`: the application served by Vite and driven by Playwright (`tests/e2e/`).
 
 Run one project with `npx vitest run --project node`. The browser and e2e projects need Chromium for
-Playwright (`npx playwright install chromium`). In the browser console, `faustPlayground.scene.patch`
+Playwright (`npx playwright install chromium`). In the browser console, `faustmodular.scene.patch`
 gives access to the patch model.
 
 The e2e test of the link with the real faustcode runs when `FAUSTCODE_DIR` names a checkout of faustcode

@@ -98,9 +98,9 @@ describe("editing in faustcode (stub)", () => {
         const { id, sel } = await addGain(page);
         await setGain(page, id, 0.8);
 
-        // the pencil opens faustcode with ?link=playground and sends the module's code once it is ready
+        // the pencil opens faustcode with ?link=modular and sends the module's code once it is ready
         const [stub] = await Promise.all([page.waitForEvent("popup"), page.locator(sel + " .edit").click()]);
-        expect(stub.url()).toBe(STUB_ORIGIN + "/?link=playground");
+        expect(stub.url()).toBe(STUB_ORIGIN + "/?link=modular");
         await waitReceived(stub, 1);
         const [edit] = await received(stub);
         expect(edit.origin).toBe(new URL(url).origin);
@@ -117,7 +117,7 @@ describe("editing in faustcode (stub)", () => {
         expect(state.source).toBe(`process = vgroup("Gain",environment{\n${stereo}\n}.process);`);
         expect(state.gain).toBeCloseTo(0.8, 5);
 
-        // a code the playground cannot use (more than 32 outputs): refused, reported to faustcode
+        // a code faustmodular cannot use (more than 32 outputs): refused, reported to faustcode
         await stub.evaluate(([i]) => (window as any).send({ type: "faustcode-link-code", id: i, code: "process = par(i, 40, _);" }), [linkId]);
         await waitReceived(stub, 3);
         expect((await received(stub))[2].data).toMatchObject({ type: "faustcode-link-result", id: linkId, ok: false, error: expect.stringMatching(/maximum is 32/) });
@@ -181,7 +181,8 @@ describe.skipIf(!FAUSTCODE_DIR)("editing in faustcode (real)", () => {
         const [fc] = await Promise.all([page.waitForEvent("popup"), page.locator(sel + " .edit").click()]);
         await fc.waitForSelector("#audio-gate-button", { state: "visible", timeout: 60_000 });
         // the module's code becomes a session of faustcode, shown in the dsp view after ENTER
-        await fc.waitForFunction(() => document.querySelector(".app-notice")?.textContent?.includes("Linked to FaustPlayground"), null, { timeout: 60_000 });
+        await fc.waitForFunction(() => document.querySelector(".app-notice")?.textContent?.includes("Linked to faustmodular"), null, { timeout: 60_000 });
+        // ENTER as soon as it shows, while faustcode still prepares its showcase: the linked session wins
         await fc.click("#audio-gate-button");
         await fc.waitForFunction((code) => document.querySelector(".cm-content")?.textContent?.includes("process = *(hslider"), USER_CODE, { timeout: 30_000 });
 

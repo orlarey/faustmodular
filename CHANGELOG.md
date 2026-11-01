@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.10.0 (2026-11-01)
+
+- **FaustPlayground (extended) is renamed faustmodular**, in lower case like faustcode. The header shows
+  the name followed by the version, `faustmodular 2.10.0`, read from `package.json` (`src/Version.ts`),
+  as are the page title, the console and the comment heading the exported Faust code.
+- faustcode is opened with `?link=modular` in a window named `faustcode-modular` (faustcode 0.13.1,
+  which still accepts `?link=playground`). faustcode 0.13.2 fixes two races found by the end-to-end test:
+  clicking ENTER while its welcome page still prepared the showcase replaced the linked session.
+- Kept for compatibility: the patch format identifier `faustplayground-patch`, the local storage key
+  and the Google Drive folder `FaustPlayground` (the scenes already saved stay listed), and the console
+  access point `faustPlayground` (now also `faustmodular`).
+
 ## 2.9.0 (2026-11-01)
 
 - **Audio ports on the sides again**, in a zone at the bottom of the module, under its last widget:
