@@ -38,7 +38,9 @@ describe("library index", () => {
             expect(m.description.length, m.path).toBeGreaterThan(0);
         }
         const vco = catalog.modules.find((m: any) => m.name == "VCO");
-        expect(vco).toMatchObject({ family: "Sources", functions: ["Oscillator"], inlets: ["V/oct", "FM"], outlets: ["sine", "triangle", "saw", "square"] });
+        expect(vco).toMatchObject({ family: "Sources", functions: ["Oscillator"], inlets: [], outlets: ["sine", "triangle", "saw", "square"] });
+        const vcf = catalog.modules.find((m: any) => m.name == "VCF");
+        expect(vcf).toMatchObject({ family: "Timbre", inlets: ["audio"], outlets: ["audio"] });
         // labels of menus without dashes: the JSON of a compiled DSP quotes them with dashes
         for (const m of catalog.modules) {
             const code = readFileSync(path.join(root, "public", m.path), "utf8");

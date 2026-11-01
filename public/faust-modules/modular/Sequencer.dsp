@@ -2,20 +2,20 @@ declare name "Sequencer";
 declare author "GRAME";
 declare function "Sequencer";
 declare summary "Sequencer: eight steps of pitch and gate, driven by a clock";
-declare inlets "clock; reset";
-declare outlets "V/oct; gate";
+declare outlets "pitch; gate";
 import("stdfaust.lib");
 
 /* =============== DESCRIPTION ================
 
-- Step sequencer: each rising edge of the clock moves to the next of the Length steps
-- Each step is a pitch in semitones above C4 (0.1 per octave on the V/oct output); -1 is a rest
+- Step sequencer: each rising edge of the Clock moves to the next of the Length steps
+- Clock: a button to step by hand; a clock dropped on it drives the sequencer
+- Each step is a pitch in semitones above C4 (0.1 per octave on the pitch output); -1 is a rest
 - Gate: high while the clock is high, except on rests; the pitch holds during a rest
-- Reset: a rising edge goes back before the first step (the next clock plays it)
+- Reset: goes back before the first step (the next clock plays it)
 
 */
 
-process = vgroup("Sequencer", sequencer);
+process = vgroup("Sequencer", sequencer(button("[00]Clock"), button("[01]Reset")));
 
 sequencer(clock, reset) = pitch, g * (semis >= 0)
 with {
@@ -30,5 +30,6 @@ with {
 
 gate(x) = loop ~ _ with { loop(p) = (x > 0.6) | ((x > 0.4) & p); };
 
-s(i) = hslider("[%j]Step %j[unit:st]", ba.take(i + 1, (0, 12, 7, -1, 3, 10, 7, 5)), -1, 24, 1) with { j = i + 1; };
-length = hslider("[9]Length", 8, 1, 8, 1);
+// two-digit prefixes: Faust orders the widgets by comparing them as strings
+s(i) = hslider("[0%k]Step %j[unit:st]", ba.take(i + 1, (0, 12, 7, -1, 3, 10, 7, 5)), -1, 24, 1) with { j = i + 1; k = i + 2; };
+length = hslider("[10]Length", 8, 1, 8, 1);

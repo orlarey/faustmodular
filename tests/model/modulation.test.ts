@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import {
-    allowedModes, depthWidget, isModulable, supportedModes, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, WidgetDescription, widgetTarget,
+    allowedModes, defaultDepthAt, depthWidget, isDepthAddress, isModulable, supportedModes, listWidgets, ModulationError, ModulationMode, modulatedCode, modulationSpec, WidgetDescription, widgetTarget,
 } from "../../src/model/Modulation";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { compileJson, getCompiler } from "../helpers/faust";
@@ -77,6 +77,18 @@ describe("widget descriptions and Faust targets", () => {
         expect(modulationSpec(byLabel("gain"), widgets, "modulate").exponential).toBe(false);
         expect(() => modulationSpec(byLabel("gate"), widgets, "scale")).toThrow(ModulationError);
     });
+
+    it("offers + for the pitch sliders ([unit:pitch]), only for them", async () => {
+        const widgets = await widgetsOf(wrap("VCO", `process = hslider("pitch[unit:pitch]", 0, -1, 1, 0.001) + hslider("gain", 0.5, 0, 1, 0.01);`));
+        const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
+        expect(allowedModes(byLabel("pitch"))).toEqual(["add"]);
+        expect(supportedModes(byLabel("pitch"))).toEqual(["add", "modulate", "scale", "drive"]);
+        expect(() => modulationSpec(byLabel("gain"), widgets, "add")).toThrow(ModulationError);
+        // the amount of a + modulation is remembered like a depth, its default being 1
+        expect(isDepthAddress("/VCO/amount_pitch")).toBe(true);
+        expect(defaultDepthAt("/VCO/amount_pitch")).toBe(1);
+        expect(defaultDepthAt("/VCO/depth_gain")).toBe(0.5);
+    });
 });
 
 describe("effective code", () => {
@@ -121,6 +133,20 @@ describe("effective code", () => {
         near((await run(code, [-0.25], { "depth freq": 1 })).out[0], 440 * (440 / 20) ** -0.25);
         near((await run(code, [1], { "depth freq": 1 })).out[0], 20000);
         near((await run(code, [-1], { "depth freq": 1 })).out[0], 20);
+    });
+
+    it("+ additionner: w + A·m, the slider a transposition, whatever its position (amount 1 by default)", async () => {
+        const vco = wrap("VCO", `process = hslider("pitch[unit:pitch]", 0, -1, 1, 0.001);`);
+        const code = await modulated(vco, 0, [["pitch", "add"]]);
+        close((await run(code, [0.3])).out[0], 0.3);
+        close((await run(code, [0.3], { pitch: 0.2 })).out[0], 0.5);
+        close((await run(code, [-0.25], { pitch: 0.6 })).out[0], 0.35);
+        close((await run(code, [0.3], { pitch: 0.2, "amount pitch": 0.5 })).out[0], 0.35);
+        close((await run(code, [0.3], { pitch: 0.2, "amount pitch": -1 })).out[0], -0.1);
+        close((await run(code, [0.9], { pitch: 0.5 })).out[0], 1);          // kept in the slider's range
+        const amount = (await run(code, [0])).widgets.find((w) => w.label == "amount pitch")!;
+        expect(amount.meta).toMatchObject({ modulation: "pitch" });
+        expect(isModulable(amount)).toBe(false);
     });
 
     it("× doser: w·m; ⇐ piloter: clip(m), the widget staying in the interface", async () => {

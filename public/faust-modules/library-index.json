@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.8.0",
+ "version": "3.9.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -96,18 +96,18 @@
   "faust-modules/generators/STunedBar6.dsp": "21f93326309dbc83a4747072e5740dcccf31e97b",
   "faust-modules/generators/SWhistles2.dsp": "3509d0a8bdc962acf031c6ff0b5dc7a31936858d",
   "faust-modules/generators/SWhistles3.dsp": "c06ac80e03d05c347892c1823b22b6738799e097",
-  "faust-modules/modular/ADSR.dsp": "e03d1daef019dc66d1b64e2c7d197209ebe5179f",
-  "faust-modules/modular/Clock.dsp": "41173b1c86d03b03e41fc2b4fda9ab4b3ca43c29",
-  "faust-modules/modular/LFO.dsp": "974c6ff653427547328e5ecbec0b3fea2c6ae0c2",
-  "faust-modules/modular/Mixer.dsp": "7402199d5ea89d7e06ae7da2ff98a56ca10c2e79",
-  "faust-modules/modular/Noise.dsp": "63be172211059c6045fed922b4284013c240a6dc",
-  "faust-modules/modular/Offset.dsp": "5e58eaeb0ad3de8d61574f3d508ecc4641d0146f",
-  "faust-modules/modular/Quantizer.dsp": "605279de4dc614f648abd8d063b7189e0adcbd4d",
-  "faust-modules/modular/SampleHold.dsp": "216401d5da4426ac1691a9a016fd2a9689cecd51",
-  "faust-modules/modular/Sequencer.dsp": "b10fecd7c9a756558e1741e91d7e1cfee0ae3d31",
-  "faust-modules/modular/VCA.dsp": "bf05d5ac2bbea52a4c69531470582a3677e0a60d",
-  "faust-modules/modular/VCF.dsp": "33ca13b7417cb1dae6ba99af25939a57e3ec5e74",
-  "faust-modules/modular/VCO.dsp": "60755aa3dceb6e49cef840b94f65605b5aac7fe0",
+  "faust-modules/modular/ADSR.dsp": "3e37f602351ca327f7f85654d9892c02ae34b22b",
+  "faust-modules/modular/Clock.dsp": "ddeceac40a82ad43f883c8a25379590e899593de",
+  "faust-modules/modular/LFO.dsp": "9c7db9827978fb811423c368fe26a931e6b9da85",
+  "faust-modules/modular/Mixer.dsp": "c6c7dae465b409fbe0d2abc49e71e00a5d4a3063",
+  "faust-modules/modular/Noise.dsp": "4b5a8ebd19c76731846541bf7bcc065ddaade7bf",
+  "faust-modules/modular/Offset.dsp": "bbc672d995915564f2e8c873af943f50af77cfb2",
+  "faust-modules/modular/Quantizer.dsp": "fa559feaff36b759463dfd0f7ca186d60770aeac",
+  "faust-modules/modular/SampleHold.dsp": "56e8a4776d37c64f5f472237ed864bd5b4d0b3be",
+  "faust-modules/modular/Sequencer.dsp": "9461db8f918f0395f29c006e3570eeb2e3229938",
+  "faust-modules/modular/VCA.dsp": "6d840822f0354ec8ed0d2be5324b2c601392a78d",
+  "faust-modules/modular/VCF.dsp": "ed1570f646d39b0a863aa94ae932621e1b37b8df",
+  "faust-modules/modular/VCO.dsp": "e15ad58c6fbd4e9833f9e567e3dde9d0c9114a70",
   "faust-modules/modulation/ADSR.dsp": "67a93afa4f049052341c01e0aaa8f737489823bb",
   "faust-modules/modulation/Clock.dsp": "7bae6a0a73332d865e3636f4ca48e5cb0a130464",
   "faust-modules/modulation/EnvelopeFollower.dsp": "7c6f83ee9785e030c4505f7a539275fe65ad211c",
@@ -141,6 +141,10 @@
    "path": "faust-modules/modular/VCA.dsp",
    "until": "3.7.0"
   },
+  "216401d5da4426ac1691a9a016fd2a9689cecd51": {
+   "path": "faust-modules/modular/SampleHold.dsp",
+   "until": "3.8.0"
+  },
   "25181d7046d60b741232f3b8de137ff15b0d3c5f": {
    "path": "faust-modules/modular/Sequencer.dsp",
    "until": "3.7.0"
@@ -149,9 +153,17 @@
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
   },
+  "33ca13b7417cb1dae6ba99af25939a57e3ec5e74": {
+   "path": "faust-modules/modular/VCF.dsp",
+   "until": "3.8.0"
+  },
   "3cddf83d12d114a3d424d85b0850047eb87fd4c9": {
    "path": "faust-modules/generators/STinkle.dsp",
    "until": "3.6.0"
+  },
+  "41173b1c86d03b03e41fc2b4fda9ab4b3ca43c29": {
+   "path": "faust-modules/modular/Clock.dsp",
+   "until": "3.8.0"
   },
   "43282b3294dfc2b67d54a9538d7db1ccb707f5cd": {
    "path": "faust-modules/modulation/ADSR.dsp",
@@ -165,9 +177,21 @@
    "path": "faust-modules/generators/SNoiseS.dsp",
    "until": "3.6.0"
   },
+  "5e58eaeb0ad3de8d61574f3d508ecc4641d0146f": {
+   "path": "faust-modules/modular/Offset.dsp",
+   "until": "3.8.0"
+  },
   "5e59f97909161c6d9af1dcc6022a1c0a0dad348e": {
    "path": "faust-modules/modulation/Clock.dsp",
    "until": "3.6.0"
+  },
+  "605279de4dc614f648abd8d063b7189e0adcbd4d": {
+   "path": "faust-modules/modular/Quantizer.dsp",
+   "until": "3.8.0"
+  },
+  "60755aa3dceb6e49cef840b94f65605b5aac7fe0": {
+   "path": "faust-modules/modular/VCO.dsp",
+   "until": "3.8.0"
   },
   "61176db1bc3b0ad454d5331cd0e312db367d7719": {
    "path": "faust-modules/display/Scope.dsp",
@@ -177,9 +201,17 @@
    "path": "faust-modules/modular/ADSR.dsp",
    "until": "3.7.0"
   },
+  "63be172211059c6045fed922b4284013c240a6dc": {
+   "path": "faust-modules/modular/Noise.dsp",
+   "until": "3.8.0"
+  },
   "6bed6a59d2656c9081b60dcd40eebff36e80819d": {
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
+  },
+  "7402199d5ea89d7e06ae7da2ff98a56ca10c2e79": {
+   "path": "faust-modules/modular/Mixer.dsp",
+   "until": "3.8.0"
   },
   "8594bd8d6f2a14b11b36283fb1757bc8eeb77bb4": {
    "path": "faust-modules/display/Value.dsp",
@@ -193,6 +225,10 @@
    "path": "faust-modules/modular/VCO.dsp",
    "until": "3.7.0"
   },
+  "974c6ff653427547328e5ecbec0b3fea2c6ae0c2": {
+   "path": "faust-modules/modular/LFO.dsp",
+   "until": "3.8.0"
+  },
   "9c95b59d7477d20a34704ff0f1b2aa8ac8a3818b": {
    "path": "faust-modules/modular/Offset.dsp",
    "until": "3.7.0"
@@ -200,6 +236,10 @@
   "9d5f87b330a17518900057ae0e28934e009f54a3": {
    "path": "faust-modules/modular/Quantizer.dsp",
    "until": "3.7.0"
+  },
+  "b10fecd7c9a756558e1741e91d7e1cfee0ae3d31": {
+   "path": "faust-modules/modular/Sequencer.dsp",
+   "until": "3.8.0"
   },
   "b35102cf52a2eb77ea42c577945fdd6cad845a98": {
    "path": "faust-modules/modular/LFO.dsp",
@@ -213,6 +253,10 @@
    "path": "faust-modules/modular/VCF.dsp",
    "until": "3.7.0"
   },
+  "bf05d5ac2bbea52a4c69531470582a3677e0a60d": {
+   "path": "faust-modules/modular/VCA.dsp",
+   "until": "3.8.0"
+  },
   "d7db7515e706e590117cd1eceb46cce5e0243005": {
    "path": "faust-modules/modular/VCF.dsp",
    "until": "3.7.0"
@@ -220,6 +264,10 @@
   "ddfb6da68e7e6bf932b0f1d98e61424b691fbad3": {
    "path": "faust-modules/generators/STibetanBowl.dsp",
    "until": "3.6.0"
+  },
+  "e03d1daef019dc66d1b64e2c7d197209ebe5179f": {
+   "path": "faust-modules/modular/ADSR.dsp",
+   "until": "3.8.0"
   },
   "e65b23a949abd5e6bd788afc5da93b1238476bb8": {
    "path": "faust-modules/display/StereoLevel.dsp",

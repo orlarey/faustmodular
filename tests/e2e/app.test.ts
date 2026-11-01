@@ -1004,8 +1004,11 @@ describe("modular library", () => {
         const vcf = await add("VCF.dsp", 560, 420);
         const vca = await add("VCA.dsp", 820, 420);
         const adsr = await add("ADSR.dsp", 300, 420);
-        // one step, 7 semitones above C4: the Quantizer (C major) keeps G4, 392 Hz
-        await page.evaluate(([c, s, q, o, f, a, e]) => {
+        // one step, 7 semitones above C4: the Quantizer (C major) keeps G4, 392 Hz. The cables carry the
+        // signals the modules transform (pitch through the Quantizer, audio); the controls are settings
+        // driven by widget modulation: Clock → Sequencer Clock (driven), pitch → VCO Pitch (added),
+        // gate → ADSR Gate (driven), envelope → VCA Gain (modulated, depth 1).
+        const ports = await page.evaluate(async ([c, s, q, o, f, a, e]) => {
             const scene = (globalThis as any).faustPlayground.scene;
             const set = (m: string, label: string, v: number) => {
                 const module = scene.getModuleById(m);
@@ -1017,15 +1020,27 @@ describe("modular library", () => {
             set(c, "Tempo", 240);
             set(e, "Release", 0.01);               // silent between the notes (a gate every 250 ms)
             const connect = (from: string, fp: number, to: string, tp: number) => scene.patch.connect({ module: from, port: fp }, { module: to, port: tp });
-            connect(c, 0, s, 0);
+            const modulate = async (from: string, fp: number, to: string, label: string) => {
+                const widget = scene.widgetsOf(scene.getModuleById(to)).find((w: any) => w.label == label);
+                const [mode] = scene.allowedModesOf(to, widget.address);
+                if (!(await scene.modulate({ module: from, port: fp }, to, widget.address, mode))) throw new Error(`${label}: not modulated`);
+                return scene.patch.getModule(to).modulations.at(-1).id as string;
+            };
+            await modulate(c, 0, s, "Clock");
             connect(s, 0, q, 0);
-            connect(q, 0, o, 0);
+            const pitch = await modulate(q, 0, o, "Pitch");
             connect(o, 2, f, 0);            // saw
             connect(f, 0, a, 0);
-            connect(s, 1, e, 0);            // gate
-            connect(e, 0, a, 1);
+            await modulate(s, 1, e, "Gate");
+            const gain = await modulate(e, 0, a, "Gain");
+            while (scene.getDepth(a, gain) === undefined) await new Promise((r) => setTimeout(r, 20));
+            scene.setDepth(a, gain, 1);
             connect(a, 0, "output", 0);
+            while (scene.getDepth(o, pitch) === undefined) await new Promise((r) => setTimeout(r, 20));
+            const modes = Array.from(document.querySelectorAll(".modulation-port")).map((p: any) => p.className.match(/modulation-(add|modulate|drive|scale)\b/)[1]).sort();
+            return { modes, pitch: scene.getDepth(o, pitch), gain: scene.getDepth(a, gain) };
         }, [clock, seq, quant, vco, vcf, vca, adsr]);
+        expect(ports).toEqual({ modes: ["add", "drive", "drive", "modulate"], pitch: 1, gain: 1 });
         await page.evaluate(() => (globalThis as any).faustPlayground.scene.audioGraph.getNode("output").context.resume());
         // the sine of the VCO: its frequency
         const hz = await page.evaluate(async (o) => {

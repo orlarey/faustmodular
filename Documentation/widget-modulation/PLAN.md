@@ -313,3 +313,23 @@ niveau (« × doser ») ; au minimum avec D = 1, il parcourt toute la plage quan
   (entrées à gauche, sorties à droite). Les ports de modulation gardent le bord gauche au-dessus,
   à la hauteur de leurs widgets : les deux ne peuvent plus se chevaucher.
 - L'éditeur intégré est supprimé ; le crayon, dans la barre de titre, ouvre faustcode.
+
+### Évolution (2026-11-01, version 3.9.0) : « + additionner » pour les curseurs de hauteur
+
+La bibliothèque modulaire (`Documentation/MODULAR-LIBRARY.md`) fait de la modulation de widget l'unique
+entrée de contrôle de ses modules : la hauteur d'un VCO est un curseur, et un séquenceur la pilote.
+Le ± ne convient pas à une hauteur à 0.1 par octave : son excursion dépend de la position du slider
+(w + u·(max − w) vers le haut, w + u·(w − min) vers le bas), si bien qu'une note n'est juste qu'avec
+le slider au centre d'une plage symétrique et une profondeur de 1. D'où un quatrième mode, réservé
+aux curseurs marqués `[unit:pitch]` :
+
+| Choix | Formule | Rôle |
+|---|---|---|
+| **+ additionner** | borné(w + A · m), A de −1 à 1, 1 par défaut | le bouton et l'entrée 1 V/oct d'un oscillateur : le slider transpose, le signal est une hauteur ajoutée, juste quelle que soit la position du slider ; A dose le suivi (le suivi de clavier d'un filtre) |
+
+- C'est le mode proposé pour ces curseurs (`allowedModes`) ; ±, × et ⇐ y restent acceptés.
+- Le slider de quantité s'appelle `amount <cible>` (adresse `.../amount_<cible>`), marqué comme les
+  profondeurs (`[modulation:<cible>]`) et réglé de même sur le port ; sa valeur est mémorisée quand la
+  modulation est retirée, sauf si elle vaut sa valeur par défaut (1, contre 0.5 pour le ±).
+- Ce n'est pas le « + » brut écarté plus haut : il ne s'applique qu'à des curseurs dont l'unité est
+  celle du signal (0.1 par octave), ce qui rend l'addition exacte.

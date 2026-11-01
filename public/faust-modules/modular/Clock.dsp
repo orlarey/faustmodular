@@ -2,7 +2,6 @@ declare name "Clock";
 declare author "GRAME";
 declare function "Clock Generator";
 declare summary "Clock: gates at a tempo, quarter, eighth or sixteenth notes, with reset";
-declare inlets "reset";
 declare outlets "clock";
 import("stdfaust.lib");
 
@@ -11,11 +10,11 @@ import("stdfaust.lib");
 - Clock: gates (0 or 1) at Tempo beats per minute
 - Division: a gate per quarter, eighth or sixteenth note
 - Width: how long each gate stays high, as a fraction of its period
-- Reset: a rising edge restarts the clock (a gate starts at once)
+- Reset: restarts the clock (a gate starts at once); a gate dropped on it drives it
 
 */
 
-process = vgroup("Clock", clock);
+process = vgroup("Clock", clock(button("[3]Reset")));
 
 clock(reset) = ph < width
 with {

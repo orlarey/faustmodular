@@ -15,4 +15,4 @@ import("stdfaust.lib");
 
 process = vgroup("Mixer", par(i, 4, *(level(i))) :> _);
 
-level(i) = hslider("Level %j", 1, 0, 1, 0.01) : si.smoo with { j = i + 1; };
+level(i) = hslider("Level %j", 1, 0, 1, 0.01) with { j = i + 1; };

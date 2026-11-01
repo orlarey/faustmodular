@@ -2,8 +2,8 @@ declare name "Quantizer";
 declare author "GRAME";
 declare function "Quantizer";
 declare summary "Quantizer: a pitch to the nearest note of a scale";
-declare inlets "V/oct";
-declare outlets "V/oct";
+declare inlets "pitch";
+declare outlets "pitch";
 import("stdfaust.lib");
 
 /* =============== DESCRIPTION ================

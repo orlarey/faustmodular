@@ -20,11 +20,14 @@
           w + u·(max − w)  if u ≥ 0,      w + u·(w − min)  if u < 0;
       for frequencies (exponential, minimum > 0) the same in octaves:
           w·(max/w)^u      if u ≥ 0,      w·(w/min)^u      if u < 0;
+    - "add" (+), for the pitch sliders ([unit:pitch], 0.1 per octave): w + A·m, A being an amount slider
+      of the circuit (−1..1, 1 by default): the slider is a transposition, the signal a pitch added to it,
+      as the knob and the 1 V/oct input of an oscillator (Documentation/MODULAR-LIBRARY.md);
     - "scale" (×): w·m;
     - "drive" (⇐): clip(m); the widget stays in the interface but has no effect.
 */
 
-export type ModulationMode = "modulate" | "scale" | "drive";
+export type ModulationMode = "modulate" | "add" | "scale" | "drive";
 
 // A widget of a compiled module, from the JSON description of its factory.
 export interface WidgetDescription {
@@ -52,12 +55,28 @@ export class ModulationError extends Error { }
 export const DEPTH_METADATA = "modulation";
 // Depth of a new ± modulation (and of a double click on its port): half the way to the bounds.
 export const DEFAULT_DEPTH = 0.5;
+// Amount of a new + modulation: the pitch is followed exactly.
+export const DEFAULT_AMOUNT = 1;
 
-// Address of the depth slider of a ± modulation: ".../depth_<key>" (label "depth <key>"). The value of
-// a depth whose modulation is removed is kept with the module's parameters: it is used again when the
-// widget is modulated again, by the same source or another.
+// The modes whose circuit has a depth slider (shown and set on the modulation port).
+export function hasDepth(mode: ModulationMode): boolean {
+    return mode == "modulate" || mode == "add";
+}
+
+export function defaultDepth(mode: ModulationMode): number {
+    return mode == "add" ? DEFAULT_AMOUNT : DEFAULT_DEPTH;
+}
+
+// Address of the depth slider of a ± modulation: ".../depth_<key>" (label "depth <key>"), of a +
+// modulation: ".../amount_<key>". The value of a depth whose modulation is removed is kept with the
+// module's parameters: it is used again when the widget is modulated again, by the same source or another.
 export function isDepthAddress(address: string): boolean {
-    return /(^|\/)depth_[^/]*$/.test(address);
+    return /(^|\/)(depth|amount)_[^/]*$/.test(address);
+}
+
+// Default value of the depth slider at this address (a remembered depth equal to it is not kept).
+export function defaultDepthAt(address: string): number {
+    return /(^|\/)amount_[^/]*$/.test(address) ? DEFAULT_AMOUNT : DEFAULT_DEPTH;
 }
 
 // Labels Faust gives to groups without a label ("h:[1]/x" → group "0x00"): they are not in the source.
@@ -91,14 +110,20 @@ export function isModulable(widget: WidgetDescription): boolean {
 // The mode offered for a new modulation: one per kind of widget, so no choice to make. Sliders are
 // modulated from their value (the slider is the rest position, the depth the excursion), which also
 // gives the effect of "scale" (slider at its minimum, unipolar signal) and of "drive" (slider at its
-// minimum, depth 1); buttons and checkboxes are driven by the signal.
+// minimum, depth 1); pitch sliders add the signal to their value; buttons and checkboxes are driven
+// by the signal.
 export function allowedModes(widget: WidgetDescription): ModulationMode[] {
-    return isSwitch(widget) ? ["drive"] : ["modulate"];
+    return isSwitch(widget) ? ["drive"] : isPitch(widget) ? ["add"] : ["modulate"];
 }
 
 // The modes accepted (patches saved before 2.8.0 may have "scale" and "drive" on sliders).
 export function supportedModes(widget: WidgetDescription): ModulationMode[] {
-    return isSwitch(widget) ? ["drive"] : ["modulate", "scale", "drive"];
+    return isSwitch(widget) ? ["drive"] : isPitch(widget) ? ["add", "modulate", "scale", "drive"] : ["modulate", "scale", "drive"];
+}
+
+// Pitch sliders: [unit:pitch], 0.1 per octave (Documentation/MODULAR-LIBRARY.md).
+export function isPitch(widget: WidgetDescription): boolean {
+    return widget.meta["unit"]?.toLowerCase() == "pitch";
 }
 
 function isSwitch(widget: WidgetDescription): boolean {
@@ -173,6 +198,10 @@ export function circuit(spec: ModulationSpec): string {
             return spec.exponential && spec.min > 0
                 ? `(_, ${u} : \\(w, u).(w * pow(select2(u < 0, ${hi} / w, w / ${lo}), u)) : ${clip})`
                 : `(_, ${u} : \\(w, u).(w + u * select2(u < 0, ${hi} - w, w - ${lo})) : ${clip})`;
+        }
+        case "add": {
+            const amount = `hslider("[${DEPTH_METADATA}:${depthKey(spec)}][style:knob]amount ${depthKey(spec)}", ${float(DEFAULT_AMOUNT)}, -1, 1, 0.001) : si.smoo`;
+            return `(_, *(${amount}) : + : ${clip})`;
         }
         case "scale":
             return "*";

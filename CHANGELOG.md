@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.9.0 (2026-11-01)
+
+- **The modular library is driven by widget modulation**: a port for the signal a module transforms, a
+  setting for everything that controls it. The modules get a complete interface, played by hand and driven
+  by the cables released on their settings:
+  - **VCO**: no input; *Pitch* (0.1 per octave), *Octave*, *Tune*, *FM* (octaves), *Width*;
+  - **VCF**: an audio input; *Pitch* moves the cutoff (keyboard tracking);
+  - **VCA**: an audio input; an envelope released on *Gain* opens it;
+  - **ADSR**: a *Gate* button; **LFO** and **Clock**: a *Reset* button;
+  - **Sequencer**: *Clock* and *Reset* buttons (a press advances one step);
+  - **SampleHold**: a *Trigger* button.
+- **A new modulation mode, "+ add"**, for the pitch sliders (`[unit:pitch]`): w + A·m, the amount A from
+  −1 to 1, 1 by default. The slider transposes, the signal is a pitch added to it, in tune whatever the
+  position of the slider, as the knob and the 1 V/oct input of an oscillator; the amount is the keyboard
+  tracking of a filter. The ± mode could not do it: its excursion depends on the position of the slider.
+- **No smoothing** on the settings of the modular library: a modulation replaces the widget, and `si.smoo`
+  after it (a 7 Hz low-pass) removed audio-rate FM and made the notes of a sequencer glide.
+- Widgets ordered by two-digit prefixes in the Sequencer (Faust compares the `[n]` prefixes as strings).
+- The tests render the modulations through the effective code of the application: pitch added within
+  1 cent, audio-rate FM (sidebands), driven gates, clocks and triggers; the sequenced voice of the
+  end-to-end test is patched with modulations.
+
 ## 3.8.0 (2026-11-01)
 
 - **A modular library** (`Documentation/MODULAR-LIBRARY.md`), organized as [ModularGrid](https://modulargrid.net)

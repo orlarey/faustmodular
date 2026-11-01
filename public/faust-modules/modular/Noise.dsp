@@ -14,4 +14,4 @@ import("stdfaust.lib");
 
 process = vgroup("Noise", no.noise * level, no.pink_noise * 4 * level);
 
-level = hslider("Level", 0.5, 0, 1, 0.01) : si.smoo;
+level = hslider("Level", 0.5, 0, 1, 0.01);

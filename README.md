@@ -34,6 +34,10 @@ conventions: audio and bipolar CV in [-1, 1], unipolar CV in [0, 1], pitch 0.1 p
 gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer,
 SampleHold (see `Documentation/MODULAR-LIBRARY.md`). The former library stays under *FaustPlayground*.
 
+Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
+driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to
+their value, "+"), a clock on the *Clock* button of the sequencer, an envelope on the *Gain* of a VCA.
+
 ## Documents
 
 The scene is a document, kept in the browser (OPFS): every change is saved in its working copy, and

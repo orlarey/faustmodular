@@ -13,7 +13,7 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
-import { allowedModes, DEFAULT_DEPTH, depthWidget, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
+import { allowedModes, defaultDepthAt, depthWidget, hasDepth, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
@@ -253,7 +253,7 @@ export class Scene {
             var remembered = module?.getInterfaceParams() ?? {};
             for (var address in remembered) {
                 var depth = parseFloat(remembered[address]);
-                if (!(address in params) && isDepthAddress(address) && !isNaN(depth) && depth != DEFAULT_DEPTH) params[address] = depth;
+                if (!(address in params) && isDepthAddress(address) && !isNaN(depth) && depth != defaultDepthAt(address)) params[address] = depth;
             }
             snapshot.modules.push({
                 id: state.id, name: state.name, code: state.code, x: state.x, y: state.y, numInputs: state.numInputs, params,
@@ -560,7 +560,7 @@ export class Scene {
         var remembered = module.getInterfaceParams();
         for (var address in remembered) {
             var value = parseFloat(remembered[address]);
-            if (!(address in params) && isDepthAddress(address) && !isNaN(value) && value != DEFAULT_DEPTH) params[address] = value;
+            if (!(address in params) && isDepthAddress(address) && !isNaN(value) && value != defaultDepthAt(address)) params[address] = value;
         }
         return params;
     }
@@ -782,12 +782,12 @@ export class Scene {
         return widgets;
     }
 
-    // Depth slider of a "modulate" modulation in the current DSP of its module (absent while the
+    // Depth slider of a "modulate" or "add" modulation in the current DSP of its module (absent while the
     // module is being recompiled with a new modulation).
     private depthOf(moduleId: ModuleId, modulationId: string): { module: ModuleClass; address: string } | undefined {
         var module = this.getModuleById(moduleId);
         var modulation = this.patch.getModule(moduleId)?.modulations.find((m) => m.id == modulationId);
-        if (!module || !modulation || modulation.spec.mode != "modulate") return undefined;
+        if (!module || !modulation || !hasDepth(modulation.spec.mode)) return undefined;
         var widget = depthWidget(this.widgetsOf(module), modulation.spec);
         return widget ? { module, address: widget.address } : undefined;
     }

@@ -18,12 +18,9 @@
     "Oscillator"
    ],
    "family": "Sources",
-   "summary": "Oscillator: sine, triangle, saw and square, 0.1 per octave",
-   "description": "- Voltage controlled oscillator, four waveforms at once (alias-suppressed), in [-1, 1]\n- V/oct: pitch, 0.1 per octave, 0 = C4 (261.63 Hz)\n- FM: exponential frequency modulation, the FM knob giving the octaves for an input of 1\n- Octave and Tune transpose; Width is the duty cycle of the square",
-   "inlets": [
-    "V/oct",
-    "FM"
-   ],
+   "summary": "Oscillator: sine, triangle, saw and square, pitch 0.1 per octave",
+   "description": "- Oscillator, four waveforms at once (alias-suppressed), in [-1, 1]\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz); a pitch (a sequencer) dropped on it is added to it\n- Octave and Tune transpose; FM: frequency modulation in octaves (an audio signal dropped on it)\n- Width: the duty cycle of the square (pulse width modulation)",
+   "inlets": [],
    "outlets": [
     "sine",
     "triangle",
@@ -54,10 +51,9 @@
    ],
    "family": "Timbre",
    "summary": "Filter: low-pass, band-pass or high-pass, cutoff following a pitch",
-   "description": "- Voltage controlled state variable filter (12 dB per octave)\n- Mode: low pass, band pass or high pass\n- Cutoff in Hz; the V/oct input moves it in octaves (0.1 per octave), scaled by Tracking\n- Resonance: from no resonance to a sharp peak (Q from 0.5 to 25)",
+   "description": "- State variable filter (12 dB per octave): low pass, band pass or high pass\n- Cutoff in Hz; an envelope or an LFO dropped on it moves it in octaves\n- Pitch: moves the cutoff, 0.1 per octave; a pitch dropped on it (a sequencer) makes the cutoff follow\nthe notes, its amount on the modulation port being the keyboard tracking\n- Resonance: from no resonance to a sharp peak (Q from 0.5 to 25)",
    "inlets": [
-    "audio",
-    "V/oct"
+    "audio"
    ],
    "outlets": [
     "audio"
@@ -70,11 +66,10 @@
     "VCA"
    ],
    "family": "Level",
-   "summary": "Amplifier: gain plus CV, linear or exponential",
-   "description": "- Voltage controlled amplifier: the gain is the Gain knob plus the CV input, kept in [0, 1]\n- Gain 0 (default): closed until a CV (an envelope) opens it\n- Response: linear, or exponential (60 dB from 0 to 1, a natural loudness curve)",
+   "summary": "Amplifier: gain driven by an envelope, linear or exponential",
+   "description": "- Amplifier: the audio input times the gain, in [0, 1]\n- Gain 0 (default): closed until an envelope dropped on it opens it (depth 1: the envelope is the gain)\n- Response: linear, or exponential (60 dB from 0 to 1, a natural loudness curve)",
    "inlets": [
-    "audio",
-    "CV"
+    "audio"
    ],
    "outlets": [
     "audio"
@@ -88,10 +83,8 @@
    ],
    "family": "Control",
    "summary": "Envelope: attack, decay, sustain, release, from a gate",
-   "description": "- Envelope generator in [0, 1], started by a gate (high above 0.5) and released when it falls\n- Attack, Decay and Release in seconds; Sustain is a level\n- To shape a level: connect it to the CV input of a VCA",
-   "inlets": [
-    "gate"
-   ],
+   "description": "- Envelope generator in [0, 1], started by the Gate and released when it falls\n- Gate: a button to play by hand; a gate dropped on it (a sequencer, a clock) drives it\n(high above 0.6, low below 0.4)\n- Attack, Decay and Release in seconds; Sustain is a level\n- To shape a level: drop the envelope on the Gain of a VCA",
+   "inlets": [],
    "outlets": [
     "envelope"
    ]
@@ -104,10 +97,8 @@
    ],
    "family": "Control",
    "summary": "Low frequency oscillator, four shapes, bipolar or unipolar, with reset",
-   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Polarity: bipolar in [-1, 1], or unipolar in [0, 1]\n- Reset: a rising edge restarts the cycle (sync to a clock)",
-   "inlets": [
-    "reset"
-   ],
+   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Polarity: bipolar in [-1, 1], or unipolar in [0, 1]\n- Reset: restarts the cycle; a clock dropped on it syncs the LFO",
+   "inlets": [],
    "outlets": [
     "LFO"
    ]
@@ -156,10 +147,8 @@
    ],
    "family": "Time",
    "summary": "Clock: gates at a tempo, quarter, eighth or sixteenth notes, with reset",
-   "description": "- Clock: gates (0 or 1) at Tempo beats per minute\n- Division: a gate per quarter, eighth or sixteenth note\n- Width: how long each gate stays high, as a fraction of its period\n- Reset: a rising edge restarts the clock (a gate starts at once)",
-   "inlets": [
-    "reset"
-   ],
+   "description": "- Clock: gates (0 or 1) at Tempo beats per minute\n- Division: a gate per quarter, eighth or sixteenth note\n- Width: how long each gate stays high, as a fraction of its period\n- Reset: restarts the clock (a gate starts at once); a gate dropped on it drives it",
+   "inlets": [],
    "outlets": [
     "clock"
    ]
@@ -172,13 +161,10 @@
    ],
    "family": "Time",
    "summary": "Sequencer: eight steps of pitch and gate, driven by a clock",
-   "description": "- Step sequencer: each rising edge of the clock moves to the next of the Length steps\n- Each step is a pitch in semitones above C4 (0.1 per octave on the V/oct output); -1 is a rest\n- Gate: high while the clock is high, except on rests; the pitch holds during a rest\n- Reset: a rising edge goes back before the first step (the next clock plays it)",
-   "inlets": [
-    "clock",
-    "reset"
-   ],
+   "description": "- Step sequencer: each rising edge of the Clock moves to the next of the Length steps\n- Clock: a button to step by hand; a clock dropped on it drives the sequencer\n- Each step is a pitch in semitones above C4 (0.1 per octave on the pitch output); -1 is a rest\n- Gate: high while the clock is high, except on rests; the pitch holds during a rest\n- Reset: goes back before the first step (the next clock plays it)",
+   "inlets": [],
    "outlets": [
-    "V/oct",
+    "pitch",
     "gate"
    ]
   },
@@ -192,10 +178,10 @@
    "summary": "Quantizer: a pitch to the nearest note of a scale",
    "description": "- Moves a pitch (0.1 per octave) to the nearest note of a scale, ties going down\n- Scale: chromatic, major, natural minor, major or minor pentatonic\n- Tonic: the first note of the scale",
    "inlets": [
-    "V/oct"
+    "pitch"
    ],
    "outlets": [
-    "V/oct"
+    "pitch"
    ]
   },
   {
@@ -207,10 +193,9 @@
    ],
    "family": "Random and pitch",
    "summary": "Sample and hold of an input or of noise, at each trigger",
-   "description": "- Samples a signal at each rising edge of the trigger and holds it until the next one\n- Source: the input, or internal noise (random values in [-1, 1], with a clock: stepped random)",
+   "description": "- Samples a signal at each rising edge of the Trigger and holds it until the next one\n- Trigger: a button to sample by hand; a clock dropped on it drives it\n- Source: the input, or internal noise (random values in [-1, 1], with a clock: stepped random)",
    "inlets": [
-    "in",
-    "trigger"
+    "in"
    ],
    "outlets": [
     "out"

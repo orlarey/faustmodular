@@ -9,7 +9,7 @@
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
         - on a widget (from an output): modulates the widget with the mode of its kind ("modulate"
-          for sliders, "drive" for buttons and checkboxes; Documentation/widget-modulation/PLAN.md);
+          for sliders, "add" for pitch sliders, "drive" for buttons and checkboxes; Documentation/widget-modulation/PLAN.md);
     - click on a cable to delete it.
 
     Each pointer is tracked separately (pointerId), so several cables can be drawn at once
@@ -19,23 +19,24 @@
     Audio ports are astride the side edges, in a zone at the bottom of the modules, under the last
     widget: inputs on the left, outputs on the right. Each modulation has its own port, astride the
     left edge at the height of its widget: an
-    icon shows its type and, for "modulate", a ring shows its depth (arc length = |depth|, clockwise
-    when positive). Dragging a "modulate" port vertically sets the depth live (0.01 per pixel, 0.001
-    with Shift); a double click sets it back to 1.
+    icon shows its type and, for "modulate" and "add", a ring shows its depth (arc length = |depth|,
+    clockwise when positive). Dragging such a port vertically sets the depth live (0.01 per pixel, 0.001
+    with Shift); a double click sets it back to its default (0.5 for "modulate", 1 for "add").
     Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
 import type { ModulationMode } from "../model/Modulation";
-import { DEFAULT_DEPTH } from "../model/Modulation";
+import { defaultDepth, hasDepth } from "../model/Modulation";
 import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
 
-export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", scale: "×", drive: "→" };
+export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", add: "+", scale: "×", drive: "→" };
 
 // Stroke icons of the modulation types (24 x 24 viewBox, drawn with currentColor).
 export const MODE_ICONS: Record<ModulationMode, string> = {
     modulate: "M12 4v9M7.5 8.5h9M7.5 19h9",       // ±
+    add: "M12 6v12M6 12h12",                       // + the signal is added to the slider (a pitch)
     scale: "M7 7l10 10M17 7L7 17",                 // ×
     drive: "M4 12h14M13 7l5 5-5 5",                // → the signal drives the widget
 };
@@ -319,7 +320,7 @@ export class PatchView {
         const state = this.fPatch.getModule(id);
         if (!container || !state) return;
         container.querySelectorAll("[data-widget]").forEach((element) =>
-            element.classList.remove("modulated", "modulated-modulate", "modulated-scale", "modulated-drive"));
+            element.classList.remove("modulated", "modulated-modulate", "modulated-add", "modulated-scale", "modulated-drive"));
         for (const modulation of state.modulations) {
             this.widgetElement(id, modulation.widget)?.classList.add("modulated", "modulated-" + modulation.spec.mode);
         }
@@ -356,10 +357,10 @@ export class PatchView {
                 + `<circle class="depth-arc" cx="${size / 2}" cy="${size / 2}" r="${r}"/>`
                 + `<g transform="translate(${size * 0.22} ${size * 0.22}) scale(${(size * 0.56) / 24})"><path class="mode-icon" d="${MODE_ICONS[mode]}"/></g>`
                 + `</svg>`;
-            if (mode == "modulate") {
+            if (hasDepth(mode)) {
                 port.addEventListener("dblclick", (e) => {
                     e.stopPropagation();
-                    this.fModulation?.setDepth(id, modulation.id, DEFAULT_DEPTH);
+                    this.fModulation?.setDepth(id, modulation.id, defaultDepth(mode));
                     this.showDepth(port, id, modulation.id);
                 });
             }
@@ -394,11 +395,12 @@ export class PatchView {
         if (!modulation || !arc) return;
         const labels: Record<ModulationMode, string> = {
             modulate: Utilitary.messageResource.modulationModulate,
+            add: Utilitary.messageResource.modulationAdd,
             scale: Utilitary.messageResource.modulationScale,
             drive: Utilitary.messageResource.modulationDrive,
         };
         const title = `${MODE_SYMBOLS[modulation.spec.mode]} ${labels[modulation.spec.mode]}`;
-        if (modulation.spec.mode != "modulate") {
+        if (!hasDepth(modulation.spec.mode)) {
             port.title = title;
             return;
         }

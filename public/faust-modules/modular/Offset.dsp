@@ -17,6 +17,6 @@ import("stdfaust.lib");
 
 process = vgroup("Offset", _ * gain + offset + transpose * 0.1 / 12);
 
-gain = hslider("[0]Gain", 1, -1, 1, 0.01) : si.smoo;
-offset = hslider("[1]Offset", 0, -1, 1, 0.001) : si.smoo;
+gain = hslider("[0]Gain", 1, -1, 1, 0.01);
+offset = hslider("[1]Offset", 0, -1, 1, 0.001);
 transpose = hslider("[2]Transpose[unit:st]", 0, -24, 24, 1);

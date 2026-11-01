@@ -64,13 +64,26 @@ Le choix de la hauteur est le plus engageant : **0.1 par octave** garde les haut
 
 # Un module, des réglages modulables
 
-Un module Eurorack a un bouton et une entrée CV par paramètre, souvent avec un atténuateur. Dans faustmodular, **chaque réglage est déjà une entrée de CV** : relâcher un câble sur un widget le module autour de sa valeur (modulation ±), avec une profondeur réglable sur son port. Les modules de la bibliothèque n'ont donc comme ports que ce qui ne peut pas être un réglage :
+Un module Eurorack a un bouton et une entrée CV par paramètre, souvent avec un atténuateur. Dans faustmodular, **chaque réglage est déjà une entrée de CV** : relâcher un câble sur un widget le module, avec une profondeur réglable sur son port, qui joue le rôle de l'atténuateur. D'où la règle de la bibliothèque : **un port pour le signal que le module transforme, un réglage pour tout ce qui le commande**.
 
-- les entrées et sorties audio ;
-- l'entrée de hauteur (V/oct) des oscillateurs et des filtres qui suivent le clavier ;
-- les entrées de porte, de déclenchement, d'horloge et de remise à zéro.
+- **Ports** : l'audio d'un filtre, d'un amplificateur, d'un mixeur, et le signal d'un module de traitement de CV (Offset, Quantizer, SampleHold).
+- **Réglages** : la hauteur d'un oscillateur ou d'un filtre, la FM, le gain d'un amplificateur, les portes, les déclencheurs, les horloges et les remises à zéro. Une interface complète, que l'on joue à la main (un bouton *Gate* pour l'ADSR, *Clock* pour avancer le séquenceur pas à pas) et que la modulation pilote.
 
-Les fréquences (`[unit:Hz]`) et les réglages `[scale:log]` sont modulés en octaves ; les choix sont des menus (`[style:menu{...}]`).
+Chaque sorte de widget a son mode de modulation (`allowedModes`) :
+
+```csv "Modes de modulation des réglages" \label{tab:modes}
+Réglage,Mode,Effet,Exemple
+Curseur de hauteur [unit:pitch],+ additionner,w + A·m (A = 1 par défaut),séquenceur → Pitch du VCO : juste quelle que soit la position du curseur
+Curseur de fréquence [unit:Hz] ou [scale:log],± moduler,exponentiel : en octaves,enveloppe → Cutoff du VCF
+Autre curseur,± moduler,linéaire autour du curseur (D = 0.5 par défaut),ADSR → Gain du VCA (curseur à 0 et D = 1 : le gain est l'enveloppe)
+Bouton,⇐ piloter,le signal remplace le bouton,horloge → Clock du séquenceur ; porte → Gate de l'ADSR
+```
+
+Le ± n'additionne pas : son excursion dépend de la position du curseur, ce qui fausserait une hauteur. Le mode « + additionner » (`Documentation/widget-modulation/PLAN.md`, version 3.9.0) donne aux curseurs de hauteur la sémantique du bouton et de l'entrée 1 V/oct d'un oscillateur ; sa quantité A est le suivi de clavier d'un filtre.
+
+Un widget a une seule modulation, mais une modulation accepte plusieurs sources, qui s'additionnent : un câble relâché sur son port ajoute une source (le séquenceur et un LFO de vibrato sur la hauteur).
+
+**Pas de lissage.** La modulation remplace le widget dans le code : tout ce qui suit le widget filtre aussi le signal. `si.smoo` est un passe-bas d'ordre 1 de pôle 1 − 44.1/SR (constante de temps 22.7 ms, coupure vers 7 Hz) : il supprimerait la FM audio, et un saut de hauteur d'une octave mettrait 160 ms à s'établir à 1 cent près. Les réglages de la bibliothèque ne sont donc pas lissés ; déplacés à la main, ils avancent par blocs (128 échantillons, 2.7 ms à 48 kHz). Un test le vérifie.
 
 # Le premier ensemble de modules
 
@@ -102,6 +115,8 @@ Delay,Delay,audio → audio,temps · réinjection · mélange
 Reverb,Reverb,audio → audio,taille · amortissement · mélange
 ```
 
+Ce tableau est la proposition initiale. Depuis 3.9.0, les portes, déclencheurs, horloges et hauteurs des modules sont des réglages (section précédente) : les ports des douze premiers modules sont dans le tableau \ref{tab:etat}, et les modules suivants suivront la même règle.
+
 Les sources de modulation actuelles (LFO, QuadLFO, Random, Clock, ADSR, EnvelopeFollower) sont reprises dans cette bibliothèque et alignées sur ces conventions.
 
 # L'organisation dans l'application
@@ -130,7 +145,36 @@ Prises le 1er novembre 2026 :
 1. **Échelle de hauteur** : 0.1 par octave, 0 = do 4 (261.63 Hz).
 2. **Organisation** : un sélecteur « Modulaire / FaustPlayground » en tête du menu Library ; pour la bibliothèque modulaire, des familles de fonctions, leurs modules et la description du module pointé ; « Mes modules » à côté de l'une ou l'autre.
 3. **Premier ensemble** : une voix d'abord, douze modules : VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer, SampleHold.
+4. **Des réglages plutôt que des entrées de contrôle** (3.9.0) : des modules à l'interface complète, pilotés par la modulation de widget ; un mode « + additionner » pour les curseurs de hauteur.
 
-::: note [État, faustmodular 3.8.0]
-Les douze modules sont dans `public/faust-modules/modular/`, avec les modules d'affichage dans la famille « Mesure ». Le catalogue (`modular-catalog.json`) est produit par `npm run library-index` à partir des déclarations des modules : `declare function "..."` (et `function2`), `declare summary "..."`, `declare inlets "..."` et `declare outlets "..."` (les noms des ports, montrés dans leur infobulle ; `inputs` et `outputs` sont des mots réservés de Faust) et le commentaire `DESCRIPTION`. Les libellés des menus ne contiennent pas de tiret : le JSON d'un DSP compilé délimite ces libellés par des tirets. Les tests (`tests/library/modular.test.ts`) vérifient les conventions et le comportement de chaque module ; un test de bout en bout joue la voix séquencée de référence, juste à moins de 5 cents.
+::: note [État, faustmodular 3.9.0]
+Les douze modules sont dans `public/faust-modules/modular/`, avec les modules d'affichage dans la famille « Mesure ». Le catalogue (`modular-catalog.json`) est produit par `npm run library-index` à partir des déclarations des modules : `declare function "..."` (et `function2`), `declare summary "..."`, `declare inlets "..."` et `declare outlets "..."` (les noms des ports, montrés dans leur infobulle ; `inputs` et `outputs` sont des mots réservés de Faust) et le commentaire `DESCRIPTION`. Les libellés des menus ne contiennent pas de tiret : le JSON d'un DSP compilé délimite ces libellés par des tirets. Faust ordonne les widgets en comparant leurs préfixes `[n]` comme des chaînes : au-delà de dix, ils s'écrivent sur deux chiffres (`[01]`, …, `[10]`).
+
+Depuis 3.9.0, les ports ne portent que les signaux transformés :
+
+```csv "Ports et réglages pilotables" \label{tab:etat}
+Module,Ports (entrées → sorties),Réglages pilotés par modulation
+VCO,→ sine · triangle · saw · square,Pitch (+) · Octave · Tune · FM (octaves) · Width
+Noise,→ white · pink,Level
+VCF,audio → audio,Mode · Cutoff (octaves) · Pitch (+ : suivi de clavier) · Resonance
+VCA,audio → audio,Gain · Response
+ADSR,→ envelope,Gate (bouton) · Attack · Decay · Sustain · Release
+LFO,→ LFO,Rate · Shape · Polarity · Reset (bouton)
+Mixer,4 entrées → mix,Level 1 à 4
+Offset,in → out,Gain · Offset · Transpose
+Clock,→ clock,Tempo · Division · Width · Reset (bouton)
+Sequencer,→ pitch · gate,Clock (bouton) · Reset (bouton) · Step 1 à 8 · Length
+Quantizer,pitch → pitch,Scale · Tonic
+SampleHold,in → out,Trigger (bouton) · Source
+```
+
+Les tests (`tests/library/modular.test.ts`) rendent les modulations par le code effectif de l'application, avec le mode qu'elle propose pour chaque widget. Ils vérifient :
+
+- les arités et les modes ;
+- l'absence de lissage ;
+- la hauteur ajoutée, juste à moins de 1 cent quelle que soit la position du curseur ;
+- la FM à fréquence audio, par ses bandes latérales ;
+- les portes, horloges et déclencheurs pilotés.
+
+Un test de bout en bout joue la voix séquencée : Clock → Clock du Sequencer, pitch → Quantizer → Pitch du VCO, gate → Gate de l'ADSR, enveloppe → Gain du VCA. Elle est juste à moins de 5 cents.
 :::
