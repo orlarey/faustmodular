@@ -14,6 +14,7 @@ language: fr
 - **La thèse** — trois notions et une règle : des documents légers qui référencent un magasin de codes immuables.
 - **Le code** — identité par le contenu, immuabilité, enveloppe dérivée.
 - **La bibliothèque de modules** — modules prédéfinis et modules utilisateur, versions, instances épinglées.
+- **La préservation** — un document se rouvre et sonne à l'identique, quelles que soient les évolutions du logiciel, de sa bibliothèque et des bibliothèques Faust.
 - **Le document** — contenu, copie validée et copie de travail, frontière de l'annulation.
 - **Le stockage** — disposition dans OPFS, index, persistance, collecte des codes inutilisés.
 - **Les surfaces** — menu Fichier, Ouvrir, bibliothèque, indicateur de modification.
@@ -70,7 +71,7 @@ Un texte source Faust, tel que l'utilisateur l'écrit (sans l'enveloppe ajoutée
 :::
 
 ::: definition [Module de bibliothèque]
-Un nom donné à un code et à la suite de ses versions. Un module est **prédéfini** (livré avec le logiciel, en lecture seule) ou **utilisateur** (créé par l'utilisateur, renommable, supprimable).
+Un nom donné à un code et à la suite de ses versions. Un module est **prédéfini** (livré avec le logiciel, en lecture seule) ou **utilisateur** (créé par l'utilisateur, renommable, supprimable). Ce statut n'est jamais enregistré : il se **déduit du contenu**. Un code que la bibliothèque livrée contient est prédéfini ; tout autre code relève d'un module utilisateur (\ref{sec:preservation}).
 :::
 
 ::: definition [Document]
@@ -85,13 +86,21 @@ Tout le reste en découle :
 - exporter un document, c'est l'accompagner des codes qu'il référence (\ref{sec:echange}).
 
 ```adt
-Document ::= Doc(id, name, instances, connections, io)
-Instance ::= Inst(id, name, source, code, x, y, params, modulations)   (* code : empreinte d'une version *)
-Source   ::= Builtin(path)                                             (* module prédéfini *)
-           | User(moduleId)                                            (* module utilisateur *)
-Module   ::= BuiltinModule(path, name, category)
+Document ::= Doc(id, name, faust, generator, instances, connections, io)
+Faust    ::= Env(libfaust, libraries)                                  (* libraries : empreinte d'un environnement de bibliothèques *)
+Instance ::= Inst(id, name, origin, code, x, y, params, modulations)   (* code : empreinte d'une version *)
+Origin   ::= Builtin(path)                                             (* provenance, indicative : jamais un statut *)
+           | User(moduleId)
+Module   ::= BuiltinModule(path, name, category, code)                 (* livré avec le logiciel *)
            | UserModule(moduleId, name, category, versions)            (* versions : empreintes, de la plus ancienne à la plus récente *)
 Code     ::= Text(sha1, source)                                        (* immuable *)
+```
+
+Le statut d'une instance est une fonction de son code, recalculée à chaque ouverture :
+
+```text
+statut(i) = prédéfini   si i.code ∈ { m.code | m ∈ bibliothèque livrée }
+          | utilisateur sinon
 ```
 
 # Le code \label{sec:code}
@@ -105,7 +114,7 @@ Code     ::= Text(sha1, source)                                        (* immuab
 
 La bibliothèque a deux rayons.
 
-- **Modules prédéfinis.** Ceux de `public/faust-modules` (index par catégories). Ils sont livrés et versionnés avec le logiciel, en lecture seule. Leur code entre dans le magasin à leur première utilisation.
+- **Modules prédéfinis.** Ceux de `public/faust-modules` (index par catégories). Ils sont livrés et versionnés avec le logiciel, en lecture seule. Leur code entre dans le magasin à leur première utilisation. L'index livré donne, pour chaque module, l'empreinte de son code : c'est lui qui décide du statut des instances (\ref{sec:preservation}).
 - **Modules utilisateur.** Un module utilisateur a un identifiant opaque (uuid), un nom éditable, une catégorie facultative et la liste de ses versions.
 
 Un module utilisateur est créé :
@@ -130,6 +139,65 @@ flowchart LR
 
 **Gérer les modules utilisateur** : renommer, changer de catégorie, supprimer (vers la corbeille), voir les versions et les documents qui les utilisent. Supprimer un module utilisateur ne casse aucun document : ses instances gardent leur code, puisqu'elles pointent vers des empreintes.
 
+# La préservation \label{sec:preservation}
+
+::: important [Le principe]
+Un document se rouvre **et sonne** à l'identique dans toute version ultérieure de faustmodular. Rien de ce dont il dépend ne peut changer sous lui ; toute évolution est proposée, jamais subie, et elle s'annule comme une modification ordinaire.
+:::
+
+C'est le principe que Faust s'applique depuis l'origine : un programme reste compilable et son sens ne dépend pas de l'outil qui le lit. Le son d'une instance dépend de quatre choses ; chacune reçoit une règle.
+
+| Dépendance | Qui la fait évoluer | Règle |
+| :-- | :-- | :-- |
+| le code de l'instance | l'utilisateur | immuable, référencé par empreinte (\ref{sec:code}) |
+| le module prédéfini dont elle provient | les versions de faustmodular | statut déduit du contenu (\ref{sec:statut}) |
+| les bibliothèques Faust (`stdfaust.lib`…) | les versions des bibliothèques | environnement épinglé (\ref{sec:environnement}) |
+| le code ajouté par faustmodular (enveloppe, circuits de modulation) | les versions de faustmodular | générateur versionné (\ref{sec:generateur}) |
+
+## Le statut se déduit du contenu \label{sec:statut}
+
+Un module prédéfini peut évoluer d'une version de faustmodular à l'autre. Un document enregistré avant cette évolution garde l'ancien code : il ne doit ni changer de son, ni prétendre utiliser un module qu'il n'utilise plus.
+
+**Règle.** À l'ouverture d'un document, chaque instance est recherchée par l'empreinte de son code dans l'index de la bibliothèque livrée :
+
+- si l'empreinte y figure, l'instance est une instance de ce module **prédéfini** (même s'il a été déplacé ou renommé dans la bibliothèque) ;
+- sinon, l'instance relève d'un module **utilisateur** : celui dont les versions contiennent cette empreinte s'il existe (de préférence celui que désigne `origin`), sinon un module utilisateur est **créé automatiquement**, nommé comme le module d'origine et dont la seule version est ce code.
+
+Conséquences :
+
+- un module prédéfini qui a évolué devient, dans les anciens documents, un module utilisateur qui conserve l'ancien code : **la scène sonne comme avant** ;
+- la création est faite une fois par empreinte : plusieurs instances, ou plusieurs documents, qui utilisent le même ancien code partagent le même module utilisateur ;
+- l'ouverture ne modifie pas le document : seule la bibliothèque de l'utilisateur s'enrichit. Le champ `origin` est une provenance (pour l'affichage et pour proposer une mise à jour), jamais un statut ;
+- un code utilisateur identique à un module prédéfini *est* ce module : même contenu, même chose.
+
+**Historique de la bibliothèque.** Le script de construction tient à jour un fichier `library-history.json`, en ajout seul, qui associe à chaque empreinte passée d'un module prédéfini son chemin et les versions de faustmodular qui l'ont livrée. Grâce à lui, un module utilisateur créé par la règle peut être présenté comme « SOscillator, version livrée jusqu'à faustmodular 2.11 », et **Mettre à jour** peut proposer la version actuelle (une modification ordinaire, annulable). Sans cet historique, la règle fonctionne, avec moins d'informations.
+
+## Les bibliothèques Faust sont épinglées \label{sec:environnement}
+
+Un code qui écrit `import("stdfaust.lib")` n'est pas autonome : si `os.osc` change dans une version ultérieure des bibliothèques, la même empreinte ne produit plus le même son, ou ne compile plus.
+
+**Le code expansé n'est pas la solution retenue.** Faust sait produire une version autonome d'un programme (`faust -e`, `expandDSP` dans faustwasm), mais elle est illisible. Le magasin garde le code tel que l'utilisateur l'écrit ; l'expansion peut servir d'outil de diagnostic (comparer l'expansion d'un code avant et après une mise à jour des bibliothèques), jamais de forme stockée.
+
+**La solution : épingler, sans dissoudre.** On applique aux bibliothèques la thèse du document : les bibliothèques sont des contenus immuables, identifiés par empreinte, que les documents référencent.
+
+- Un **environnement de bibliothèques** est un manifeste qui associe à chaque fichier `.lib` le SHA-1 de son contenu (l'équivalent d'un *lockfile*). Il est lui-même identifié par l'empreinte de son manifeste.
+- Le magasin garde les fichiers `.lib` par empreinte. D'une version des bibliothèques à l'autre, peu de fichiers changent : conserver plusieurs environnements coûte peu.
+- Le document enregistre son environnement (`faust.libraries`) et la version de libfaust (`faust.libfaust`). Un nouveau document reçoit l'environnement livré avec le logiciel.
+- À la compilation, faustmodular écrit les fichiers exacts de l'environnement dans le système de fichiers virtuel de libfaust (`fs()` de faustwasm), à la place des bibliothèques livrées. Le code d'origine, lisible, recompile à l'identique.
+- **Mettre à jour les bibliothèques** fait passer le document à l'environnement livré : une action explicite et annulable, qui peut s'accompagner du diagnostic par expansion (quelles instances changent de sens).
+
+**Références explicites.** Le registre de paquets Faust (`grame-cncm/faustregistry`, GSoC 2024) en est la forme explicite : un code qui importe `pkg:faust/faust/stdfaust.lib@1.0.0` fixe toute la fermeture transitive de ses dépendances, car dans le registre chaque bibliothèque importe les autres à version exacte (`library("pkg:faust/faust/maths.lib@2.8.0")`). Un tel code est préservé par son texte même. faustmodular résout ces références lui-même (la prise en charge de `pkg:` par libfaust dans le navigateur n'est pas vérifiée) : il télécharge les fichiers, les vérifie par empreinte, les range dans le magasin et les ajoute à l'environnement. L'empreinte est indispensable : le registre ne garantit l'immuabilité d'une version que par convention.
+
+## Le code généré est versionné \label{sec:generateur}
+
+faustmodular ajoute du code à celui de l'utilisateur : l'enveloppe `vgroup` (\ref{sec:code}) et les circuits de modulation (modes, profondeurs). Le document n'enregistre que des réglages (mode, profondeur, bornes) ; c'est le **générateur** qui en tire le circuit.
+
+**Règle.** Le document enregistre la version du générateur (`generator`). Toute évolution du générateur qui change le son d'un document existant crée une nouvelle version ; faustmodular sait produire les versions antérieures, ou, à défaut, signale le document et propose explicitement la migration.
+
+## Ce qui reste hors d'atteinte
+
+La version de libfaust elle-même : le navigateur ne peut pas embarquer tous les compilateurs passés. Elle est enregistrée (`faust.libfaust`) pour le diagnostic ; ses évolutions qui changent la sémantique sont rares et documentées par le projet Faust.
+
 # Le document \label{sec:document}
 
 ## Contenu \label{sec:contenu}
@@ -137,7 +205,8 @@ flowchart LR
 Un document contient ce que l'utilisateur crée et peut annuler :
 
 - son nom ;
-- les instances : identifiant, nom (celui du groupe Faust), source, empreinte du code, position, valeurs des paramètres, réglages d'accéléromètre, modulations (widget, mode, bornes) ;
+- son environnement Faust : version de libfaust et empreinte de l'environnement de bibliothèques, et la version du générateur (\ref{sec:preservation}) ;
+- les instances : identifiant, nom (celui du groupe Faust), provenance, empreinte du code, position, valeurs des paramètres, réglages d'accéléromètre, modulations (widget, mode, bornes) ;
 - les positions des modules d'entrée et de sortie physiques ;
 - les connexions.
 
@@ -154,10 +223,12 @@ Ce contenu est exactement l'état qu'utilise déjà l'annulation (`Scene.capture
   "format": "faustmodular-document",
   "version": 4,
   "name": "Vibrato",
+  "faust": { "libfaust": "2.90.19", "libraries": "9b04…" },
+  "generator": 1,
   "instances": [
     {
       "id": "1", "name": "SOscillator",
-      "source": { "kind": "builtin", "path": "generators/SOscillator.dsp" },
+      "origin": { "kind": "builtin", "path": "generators/SOscillator.dsp" },
       "code": "3f1c…", "x": 480, "y": 120,
       "params": { "/SOscillator/Frequency": 300 },
       "acc": [], "modulations": [ { "widget": "/SOscillator/Frequency", "mode": "modulate", "…": "…" } ]
@@ -203,6 +274,10 @@ faustmodular/
     <uuid>.json          module utilisateur : nom, catégorie, versions
   codes/
     <sha1>.dsp           magasin de codes, partagé
+  libraries/
+    <sha1>.lib           fichiers de bibliothèques Faust, par empreinte
+  environments/
+    <sha1>.json          environnements : nom de fichier .lib → empreinte
   trash/                 documents et modules supprimés, restaurables
   cache/                 factories compilées (reconstructibles)
 ```
@@ -219,6 +294,8 @@ Un code est **vivant** s'il est référencé par :
 - l'historique d'annulation du document ouvert (en mémoire).
 
 La collecte marque les codes vivants à partir de ces racines et supprime les autres. Elle a lieu au démarrage et quand on vide la corbeille, jamais pendant une restauration de l'historique. Les codes des modules prédéfinis sont toujours reconstructibles et peuvent être collectés comme les autres.
+
+La même règle vaut pour les bibliothèques : un environnement est vivant s'il est référencé par un document vivant (ou par l'historique ouvert), et un fichier `.lib` s'il appartient à un environnement vivant. L'environnement livré avec le logiciel est toujours reconstructible.
 
 # Les surfaces \label{sec:surfaces}
 
@@ -244,10 +321,10 @@ Fichier ▾
 
 # L'échange \label{sec:echange}
 
-- **Exporter un document** produit un fichier JSON **autonome** : le document et les codes qu'il référence, ainsi que les métadonnées des modules utilisateur concernés (nom, catégorie). Les codes étant du texte, un fichier unique suffit, sans archive.
-- **Importer** ajoute les codes au magasin (sans doublon, grâce aux empreintes), crée les modules utilisateur absents (ou rattache ceux qui existent déjà, reconnus par leur identifiant) et ouvre le document comme un **nouveau** document : l'import n'écrase jamais un document existant.
+- **Exporter un document** produit un fichier JSON **autonome** : le document et les codes qu'il référence, ainsi que les métadonnées des modules utilisateur concernés (nom, catégorie), et son environnement de bibliothèques (manifeste et fichiers `.lib`, \ref{sec:environnement}). Les codes et les bibliothèques étant du texte, un fichier unique suffit, sans archive.
+- **Importer** ajoute les codes et les bibliothèques au magasin (sans doublon, grâce aux empreintes), applique la règle du statut (\ref{sec:statut}) : chaque code absent de la bibliothèque livrée rejoint le module utilisateur qui le contient, ou en crée un. Le document s'ouvre comme un **nouveau** document : l'import n'écrase jamais un document existant.
 - **Exemples.** Les exemples du menu actuel deviennent « Nouveau depuis un exemple » : chacun crée un nouveau document.
-- **Anciens formats.** Les fichiers des versions 1, 2 et 3 s'importent de la même façon : chaque code est extrait (sans son enveloppe) vers le magasin, et chaque instance devient la première version d'un module utilisateur, sauf si son code est identique à celui d'un module prédéfini.
+- **Anciens formats.** Les fichiers des versions 1, 2 et 3 s'importent de la même façon : chaque code est extrait (sans son enveloppe) vers le magasin, et la règle du statut s'applique. Ces fichiers ne disent pas avec quelles bibliothèques ils ont été écrits : ils reçoivent l'environnement livré.
 - **Partage par lien** (plus tard) : un document compressé dans l'URL, comme les liens de faustcode, plafonné en taille ; au-delà, le fichier exporté.
 
 # Le partage \label{sec:partage}
@@ -271,7 +348,7 @@ La thèse de ce document le prépare sans rien imposer :
 - **Quota dépassé.** L'erreur d'écriture est interceptée et signalée, avec l'espace utilisé et les moyens d'en libérer (vider la corbeille).
 - **Migration de l'existant.** Au premier démarrage, de façon idempotente :
   1. chaque scène de la clé `FaustPlayground` du stockage local devient un document (copie validée = la scène) ;
-  2. ses codes partent dans le magasin, ses instances deviennent des modules utilisateur (règle des anciens formats, \ref{sec:echange}) ;
+  2. ses codes partent dans le magasin, la règle du statut s'applique (\ref{sec:statut}) et ses documents reçoivent l'environnement livré ;
   3. la migration est marquée faite ; l'ancienne clé est conservée en filet de sécurité, puis effacée après au moins 7 jours **et** 2 démarrages réussis (règle de markpage).
 - **Aucun abandon silencieux.** Ce qui ne peut être importé ou migré (un code qui ne compile plus) est signalé, jamais perdu sans trace.
 
@@ -282,9 +359,12 @@ Décisions prises par cette spécification :
 1. Un code est immuable et identifié par le SHA-1 de son texte ; le magasin garde le code de l'utilisateur, sans enveloppe.
 2. Une instance est épinglée à une version ; « Mettre à jour » est explicite et annulable.
 3. Placer un module prédéfini ne crée pas de module utilisateur ; déposer un fichier ou modifier un code en crée un (ou une nouvelle version).
-4. Copie validée et copie de travail, sauvegarde automatique de la copie de travail ; ouvrir ou importer ne remplace jamais un document.
-5. Stockage OPFS ; collecte des codes par marquage depuis les modules, les documents et l'historique ouvert.
-6. Fichier exporté autonome, en JSON, format version 4.
+4. Le statut prédéfini ou utilisateur se déduit du contenu, à chaque ouverture ; un module prédéfini qui a évolué devient, dans les anciens documents, un module utilisateur qui garde l'ancien code.
+5. Les bibliothèques Faust sont épinglées par document (environnement identifié par empreinte) ; le code expansé n'est pas stocké.
+6. Le générateur de faustmodular (enveloppe, modulations) est versionné dans le document.
+7. Copie validée et copie de travail, sauvegarde automatique de la copie de travail ; ouvrir ou importer ne remplace jamais un document.
+8. Stockage OPFS ; collecte des codes et des bibliothèques par marquage depuis les modules, les documents et l'historique ouvert.
+9. Fichier exporté autonome, en JSON, format version 4.
 
 Points ouverts :
 
@@ -294,13 +374,16 @@ Points ouverts :
 - **Synchronisation** avec Google Drive : la conserver comme cible d'export, ou la retirer.
 - **Magasin commun** avec faustcode et faustdaw (\ref{sec:partage}).
 - **fauststore**, magasin public de code Faust (\ref{sec:fauststore}) : pas pour tout de suite, mais la convention d'empreinte et les modules utilisateur versionnés le préparent.
+- **Système de paquets immuables.** Reconstituer la spécification du gestionnaire de paquets Faust (GSoC 2024) et y ajouter ce qui manque au registre actuel : une empreinte publiée pour chaque version, et l'interdiction de réécrire une version publiée. fauststore pourrait en être le registre.
+- **Taille de l'export autonome** : l'environnement complet pèse environ 2 Mo de texte. N'y mettre que les fichiers effectivement lus à la compilation demande de savoir les obtenir de libfaust (à vérifier).
 
 # Phases \label{sec:phases}
 
 Chaque phase est utile seule.
 
-1. **Documents.** Magasin de codes, documents en OPFS (copie validée et de travail), autosave, Nouveau, Ouvrir, Enregistrer, Revenir, Renommer, Dupliquer, Supprimer, corbeille ; migration du stockage local. La bibliothèque reste celle d'aujourd'hui.
-2. **Modules utilisateur.** Création au dépôt d'un fichier et à la modification dans faustcode, versions, instances épinglées et mise à jour, colonne Mes modules.
+1. **Documents.** Magasin de codes, documents en OPFS (copie validée et de travail), autosave, Nouveau, Ouvrir, Enregistrer, Revenir, Renommer, Dupliquer, Supprimer, corbeille ; migration du stockage local. La bibliothèque reste celle d'aujourd'hui. Le document enregistre déjà `faust` et `generator`, pour que les documents créés dès cette phase soient préservables.
+2. **Modules utilisateur.** Création au dépôt d'un fichier et à la modification dans faustcode, versions, instances épinglées et mise à jour, colonne Mes modules ; index des empreintes de la bibliothèque, `library-history.json` et règle du statut.
 3. **Échange.** Export et import du document autonome (version 4), import des anciens formats, exemples comme modèles.
-4. **Confort.** Lecture seule du second onglet, cache des factories compilées, espace utilisé, persistance de l'historique.
-5. **Convergence.** Magasin commun avec faustcode, puis faustdaw.
+4. **Bibliothèques épinglées.** Environnements et fichiers `.lib` dans le magasin, compilation dans l'environnement du document, « Mettre à jour les bibliothèques » avec diagnostic par expansion, résolution des références `pkg:`.
+5. **Confort.** Lecture seule du second onglet, cache des factories compilées, espace utilisé, persistance de l'historique.
+6. **Convergence.** Magasin commun avec faustcode, puis faustdaw.
