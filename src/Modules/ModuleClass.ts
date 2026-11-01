@@ -4,6 +4,7 @@
 */
 import type { FaustDspFactory } from "@grame/faustwasm";
 
+import { sliderRange, valueAt } from "../model/SliderScale";
 import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView } from "./FaustInterface";
 import { Message } from "../Messages";
 import { ModuleFaust } from "./ModuleFaust";
@@ -285,7 +286,8 @@ export class ModuleClass {
         var val: string
         if (faustControler.faustInterfaceView.slider) {
             var input: HTMLInputElement = faustControler.faustInterfaceView.slider;
-            val = Number((parseFloat(input.value) * parseFloat(faustControler.itemParam.step)) + parseFloat(faustControler.itemParam.min)).toFixed(parseFloat(faustControler.precision));
+            // linear or logarithmic ([scale:log]) scale: model/SliderScale.ts
+            val = valueAt(faustControler.range ?? sliderRange(faustControler.itemParam), parseFloat(input.value)).toFixed(parseFloat(faustControler.precision));
         } else if (faustControler.faustInterfaceView.button) {
             var input: HTMLInputElement = faustControler.faustInterfaceView.button;
             if (faustControler.value == undefined || faustControler.value == "0") {

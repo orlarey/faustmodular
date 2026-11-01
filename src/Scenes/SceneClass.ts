@@ -18,6 +18,7 @@ import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, Precomp
 import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
+import { setControlerValue } from "../Modules/FaustInterface";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
@@ -247,8 +248,8 @@ export class Scene {
             if (!controler || parseFloat(controler.value) == value) continue;
             var slider = controler.faustInterfaceView.slider;
             if (slider) {
-                slider.value = String(Math.round((value - parseFloat(controler.itemParam.min)) / parseFloat(controler.itemParam.step)));
-                slider.dispatchEvent(new Event("input"));
+                // the value as it is (with a logarithmic scale, the position is not exact)
+                setControlerValue(controler, value, (a, v) => module.moduleFaust.getDSP().setParamValue(a, v));
             } else {
                 controler.value = String(value);
                 module.moduleFaust.getDSP().setParamValue(address, value);
@@ -733,8 +734,8 @@ export class Scene {
         var controler = depth.module.moduleControles.find((c) => c.itemParam.address == depth!.address);
         var slider = controler?.faustInterfaceView.slider;
         if (controler && slider) {
-            slider.value = String(Math.round((value - parseFloat(controler.itemParam.min)) / parseFloat(controler.itemParam.step)));
-            slider.dispatchEvent(new Event("input"));
+            setControlerValue(controler, value, (a, v) => depth!.module.moduleFaust.getDSP().setParamValue(a, v));
+            this.markModified();
         } else {
             depth.module.moduleFaust.getDSP().setParamValue(depth.address, value);
         }

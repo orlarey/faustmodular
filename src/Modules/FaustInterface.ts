@@ -2,6 +2,7 @@ import { AccelerometerHandler, AccelerometerSlider, Axis } from "../Acceleromete
 import { Utilitary } from "../Utilitary";
 import { ModuleClass } from "./ModuleClass";
 import { choicesOf } from "../model/WidgetStyle";
+import { positionOf, sliderRange, sliderSteps, SliderRange } from "../model/SliderScale";
 
 /*				FAUSTINTERFACE.JS
 
@@ -37,6 +38,7 @@ interface FaustMeta {
     noacc: string;
     unit: string;
     style?: string;
+    scale?: string;
 }
 
 export interface AccParams {
@@ -69,6 +71,7 @@ export class FaustInterfaceControler {
     acc: string;
     value: string;
     accParams: AccParams;
+    range: SliderRange;
 
     accelerometerSlider: AccelerometerSlider;
     faustInterfaceView: FaustInterfaceView;
@@ -160,6 +163,7 @@ export class FaustInterfaceControler {
         if (this.itemParam.step != undefined) {
             var precision = this.itemParam.step.toString().split('.').pop()!.length;
             this.precision = String(precision);
+            this.range = sliderRange(this.itemParam);
         }
         this.accParams = {
             isEnabled: this.isEnabled,
@@ -176,7 +180,7 @@ export class FaustInterfaceControler {
     createFaustInterfaceElement(): HTMLElement | undefined {
         if (this.faustInterfaceView && this.faustInterfaceView.type) {
             if (this.faustInterfaceView.type === "vslider" || this.faustInterfaceView.type === "hslider") {
-                return this.faustInterfaceView.addFaustModuleSlider(this.itemParam, parseFloat(this.precision), this.unit)
+                return this.faustInterfaceView.addFaustModuleSlider(this.itemParam, parseFloat(this.precision), this.unit, this.range)
             } else if (this.faustInterfaceView.type === "button") {
                 return this.faustInterfaceView.addFaustButton(this.itemParam);
             } else if (this.faustInterfaceView.type === "checkbox") {
@@ -280,11 +284,23 @@ export class FaustInterfaceControler {
     //callback to update the dsp value
     callbackValueChange(address: string, value: number) {
         this.setDSPValueCallback(address, String(value));
-        this.faustInterfaceView.slider.value = String((value - parseFloat(this.itemParam.min)) / parseFloat(this.itemParam.step))
+        this.faustInterfaceView.slider.value = String(positionOf(this.range, value))
         this.faustInterfaceView.output.textContent = String(value.toFixed(parseFloat(this.precision)));
         this.faustInterfaceView.syncChoice();
 
     }
+}
+
+// A value set by the program (recall, undo, depth of a modulation): applied as it is, the slider
+// only showing it (with a logarithmic scale, the position is not exact).
+export function setControlerValue(controler: FaustInterfaceControler, value: number, apply: (address: string, value: number) => void): void {
+    var text = controler.precision !== undefined ? value.toFixed(parseFloat(controler.precision)) : String(value);
+    controler.value = text;
+    var view = controler.faustInterfaceView;
+    if (view?.slider && controler.range) view.slider.value = String(positionOf(controler.range, value));
+    if (view?.output) view.output.textContent = text + " " + (controler.unit ?? "");
+    view?.syncChoice();
+    apply(controler.itemParam.address, Number(text));
 }
 
 /********************************************************************
@@ -301,11 +317,12 @@ export class FaustInterfaceView {
     // slider, hidden, stays the state of the widget (saving, undo, modulation, accelerometer)
     private fChoice: { select?: HTMLSelectElement; radios?: HTMLInputElement[]; values: number[] } | null = null;
     private fItemParam: Iitem | null = null;
+    private fRange: SliderRange | null = null;
 
     constructor(type: string) {
         this.type = type;
     }
-    addFaustModuleSlider(itemParam: Iitem, precision: number, unit: string): HTMLElement {
+    addFaustModuleSlider(itemParam: Iitem, precision: number, unit: string, range: SliderRange = sliderRange(itemParam)): HTMLElement {
 
         var group = document.createElement("div");
         group.className = "control-group";
@@ -333,13 +350,14 @@ export class FaustInterfaceView {
 
         group.appendChild(info);
 
-        var high: number = (parseFloat(itemParam.max) - parseFloat(itemParam.min)) / parseFloat(itemParam.step);
+        this.fRange = range;
+        if (range.log) group.classList.add("control-log");
 
         var slider: HTMLInputElement = document.createElement("input");
         slider.type = "range";
         slider.min = "0";
-        slider.max = String(high);
-        slider.value = String((parseFloat(itemParam.init) - parseFloat(itemParam.min)) / parseFloat(itemParam.step));
+        slider.max = String(sliderSteps(range));
+        slider.value = String(positionOf(range, parseFloat(itemParam.init)));
         slider.step = "1";
         this.slider = slider;
         group.appendChild(slider);
@@ -353,8 +371,7 @@ export class FaustInterfaceView {
 
     // The value of a choice as a position of the slider.
     private position(value: number): number {
-        var p = this.fItemParam!;
-        return Math.round((value - parseFloat(p.min)) / parseFloat(p.step));
+        return positionOf(this.fRange ?? sliderRange(this.fItemParam!), value);
     }
 
     private addChoices(choices: NonNullable<ReturnType<typeof choicesOf>>, group: HTMLElement, slider: HTMLInputElement, value: HTMLElement): void {

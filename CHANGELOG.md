@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.4.0 (2026-11-01)
+
+- **Logarithmic sliders** (`[scale:log]`), as in faustcode and the Faust UIs: equal moves of the slider
+  give equal ratios of the value (the middle of 0.01..20 Hz is √(0.01·20) ≈ 0.45 Hz, not 10 Hz). Only for
+  positive ranges (0 < min < max): the values are then always > 0, rounded to the step of the widget and
+  kept in [min, max]; with min ≤ 0 the logarithm is undefined and the slider stays linear.
+- The conversions between the position of a slider and its value are in one place
+  (`src/model/SliderScale.ts`): the display, the callback of the slider, menus and radio buttons, and
+  the accelerometer use it. A value set by the program (recall, undo and redo, the depth of a
+  modulation) is applied as it is and the position only shows it, so that a logarithmic slider keeps
+  exact values (`setControlerValue`).
+- Modulating a `[scale:log]` widget was already exponential (in octaves), like `[unit:Hz]`.
+
 ## 3.3.0 (2026-11-01)
 
 - **Menus and radio buttons**: a slider with `[style:menu{'sine':0;'triangle':1}]` is shown as a menu,

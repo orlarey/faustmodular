@@ -881,4 +881,55 @@ describe("widget styles", () => {
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
+
+    it("moves a [scale:log] slider in equal ratios, values > 0, and keeps exact values on undo and recall", async () => {
+        const { page, errors } = await openApp();
+        const lfo = await addModule(page, "LFO", `import("stdfaust.lib"); process = vgroup("LFO", os.osc(rate) * gain)
+            with { rate = hslider("Rate[unit:Hz][scale:log]", 1, 0.01, 20, 0.01); gain = hslider("Gain[scale:log]", 0.5, 0, 1, 0.01); };`, 150);
+        await flush(page);
+        const slider = (label: string) => page.evaluate(([m, l]) => {
+            const c = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((c: any) => c.itemParam.label == l);
+            return { position: Number(c.faustInterfaceView.slider.value), max: Number(c.faustInterfaceView.slider.max), value: Number(c.value), shown: c.faustInterfaceView.output.textContent.trim() };
+        }, [lfo, label]);
+        const move = (label: string, position: number) => page.evaluate(([m, l, p]) => {
+            const c = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((c: any) => c.itemParam.label == l);
+            c.faustInterfaceView.slider.value = String(p);
+            c.faustInterfaceView.slider.dispatchEvent(new Event("input"));
+        }, [lfo, label, position] as [string, string, number]);
+        // initial value 1 Hz: at log(100)/log(2000) of the way, not at 1/20
+        let rate = await slider("Rate");
+        expect(rate.value).toBe(1);
+        expect(rate.position / rate.max).toBeCloseTo(Math.log(100) / Math.log(2000), 2);
+        // the middle of the slider: the geometric middle, √(0.01·20) ≈ 0.45 Hz; the ends: 0.01 and 20
+        await move("Rate", Math.round(rate.max / 2));
+        expect((await slider("Rate")).value).toBeCloseTo(0.45, 2);
+        expect((await slider("Rate")).shown).toBe("0.45 Hz");
+        await move("Rate", 0);
+        expect((await slider("Rate")).value).toBe(0.01);
+        await move("Rate", rate.max);
+        expect((await slider("Rate")).value).toBe(20);
+        // a range starting at 0 cannot be logarithmic: linear
+        await move("Gain", 25);
+        expect((await slider("Gain")).value).toBe(0.25);
+
+        // a value set by the program is kept as it is (the position only shows it)
+        await page.evaluate((m) => (globalThis as any).faustPlayground.scene.restoreParams((globalThis as any).faustPlayground.scene.getModuleById(m), { "/LFO/Rate": 3.17 }), lfo);
+        expect((await slider("Rate")).value).toBe(3.17);
+        await flush(page);
+        const saved = await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false));
+        await move("Rate", 10);
+        await flush(page);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        expect((await slider("Rate")).value).toBe(3.17);
+        await page.evaluate((json) => (globalThis as any).faustPlayground.scene.recallScene(json), saved);
+        const recalled = await page.evaluate(() => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const c = s.getModules()[0].moduleControles.find((c: any) => c.itemParam.label == "Rate");
+            return { value: Number(c.value), dsp: s.getModules()[0].moduleFaust.getDSP().getParamValue(c.itemParam.address) };
+        });
+        expect(recalled.value).toBe(3.17);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
 });
+
