@@ -6,7 +6,7 @@ import("stdfaust.lib");
 
 - Gate signal: 1 during a fraction of each period, 0 otherwise
 - Tempo in beats per minute, Length: fraction of the period where the gate is on
-- To trigger envelopes (ADSR) or drive buttons ("drive" in the palette)
+- To trigger envelopes (ADSR) or drive buttons (release the cable on the button)
 
 */
 

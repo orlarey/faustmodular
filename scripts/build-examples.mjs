@@ -18,7 +18,7 @@ async function openApp() {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     page.on("pageerror", (e) => { throw e; });
     await page.goto(server.resolvedUrls.local[0]);
-    await page.waitForFunction(() => globalThis.faustPlayground?.scene, null, { timeout: 60_000 });
+    await page.waitForFunction(() => globalThis.faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return page;
 }
 

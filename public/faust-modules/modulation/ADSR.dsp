@@ -6,7 +6,7 @@ import("stdfaust.lib");
 
 - Envelope generator, unipolar output in [0, 1]
 - Triggered by its input (a gate: on while above 0, e.g. from Clock) or by its Gate button
-- To shape a level: connect the output to a gain and choose "scale" in the palette
+- To shape a level: release the cable on a gain slider set to its minimum
 
 */
 

@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.6.0",
+ "version": "3.7.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -23,8 +23,8 @@
   "faust-modules/combined/RandomFlute.dsp": "1a4ea2c00e0a07569457b302ac44f42e18f46709",
   "faust-modules/combined/Seaside.dsp": "bfccebc9b2f47ac375fa92e3abaefce18c9fe8a5",
   "faust-modules/combined/StalactiteHarp.dsp": "f3c01dc385428c9059cea5e35616cb4ac2fb2529",
-  "faust-modules/combined/TibetanBowl.dsp": "b91cffc600dc20adf160b4410b847e4a11c8e98c",
-  "faust-modules/combined/TibetanBowlMulti.dsp": "4881262edfda27061a9af369187c787cf166c324",
+  "faust-modules/combined/TibetanBowl.dsp": "d5dac24746be729461ac03ce96330b9323a300db",
+  "faust-modules/combined/TibetanBowlMulti.dsp": "f76045ce744a8d975341a09db4f1d4c1987f0b06",
   "faust-modules/combined/TunedBars.dsp": "cca56133358ed201c110929b852e693554179c46",
   "faust-modules/combined/Whistles.dsp": "d44ee896fad9760827f7a3f5936403afce274546",
   "faust-modules/combined/WoodenKeyboard.dsp": "9cceb5e17f1b863876eb53ff3a518c707dbcd84e",
@@ -44,7 +44,7 @@
   "faust-modules/effects/InstrReverb.dsp": "5f9b760645b6d62ad7f32f90e8975371dabbed1d",
   "faust-modules/effects/Loop.dsp": "a3cac94bdd318d40a36b90439297d5f436b52f4b",
   "faust-modules/effects/LowPassFilter.dsp": "d9fbf9a7e4493531b041ecbc462051e904c02754",
-  "faust-modules/effects/Modulations.dsp": "eab59d6ad14e7451887f93b060c998f3da639c29",
+  "faust-modules/effects/Modulations.dsp": "f57a6cf73cfd893ac2fd92feb87ea92661bbc226",
   "faust-modules/effects/Notch.dsp": "bd4e9dcbe19f2bb63343965d255e8dc0239a1032",
   "faust-modules/effects/PeakEqualizer.dsp": "791f2372a2bbc259c2b2e6b8b0cd7dde8d54c9f2",
   "faust-modules/effects/Phaser.dsp": "9ecb69b97888a3b8a7de0250ccbe5ff031c5032d",
@@ -79,7 +79,7 @@
   "faust-modules/generators/SModulation4.dsp": "1610879e025570c3a3414ca104469c616f7aa8d0",
   "faust-modules/generators/SNoise.dsp": "41a76bc8c32f950b4c6c29c0284e5e2c47276535",
   "faust-modules/generators/SNoiseburst.dsp": "8cace59d49f60ebc99a529c4a462e501002ba5f0",
-  "faust-modules/generators/SNoiseS.dsp": "53d931590fc471582c563be46235c37944d70d7a",
+  "faust-modules/generators/SNoiseS.dsp": "8cdb469096b4638fc1ea3029bfcdba4004af0018",
   "faust-modules/generators/SOscillator.dsp": "493df9c677cef6c89fbc10b4c0d8eb4363624e88",
   "faust-modules/generators/SPentatonicBlowBottle.dsp": "2fce9d439d1da14bc78b0598ba8775051ae5bf12",
   "faust-modules/generators/SPentatonicDryHarp.dsp": "b47e0114d7e864c38b599bfb97fef8255f5970fd",
@@ -89,17 +89,17 @@
   "faust-modules/generators/SRandomAndHold.dsp": "2881c90fc25be4ef3d9dca01bde3289227dab2f2",
   "faust-modules/generators/SRandomFlute.dsp": "9c5993bb150adbec0329b3304a64f5f3fdd84387",
   "faust-modules/generators/SRandomFrequencyGenerator.dsp": "ca4501b03f2127c1161d7f80075b538a628c2b7a",
-  "faust-modules/generators/STibetanBowl.dsp": "ddfb6da68e7e6bf932b0f1d98e61424b691fbad3",
-  "faust-modules/generators/STinkle.dsp": "3cddf83d12d114a3d424d85b0850047eb87fd4c9",
+  "faust-modules/generators/STibetanBowl.dsp": "665bc21aa49e218b6807df3144950c8744a54321",
+  "faust-modules/generators/STinkle.dsp": "34047c457786de594c1df78db71768c4d8cbe260",
   "faust-modules/generators/STunedBar.dsp": "6e155977bfa8c5203495278085d057c3954ebfee",
   "faust-modules/generators/STunedBar3.dsp": "c22925d5a117d940d375f21da72fcf5d463f7a91",
   "faust-modules/generators/STunedBar6.dsp": "21f93326309dbc83a4747072e5740dcccf31e97b",
   "faust-modules/generators/SWhistles2.dsp": "3509d0a8bdc962acf031c6ff0b5dc7a31936858d",
   "faust-modules/generators/SWhistles3.dsp": "c06ac80e03d05c347892c1823b22b6738799e097",
-  "faust-modules/modulation/ADSR.dsp": "ed6fccef688d28f1efffaa9daf2aab1a1f7019b0",
-  "faust-modules/modulation/Clock.dsp": "5e59f97909161c6d9af1dcc6022a1c0a0dad348e",
+  "faust-modules/modulation/ADSR.dsp": "67a93afa4f049052341c01e0aaa8f737489823bb",
+  "faust-modules/modulation/Clock.dsp": "7bae6a0a73332d865e3636f4ca48e5cb0a130464",
   "faust-modules/modulation/EnvelopeFollower.dsp": "7c6f83ee9785e030c4505f7a539275fe65ad211c",
-  "faust-modules/modulation/LFO.dsp": "121925953af580274ce2a5b54fabd15a0a8c8c54",
+  "faust-modules/modulation/LFO.dsp": "c5d3e1af87ae48a00699acff7ef95e1b9830d4bb",
   "faust-modules/modulation/QuadLFO.dsp": "0ff2329e99d71c7d5b2df16c2f4d310c9cb03299",
   "faust-modules/modulation/Random.dsp": "e453b6a62693a062ac565d36c326b99630d28f0d",
   "faust-modules/multichannel/AmbiDecoder3.dsp": "b10ee5e4dda067c7fb8ccfb8f1b45a7f0507a01d",
@@ -121,9 +121,33 @@
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
   },
+  "121925953af580274ce2a5b54fabd15a0a8c8c54": {
+   "path": "faust-modules/modulation/LFO.dsp",
+   "until": "3.6.0"
+  },
   "2bf8d5a92b081672de8096edbcb6b75a6820b41c": {
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
+  },
+  "3cddf83d12d114a3d424d85b0850047eb87fd4c9": {
+   "path": "faust-modules/generators/STinkle.dsp",
+   "until": "3.6.0"
+  },
+  "43282b3294dfc2b67d54a9538d7db1ccb707f5cd": {
+   "path": "faust-modules/modulation/ADSR.dsp",
+   "until": "3.6.0"
+  },
+  "4881262edfda27061a9af369187c787cf166c324": {
+   "path": "faust-modules/combined/TibetanBowlMulti.dsp",
+   "until": "3.6.0"
+  },
+  "53d931590fc471582c563be46235c37944d70d7a": {
+   "path": "faust-modules/generators/SNoiseS.dsp",
+   "until": "3.6.0"
+  },
+  "5e59f97909161c6d9af1dcc6022a1c0a0dad348e": {
+   "path": "faust-modules/modulation/Clock.dsp",
+   "until": "3.6.0"
   },
   "61176db1bc3b0ad454d5331cd0e312db367d7719": {
    "path": "faust-modules/display/Scope.dsp",
@@ -137,9 +161,25 @@
    "path": "faust-modules/display/Value.dsp",
    "until": "3.4.0"
   },
+  "b91cffc600dc20adf160b4410b847e4a11c8e98c": {
+   "path": "faust-modules/combined/TibetanBowl.dsp",
+   "until": "3.6.0"
+  },
+  "ddfb6da68e7e6bf932b0f1d98e61424b691fbad3": {
+   "path": "faust-modules/generators/STibetanBowl.dsp",
+   "until": "3.6.0"
+  },
   "e65b23a949abd5e6bd788afc5da93b1238476bb8": {
    "path": "faust-modules/display/StereoLevel.dsp",
    "until": "3.4.0"
+  },
+  "eab59d6ad14e7451887f93b060c998f3da639c29": {
+   "path": "faust-modules/effects/Modulations.dsp",
+   "until": "3.6.0"
+  },
+  "ed6fccef688d28f1efffaa9daf2aab1a1f7019b0": {
+   "path": "faust-modules/modulation/ADSR.dsp",
+   "until": "3.6.0"
   }
  }
 }

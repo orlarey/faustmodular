@@ -34,7 +34,7 @@ process = (((select-1)*-1) <:
 freq = hslider("[1]Frequency[unit:Hz][tooltip:Tone frequency]",440,180,780,1);
 gain = 0.5;
 gate = 0;
-select = hslider("[0]Play[tooltip:0=Bow; 1=Strike] [acc:2 1 -10 0 10]", 0,0,1,1);
+select = hslider("[0]Play[style:radio{'bow':0;'strike':1}][acc:2 1 -10 0 10]", 0,0,1,1);
 baseGain = 0.5;
 typeModulation = 3;
 nonLinearity = hslider("[2]Modulation[acc:0 1 -10 0 10][tooltip:Nonlinearity factor (value between 0 and 1)]",0.02,0,0.1,0.001):si.smooth(0.999);

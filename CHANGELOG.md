@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.7.0 (2026-11-01)
+
+- **Menus and radio buttons in the library**, where a slider chose among named options:
+  - LFO, Shape: a menu (sine, triangle, square, saw);
+  - SNoiseS, Noise Type: a menu (mute, pink, white), as the code reads it (the tooltip of Pink Noise
+    Volume said the opposite and is removed);
+  - Modulations (effect), Modulation Type: a menu named after `instruments.lib` (by the input, by the
+    averaged input, by the squared input, by a sine at the modulating frequency, by a sine at the
+    frequency), instead of radio buttons labelled 0 to 4;
+  - TibetanBowl, TibetanBowlMulti, STibetanBowl, STinkle, Play: radio buttons (bow, strike).
+  The accelerometer mappings of these sliders are kept. The ON/OFF sliders and the Instrument Hand
+  sliders stay sliders (a switch and a position, not choices).
+- The descriptions of LFO, ADSR and Clock no longer mention the palette (removed in 2.9.0).
+- The examples are built again with the current library (and the positions of the physical modules).
+  In the documents made before, the instances of the modules changed become user modules that keep their
+  code, with an update (↑) to the new library module.
+
 ## 3.6.0 (2026-11-01)
 
 - **Zoom and move the stage**, for large scenes: Ctrl/Cmd + wheel (or pinching a trackpad) zooms around
