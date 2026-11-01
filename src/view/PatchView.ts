@@ -26,6 +26,7 @@
 */
 
 import type { ModulationMode } from "../model/Modulation";
+import { DEFAULT_DEPTH } from "../model/Modulation";
 import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
@@ -358,7 +359,7 @@ export class PatchView {
             if (mode == "modulate") {
                 port.addEventListener("dblclick", (e) => {
                     e.stopPropagation();
-                    this.fModulation?.setDepth(id, modulation.id, 1);
+                    this.fModulation?.setDepth(id, modulation.id, DEFAULT_DEPTH);
                     this.showDepth(port, id, modulation.id);
                 });
             }

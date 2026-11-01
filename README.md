@@ -42,7 +42,9 @@ excursion. Put the slider at its minimum to open a level with an envelope (like 
 signal from 0 to 1 onto the whole range. A button or a checkbox is driven by the signal. The modulation then
 gets a port astride the left edge of the module, at the height of its widget, showing its type and,
 for **±**, its depth as a ring: drag the port vertically to set the depth (hold Shift for a fine
-adjustment), double click to set it back to 1. The
+adjustment), double click to set it back to 0.5, the depth of a new modulation. A widget whose
+modulation is removed remembers its depth: modulated again, by the same source or another, it gets it
+back (the depth is saved with the module). The
 "Modulation" category of the library holds LFOs, random, clock, ADSR and envelope follower sources.
 Patches with modulations are saved in format version 3.
 

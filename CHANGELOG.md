@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.0 (2026-11-01)
+
+- **Default depth of a ± modulation: 0.5** (half the way from the slider to its bounds), instead of 1. A
+  double click on the modulation port sets it back to 0.5.
+- **A widget remembers its depth**: when its modulation is removed (its last cable) and the widget is
+  modulated again, by the same source or another, the depth chosen before is used again. The remembered
+  depth is saved with the module's parameters (documents, patch files), unless it is the default one, so
+  that a modulation made and undone leaves the module as it was. `Modulation.DEFAULT_DEPTH`,
+  `isDepthAddress`, `Scene.moduleParams`.
+
 ## 3.0.0 (2026-11-01)
 
 Phase 1 of the documents (`Documentation/DOCUMENT-SPEC.md`).

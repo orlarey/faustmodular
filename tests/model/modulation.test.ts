@@ -93,15 +93,17 @@ describe("effective code", () => {
         // u = D·m bounded to [−1, 1]: w + u·(max − w) if u ≥ 0, w + u·(w − min) if u < 0
         const code = await modulated(MODULE, 2, [["gain", "modulate"]]);
         close((await run(code, [1, 0, 0])).out[0], 0.5);                   // m = 0: the slider value
-        close((await run(code, [1, 0, 1])).out[0], 1);                     // m = 1: the maximum
-        close((await run(code, [1, 0, -1])).out[0], 0);                    // m = −1: the minimum
+        close((await run(code, [1, 0, 1])).out[0], 0.75);                  // the default depth 0.5: half the way
+        const full = { "depth gain": 1 };
+        close((await run(code, [1, 0, 1], full)).out[0], 1);               // depth 1, m = 1: the maximum
+        close((await run(code, [1, 0, -1], full)).out[0], 0);              // m = −1: the minimum
         // a slider off centre (0.8): the way up (0.2) and the way down (0.8) are scaled apart
-        close((await run(code, [1, 0, 0.5], { gain: 0.8 })).out[0], 0.9);
-        close((await run(code, [1, 0, -0.5], { gain: 0.8 })).out[0], 0.4);
+        close((await run(code, [1, 0, 0.5], { gain: 0.8, ...full })).out[0], 0.9);
+        close((await run(code, [1, 0, -0.5], { gain: 0.8, ...full })).out[0], 0.4);
         // the depth sets the excursion, live; a negative depth inverts it
         close((await run(code, [1, 0, 1], { gain: 0.8, "depth gain": 0.5 })).out[0], 0.9);
         close((await run(code, [1, 0, 1], { gain: 0.8, "depth gain": -0.25 })).out[0], 0.6);
-        close((await run(code, [1, 0, 3], { gain: 0.8 })).out[0], 1);      // beyond ±1: bounded
+        close((await run(code, [1, 0, 3], { gain: 0.8 })).out[0], 1);      // beyond ±1 (3 · 0.5): bounded
         // the depth slider is marked, and cannot itself be modulated
         const depth = (await run(code, [1, 0, 0])).widgets.find((w) => w.label == "depth gain")!;
         expect(depth.meta).toMatchObject({ modulation: "gain" });
@@ -114,11 +116,11 @@ describe("effective code", () => {
         // In float32 the smoothed depth (si.smoo) settles ~1e-5 short of 1, an error that the exponent
         // multiplies by ln(max/w) ≈ 3.8: relative tolerance 3e-4 (0.5 cent).
         const near = (actual: number, expected: number) => expect(Math.abs(actual / expected - 1)).toBeLessThan(3e-4);
-        near((await run(code, [0])).out[0], 440);
-        near((await run(code, [0.5])).out[0], 440 * Math.sqrt(20000 / 440));     // half the octaves up to the maximum
-        near((await run(code, [-0.25])).out[0], 440 * (440 / 20) ** -0.25);
-        near((await run(code, [1])).out[0], 20000);
-        near((await run(code, [-1])).out[0], 20);
+        near((await run(code, [0], { "depth freq": 1 })).out[0], 440);
+        near((await run(code, [0.5], { "depth freq": 1 })).out[0], 440 * Math.sqrt(20000 / 440));     // half the octaves up to the maximum
+        near((await run(code, [-0.25], { "depth freq": 1 })).out[0], 440 * (440 / 20) ** -0.25);
+        near((await run(code, [1], { "depth freq": 1 })).out[0], 20000);
+        near((await run(code, [-1], { "depth freq": 1 })).out[0], 20);
     });
 
     it("× doser: w·m; ⇐ piloter: clip(m), the widget staying in the interface", async () => {

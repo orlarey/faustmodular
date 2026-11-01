@@ -15,7 +15,7 @@
 
     Modulation types (as in modular synthesizers):
     - "modulate" (±): the slider is the rest position. With u = D·m bounded to [−1, 1], D being a
-      depth slider of the circuit (−1..1, adjusted live without recompiling): u = 0 leaves the
+      depth slider of the circuit (−1..1, 0.5 by default, adjusted live without recompiling): u = 0 leaves the
       slider value w, u = 1 reaches the maximum, u = −1 the minimum, linearly in between:
           w + u·(max − w)  if u ≥ 0,      w + u·(w − min)  if u < 0;
       for frequencies (exponential, minimum > 0) the same in octaves:
@@ -50,6 +50,15 @@ export class ModulationError extends Error { }
 
 // Metadata key marking the depth sliders added by the modulations (to be shown apart in the interface).
 export const DEPTH_METADATA = "modulation";
+// Depth of a new ± modulation (and of a double click on its port): half the way to the bounds.
+export const DEFAULT_DEPTH = 0.5;
+
+// Address of the depth slider of a ± modulation: ".../depth_<key>" (label "depth <key>"). The value of
+// a depth whose modulation is removed is kept with the module's parameters: it is used again when the
+// widget is modulated again, by the same source or another.
+export function isDepthAddress(address: string): boolean {
+    return /(^|\/)depth_[^/]*$/.test(address);
+}
 
 // Labels Faust gives to groups without a label ("h:[1]/x" → group "0x00"): they are not in the source.
 const GENERATED_GROUP = /^0x[0-9a-f]+$/i;
@@ -157,7 +166,7 @@ export function circuit(spec: ModulationSpec): string {
         case "modulate": {
             const key = depthKey(spec);
             // step 0.001: the fine adjustment of the modulation port (Shift)
-            const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", 1, -1, 1, 0.001) : si.smoo`;
+            const depth = `hslider("[${DEPTH_METADATA}:${key}][style:knob]depth ${key}", ${DEFAULT_DEPTH}, -1, 1, 0.001) : si.smoo`;
             // u = D·m, bounded: the excursion around the slider value, as a fraction of the way to a bound
             const u = `(*(${depth}) : max(-1.0) : min(1.0))`;
             const [lo, hi] = [float(spec.min), float(spec.max)];

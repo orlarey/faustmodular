@@ -566,9 +566,10 @@ describe("widget modulation (scene API)", () => {
         expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.length, gain)).toBe(0);
         expect(await outputOf(page, gain)).toBeCloseTo(0.8, 5);
 
-        // ± moduler around the slider (0.8), u = D·0.25: 0.8 + u·(1 − 0.8) up, 0.8 + u·(0.8 − 0) down; D adjusted live
+        // ± moduler around the slider (0.8), u = D·0.25: 0.8 + u·(1 − 0.8) up, 0.8 + u·(0.8 − 0) down; D adjusted
+        // live, 0.5 by default
         expect(await modulate("modulate")).toBe(true);
-        expect(await outputOf(page, gain)).toBeCloseTo(0.85, 3);
+        expect(await outputOf(page, gain)).toBeCloseTo(0.825, 3);
         const depth = await page.evaluate((m) => {
             const s = (globalThis as any).faustPlayground.scene;
             const dsp = s.getModuleById(m).moduleFaust.getDSP();
@@ -715,7 +716,7 @@ describe("widget modulation (interface)", () => {
         await page.close();
     }, 120_000);
 
-    it("sets the depth by dragging the ± port, live, and back to 1 by double click", async () => {
+    it("sets the depth by dragging the ± port, live, back to 0.5 by double click, and remembers it", async () => {
         const { page, errors } = await openApp();
         // constant source 0.5 modulating a level of 0.5 over [0, 1]: output 0.5 + D·0.5·0.5
         const half = await addModule(page, "Half", 'process = vgroup("Half", 0.5);', 150);
@@ -737,31 +738,59 @@ describe("widget modulation (interface)", () => {
         }, [half, level])).toBe(true);
         const portSel = `.modulation-port.modulation-modulate[data-module="${level}"]`;
         await page.waitForSelector(portSel);
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.000");
-        expect(await output()).toBeCloseTo(0.75, 3);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.500");     // the default depth
+        expect(await output()).toBeCloseTo(0.625, 3);
         const dsp = await page.evaluateHandle((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP(), level);
 
-        // 140 px down: D = 1 − 1.4 = −0.4 (counterclockwise ring), output 0.5 − 0.1 = 0.4
+        // 140 px down: D = 0.5 − 1.4 = −0.9 (counterclockwise ring), output 0.5 − 0.9·0.25 = 0.275
         const p = await centerOf(page, portSel);
         await page.mouse.move(p.x, p.y);
         await page.mouse.down();
         await page.mouse.move(p.x, p.y + 140, { steps: 10 });
         await page.mouse.up();
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.400");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.900");
         expect(await page.locator(`${portSel}.negative`).count()).toBe(1);
-        expect(await output()).toBeCloseTo(0.4, 3);
+        expect(await output()).toBeCloseTo(0.275, 3);
         // live: same DSP (no recompilation), and no cable was drawn from the port
         expect(await page.evaluate(([d, m]) => d === (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP(), [dsp, level] as const)).toBe(true);
         expect((await state(page)).connections).toHaveLength(1);
         // saved with the patch, under the name of its widget
         const saved = JSON.parse(await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false)));
-        expect(saved.modules.find((m: any) => m.id == level).params["/Level/depth_level"]).toBeCloseTo(-0.4, 5);
+        expect(saved.modules.find((m: any) => m.id == level).params["/Level/depth_level"]).toBeCloseTo(-0.9, 5);
+
+        // the modulation removed with its cable, then made again from another source: same depth
+        await page.evaluate((m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.disconnect(s.patch.connectionsTo(m)[0].id);
+        }, level);
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 0, level);
+        const other = await addModule(page, "Other", 'process = vgroup("Other", 0.5);', 150);
+        await page.evaluate(async ([f, o]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            return s.modulate({ module: f, port: 0 }, o, s.widgetsOf(s.getModuleById(o)).find((w: any) => w.label == "level").address, "modulate");
+        }, [other, level]);
+        await page.waitForSelector(portSel);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("-0.900");
+        expect(await output()).toBeCloseTo(0.275, 3);
+        // saved with the module while the widget is not modulated (documents, patch files)
+        await page.evaluate((m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.disconnect(s.patch.connectionsTo(m)[0].id);
+        }, level);
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() == 0, level);
+        const unmodulated = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.describePatch().modules.find((x: any) => x.id == m).params, level);
+        expect(unmodulated["/Level/depth_level"]).toBeCloseTo(-0.9, 5);
+        await page.evaluate(async ([f, o]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            return s.modulate({ module: f, port: 0 }, o, s.widgetsOf(s.getModuleById(o)).find((w: any) => w.label == "level").address, "modulate");
+        }, [half, level]);
+        await page.waitForSelector(portSel);
 
         await page.dblclick(portSel);
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("1.000");
-        expect(await output()).toBeCloseTo(0.75, 3);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.500");
+        expect(await output()).toBeCloseTo(0.625, 3);
 
-        // with Shift, ten times finer: 140 px down = −0.14 (output 0.5 + 0.86·0.25 = 0.715); pressing
+        // with Shift, ten times finer: 140 px down = −0.14 (output 0.5 + 0.36·0.25 = 0.59); pressing
         // Shift during the gesture does not make the value jump
         await page.mouse.move(p.x, p.y);
         await page.mouse.down();
@@ -769,8 +798,8 @@ describe("widget modulation (interface)", () => {
         await page.mouse.move(p.x, p.y + 140, { steps: 10 });
         await page.mouse.up();
         await page.keyboard.up("Shift");
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.860");
-        expect(await output()).toBeCloseTo(0.715, 3);
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.360");
+        expect(await output()).toBeCloseTo(0.59, 3);
         await page.mouse.move(p.x, p.y);
         await page.mouse.down();
         await page.mouse.move(p.x, p.y + 20, { steps: 2 });         // −0.2
@@ -778,7 +807,7 @@ describe("widget modulation (interface)", () => {
         await page.mouse.move(p.x, p.y + 120, { steps: 5 });        // −0.1 more
         await page.keyboard.up("Shift");
         await page.mouse.up();
-        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.560");
+        expect(await page.getAttribute(portSel, "data-depth")).toBe("0.060");
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

@@ -13,7 +13,7 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
-import { allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
+import { allowedModes, DEFAULT_DEPTH, depthWidget, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
@@ -168,6 +168,11 @@ export class Scene {
                 var value = parseFloat(c.value);
                 if (!isNaN(value)) params[c.itemParam.address] = value;
             });
+            var remembered = module?.getInterfaceParams() ?? {};
+            for (var address in remembered) {
+                var depth = parseFloat(remembered[address]);
+                if (!(address in params) && isDepthAddress(address) && !isNaN(depth) && depth != DEFAULT_DEPTH) params[address] = depth;
+            }
             snapshot.modules.push({
                 id: state.id, name: state.name, code: state.code, x: state.x, y: state.y, numInputs: state.numInputs, params,
                 modulations: state.modulations.map((m) => ({ widget: m.widget, spec: m.spec })),
@@ -430,18 +435,9 @@ export class Scene {
     // values, accelerometer mappings and (if isPrecompiled) the compiled factory.
     updatePatchFromModules(isPrecompiled: boolean): void {
         for (var module of this.fModuleList) {
-            var dsp = module.moduleFaust.getDSP();
             // values of the interface (what the user sees): getParamValue reads the AudioParam of an
             // AudioWorklet node, which may lag behind (e.g. a value set while the context is suspended)
-            var shown = new Map<string, number>();
-            module.moduleControles.forEach((c) => {
-                var value = parseFloat(c.value);
-                if (!isNaN(value)) shown.set(c.itemParam.address, value);
-            });
-            var params: Record<string, number> = {};
-            for (var path of dsp.getParams() ?? []) {
-                params[path] = shown.get(path) ?? dsp.getParamValue(path);
-            }
+            var params = this.moduleParams(module);
             var acc: AccMapping[] = module.moduleControles.map((controler) => {
                 var slider = controler.accelerometerSlider;
                 return { address: slider.address, axis: slider.axis, curve: slider.curve, amin: slider.amin, amid: slider.amid, amax: slider.amax, enabled: slider.isEnabled };
@@ -464,6 +460,28 @@ export class Scene {
         return { code: encodeFactoryCode(code), json: JSON.parse(json), poly, shaKey };
     }
 
+    // The parameter values of a module, as its interface shows them, and the depths it remembers
+    // for widgets no longer modulated (model/Modulation.ts, isDepthAddress), unless it is the default
+    // one (a modulation made and undone leaves the module as it was).
+    private moduleParams(module: ModuleClass): Record<string, number> {
+        var dsp = module.moduleFaust.getDSP();
+        var shown = new Map<string, number>();
+        module.moduleControles.forEach((c) => {
+            var value = parseFloat(c.value);
+            if (!isNaN(value)) shown.set(c.itemParam.address, value);
+        });
+        var params: Record<string, number> = {};
+        for (var path of dsp.getParams() ?? []) {
+            params[path] = shown.get(path) ?? dsp.getParamValue(path);
+        }
+        var remembered = module.getInterfaceParams();
+        for (var address in remembered) {
+            var value = parseFloat(remembered[address]);
+            if (!(address in params) && isDepthAddress(address) && !isNaN(value) && value != DEFAULT_DEPTH) params[address] = value;
+        }
+        return params;
+    }
+
     // The scene as a patch file, without changing the patch model (the documents save it at every
     // step of the history): the values shown by the interface, the code of the modules, and the
     // positions of the model (those the history records).
@@ -477,16 +495,7 @@ export class Scene {
             }
             var module = this.getModuleById(state.id);
             if (!module) continue;
-            var dsp = module.moduleFaust.getDSP();
-            var shown = new Map<string, number>();
-            module.moduleControles.forEach((c) => {
-                var value = parseFloat(c.value);
-                if (!isNaN(value)) shown.set(c.itemParam.address, value);
-            });
-            var params: Record<string, number> = {};
-            for (var path of dsp.getParams() ?? []) {
-                params[path] = shown.get(path) ?? dsp.getParamValue(path);
-            }
+            var params = this.moduleParams(module);
             var acc: AccMapping[] = module.moduleControles.map((controler) => {
                 var slider = controler.accelerometerSlider;
                 return { address: slider.address, axis: slider.axis, curve: slider.curve, amin: slider.amin, amid: slider.amid, amax: slider.amax, enabled: slider.isEnabled };
@@ -898,6 +907,8 @@ export class Scene {
             var current = matchParamPath(path, known);
             if (current !== undefined) {
                 module.addInterfaceParam(current, description.params[path]);
+            } else if (isDepthAddress(path)) {
+                module.addInterfaceParam(path, description.params[path]);      // remembered for a later modulation
             } else {
                 console.warn(`module ${description.id} (${description.name}): unknown parameter ${path} ignored`);
             }
