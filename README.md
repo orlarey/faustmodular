@@ -22,6 +22,8 @@ channels.
 - Click on a cable to delete it. Dashed cables close a cycle and are delayed by 128 samples.
 - Shift-click modules, or drag a rectangle on the empty stage, to select several modules and move them
   together.
+- Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
+  + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 

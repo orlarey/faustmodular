@@ -187,3 +187,74 @@ describe("selection", () => {
         await page.close();
     }, 120_000);
 });
+
+describe("zoom", () => {
+    // the largest distance, on screen, between a cable end and the center of the nearest port
+    const misfit = (page: Page) => page.evaluate(() => {
+        let worst = 0;
+        for (const path of document.querySelectorAll<SVGPathElement>("#svgCanvas path.cable")) {
+            const m = path.getScreenCTM()!;
+            for (const at of [0, path.getTotalLength()]) {
+                const q = path.getPointAtLength(at);
+                const p = new DOMPoint(q.x, q.y).matrixTransform(m);
+                let best = Infinity;
+                for (const port of document.querySelectorAll(".port, .modulation-port")) {
+                    const r = port.getBoundingClientRect();
+                    best = Math.min(best, Math.hypot(r.left + r.width / 2 - p.x, r.top + r.height / 2 - p.y));
+                }
+                worst = Math.max(worst, best);
+            }
+        }
+        return worst;
+    });
+
+    it("zooms and moves the stage: cables on their ports, modules dragged with the pointer, not a change of the scene", async () => {
+        const { page, errors } = await openWithPatch();
+        // a modulation: its cable ends on the modulation port
+        await page.evaluate(async () => {
+            const s = (globalThis as any).faustmodular.scene;
+            const widget = s.widgetsOf(s.getModuleById("3")).find((w: any) => w.type.endsWith("slider")).address;
+            await s.modulate({ module: "2", port: 0 }, "3", widget, "modulate");
+        });
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.history.flush());
+        const steps = await page.evaluate(() => (globalThis as any).faustmodular.scene.history.canUndo());
+        for (const [zoom, x, y] of [[0.5, 40, 30], [2, -300, -100], [1, 0, 0]] as const) {
+            await page.evaluate(([z, xx, yy]) => (globalThis as any).faustmodular.scene.setView(z, xx, yy), [zoom, x, y]);
+            expect(await misfit(page)).toBeLessThan(1);
+        }
+        expect(await page.locator("#zoomValue").textContent()).toBe("100%");
+
+        // at 50%: a module dragged 100 px on screen moves 200 px on the stage, and follows the pointer
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.setView(0.5, 10, 60));
+        const title = page.locator(`#${await page.evaluate(() => (globalThis as any).faustmodular.scene.getModuleById("1").moduleView.fModuleContainer.id)} h6`);
+        const before = (await title.boundingBox())!;
+        const x0 = await page.evaluate(() => (globalThis as any).faustmodular.scene.getModuleById("1").moduleView.x);
+        await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(before.x + before.width / 2 + 100, before.y + before.height / 2 + 40, { steps: 5 });
+        await page.mouse.up();
+        const after = (await title.boundingBox())!;
+        expect(after.x - before.x).toBeCloseTo(100, 0);
+        expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.getModuleById("1").moduleView.x)).toBeCloseTo(x0 + 200, 0);
+        expect(await misfit(page)).toBeLessThan(1);
+
+        // a point of the window on the stage, and back
+        const at = await page.evaluate(() => (globalThis as any).faustmodular.scene.toStage(410, 260));
+        expect(at).toEqual({ x: 800, y: 400 });
+        // fit: every module in the window
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.fit());
+        const inside = await page.evaluate(() => [...document.querySelectorAll(".moduleFaust")].every((m) => {
+            const r = m.getBoundingClientRect();
+            return r.left >= 0 && r.top >= 40 && r.right <= innerWidth && r.bottom <= innerHeight;
+        }));
+        expect(inside).toBe(true);
+        // the view is not a step of the history
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.history.flush());
+        await page.evaluate(() => (globalThis as any).faustmodular.scene.undo());
+        expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.getModuleById("1").moduleView.x)).toBe(x0);
+        expect(steps).toBe(true);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+

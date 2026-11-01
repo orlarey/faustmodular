@@ -44,6 +44,10 @@ export class Resources {
     confirmReplaceScene: string;
     undo: string;
     redo: string;
+    zoomOut: string;
+    zoomIn: string;
+    zoomReset: string;
+    zoomFit: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

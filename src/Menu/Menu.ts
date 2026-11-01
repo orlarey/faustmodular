@@ -66,6 +66,13 @@ export class Menu {
         this.menuView.cleanButton.addEventListener("click", () => { new Confirm(Utilitary.messageResource.confirmEmptyScene, (callback) => { this.cleanScene(callback) }) });
         this.menuView.undoButton.addEventListener("click", () => { Utilitary.currentScene.undo() });
         this.menuView.redoButton.addEventListener("click", () => { Utilitary.currentScene.redo() });
+        this.menuView.zoomOutButton.addEventListener("click", () => { Utilitary.currentScene.zoomBy(1 / 1.25) });
+        this.menuView.zoomInButton.addEventListener("click", () => { Utilitary.currentScene.zoomBy(1.25) });
+        this.menuView.zoomValue.addEventListener("click", () => { Utilitary.currentScene.setView(1, 0, 0) });
+        this.menuView.zoomFitButton.addEventListener("click", () => { Utilitary.currentScene.fit() });
+        document.addEventListener("viewchange", () => {
+            this.menuView.zoomValue.textContent = Math.round(Utilitary.currentScene.view.zoom * 100) + "%";
+        });
         document.addEventListener("historychange", () => {
             var history = Utilitary.currentScene.history;
             this.menuView.undoButton.classList.toggle("disabled", !history.canUndo());

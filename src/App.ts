@@ -194,8 +194,10 @@ export class App {
 
         window.ondrop = (e) => {
             this.styleOnDragEnd()
-            var x = e.clientX;
-            var y = e.clientY;
+            // where the module goes on the stage (zoomed and moved: Scene.setView)
+            var at = Utilitary.currentScene.toStage(e.clientX, e.clientY);
+            var x = at.x;
+            var y = at.y;
             this.uploadOn(this, null, x, y, e);
         };
 

@@ -16,14 +16,21 @@ export class SceneView {
     sceneSensor: HTMLDivElement;
     dropElementScene: HTMLElement;
     fSceneContainer: HTMLDivElement;
+    // the cables, the physical and the Faust modules, zoomed and moved together (Scene.setView)
+    fStage: HTMLDivElement;
 
     initNormalScene(scene: Scene) {
         var container = document.createElement("div");
         container.id = "Normal";
 
+        var stage = document.createElement("div");
+        stage.id = "stage";
+        container.appendChild(stage);
+        this.fStage = stage;
+
         var svgCanvas = <SVGElement>document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svgCanvas.id = "svgCanvas";
-        container.appendChild(svgCanvas);
+        stage.appendChild(svgCanvas);
 
         //--------- HEADER
         var head: HTMLElement = document.createElement("header");
@@ -38,14 +45,14 @@ export class SceneView {
 
         var inputOutputModuleContainer: HTMLDivElement = document.createElement("div");
         inputOutputModuleContainer.id = "inputOutputModuleContainer";
-        container.appendChild(inputOutputModuleContainer);
+        stage.appendChild(inputOutputModuleContainer);
         this.inputOutputModuleContainer = inputOutputModuleContainer;
 
         //----------- MODULES
         var moduleContainer: HTMLElement = document.createElement("section");
         moduleContainer.id = "modules";
         moduleContainer.className = "container";
-        container.appendChild(moduleContainer);
+        stage.appendChild(moduleContainer);
 
         //------------ MENUS
 

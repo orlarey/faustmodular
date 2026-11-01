@@ -132,6 +132,18 @@ export class Scene {
         });
         // selection rectangle on the empty stage, undo and redo
         this.patchView.attachStage(this.sceneView.fSceneContainer);
+        // zoom (Ctrl/Cmd + wheel, pinch) around the pointer; the wheel alone moves the stage
+        this.sceneView.fSceneContainer.addEventListener("wheel", (e) => {
+            var target = e.target as HTMLElement;
+            if (target.closest?.("#menuContainer, #dialogue, select, textarea")) return;
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) {
+                this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
+            } else {
+                this.setView(this.fView.zoom, this.fView.x - e.deltaX, this.fView.y - e.deltaY);
+            }
+        }, { passive: false });
+        this.setView(1, 0, 0);
         this.history = new History({
             capture: () => this.captureSnapshot(),
             restore: (state) => this.restoreSnapshot(state),
@@ -151,6 +163,70 @@ export class Scene {
                 this.redo();
             }
         });
+    }
+
+    /*********************** ZOOM ***************************/
+    // The stage (cables, modules) is shown at stage·zoom + (x, y): a view of the scene, not a change of
+    // it (no history, not saved with the document).
+
+    static ZOOM_MIN = 0.2;
+    static ZOOM_MAX = 3;
+    private fView = { zoom: 1, x: 0, y: 0 };
+
+    get view(): { zoom: number; x: number; y: number } {
+        return { ...this.fView };
+    }
+
+    setView(zoom: number, x: number, y: number): void {
+        zoom = Math.min(Scene.ZOOM_MAX, Math.max(Scene.ZOOM_MIN, zoom));
+        this.fView = { zoom, x, y };
+        var stage = this.sceneView.fStage;
+        stage.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+        // the stage covers the window whatever the zoom
+        stage.style.width = (100 / zoom) + "%";
+        stage.style.height = (100 / zoom) + "%";
+        // the grid of the background follows
+        document.body.style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
+        document.body.style.backgroundPosition = `${x}px ${y}px`;
+        this.patchView.zoom = zoom;
+        this.patchView.redrawAll();
+        document.dispatchEvent(new CustomEvent("viewchange"));
+    }
+
+    // Zooms by a factor, the point under (clientX, clientY) staying in place.
+    zoomAt(clientX: number, clientY: number, factor: number): void {
+        var { zoom, x, y } = this.fView;
+        var next = Math.min(Scene.ZOOM_MAX, Math.max(Scene.ZOOM_MIN, zoom * factor));
+        var origin = this.sceneView.fSceneContainer.getBoundingClientRect();
+        var px = clientX - origin.left, py = clientY - origin.top;
+        this.setView(next, px - (px - x) * next / zoom, py - (py - y) * next / zoom);
+    }
+
+    // Zooms around the center of the window.
+    zoomBy(factor: number): void {
+        this.zoomAt(window.innerWidth / 2, window.innerHeight / 2, factor);
+    }
+
+    // Shows all the modules (at most at 100%).
+    fit(): void {
+        var boxes = [...this.fModuleList, this.fAudioInput, this.fAudioOutput].filter(Boolean).map((m) => {
+            var c = m.moduleView.getModuleContainer();
+            return { x: m.moduleView.x, y: m.moduleView.y, w: c.offsetWidth, h: c.offsetHeight };
+        });
+        if (boxes.length == 0) { this.setView(1, 0, 0); return; }
+        var left = Math.min(...boxes.map((b) => b.x)), top = Math.min(...boxes.map((b) => b.y));
+        var right = Math.max(...boxes.map((b) => b.x + b.w)), bottom = Math.max(...boxes.map((b) => b.y + b.h));
+        var header = 50, margin = 30;
+        var width = window.innerWidth - 2 * margin, height = window.innerHeight - header - 2 * margin;
+        var zoom = Math.min(1, width / Math.max(1, right - left), height / Math.max(1, bottom - top));
+        zoom = Math.max(Scene.ZOOM_MIN, zoom);
+        this.setView(zoom, margin + (width - (right - left) * zoom) / 2 - left * zoom, header + margin + (height - (bottom - top) * zoom) / 2 - top * zoom);
+    }
+
+    // A point of the window in the coordinates of the stage (where to put a module dropped there).
+    toStage(clientX: number, clientY: number): { x: number; y: number } {
+        var origin = this.sceneView.fSceneContainer.getBoundingClientRect();
+        return { x: (clientX - origin.left - this.fView.x) / this.fView.zoom, y: (clientY - origin.top - this.fView.y) / this.fView.zoom };
     }
 
     /*********************** UNDO / REDO ***************************/
@@ -1055,10 +1131,12 @@ export class Scene {
         position.y = window.innerHeight / 2;
         return position
     }
+    // the center of the window, on the stage
     positionDblTapModule(): PositionModule {
         var position: PositionModule = new PositionModule();
-        position.x = window.innerWidth / 2;
-        position.y = window.innerHeight / 2;
+        var center = this.toStage(window.innerWidth / 2, window.innerHeight / 2);
+        position.x = center.x;
+        position.y = center.y;
         return position
     }
 }

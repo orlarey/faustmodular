@@ -25,6 +25,10 @@ export class MenuView {
     cleanButton: HTMLElement;
     undoButton: HTMLElement;
     redoButton: HTMLElement;
+    zoomOutButton: HTMLElement;
+    zoomValue: HTMLElement;
+    zoomInButton: HTMLElement;
+    zoomFitButton: HTMLElement;
     accButton: HTMLElement;
     loadButton: HTMLElement;
     saveButton: HTMLElement;
@@ -145,6 +149,21 @@ export class MenuView {
         redoButton.title = Utilitary.messageResource.redo;
         this.redoButton = redoButton;
         buttonsMenu.appendChild(redoButton);
+
+        // zoom of the stage: out, value (back to 100%), in, fit the scene
+        var zoomButton = (id: string, text: string, title: string) => {
+            var b = document.createElement("div");
+            b.id = id;
+            b.className = "buttonsLittleMenu zoomButton";
+            b.textContent = text;
+            b.title = title;
+            buttonsMenu.appendChild(b);
+            return b;
+        };
+        this.zoomOutButton = zoomButton("zoomOutButton", "\u2212", Utilitary.messageResource.zoomOut);
+        this.zoomValue = zoomButton("zoomValue", "100%", Utilitary.messageResource.zoomReset);
+        this.zoomInButton = zoomButton("zoomInButton", "+", Utilitary.messageResource.zoomIn);
+        this.zoomFitButton = zoomButton("zoomFitButton", "\u2922", Utilitary.messageResource.zoomFit);
 
         this.HTMLButtonsMenu.push(documentsButton, libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
 

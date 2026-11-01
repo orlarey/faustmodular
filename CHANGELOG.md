@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.6.0 (2026-11-01)
+
+- **Zoom and move the stage**, for large scenes: Ctrl/Cmd + wheel (or pinching a trackpad) zooms around
+  the pointer, from 20% to 300%; the wheel alone moves the stage; in the header, − and + zoom around the
+  center, the percentage goes back to 100%, ⤢ fits the scene in the window (at most 100%). The cables,
+  the physical and the Faust modules are in one stage, zoomed and moved together (`#stage`,
+  `Scene.setView`, `zoomAt`, `fit`, `toStage`); the background grid follows. The coordinates of the
+  cables, of the dragged modules, of the modulation ports and of the modules dropped from the library
+  take the zoom into account. The view is not a change of the scene: no step of the history, not saved
+  with the document.
+
 ## 3.5.0 (2026-11-01)
 
 - **Displays of signals.** The bargraphs of a module (`hbargraph`, `vbargraph`) are shown, refreshed at

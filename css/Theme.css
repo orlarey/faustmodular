@@ -612,3 +612,28 @@ canvas.display-canvas {
 	background: var(--fp-value-bg);
 	border: 1px solid var(--fp-accent-border-soft);
 }
+
+/* The stage: cables and modules, zoomed and moved together (Scene.setView) */
+#stage {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	transform-origin: 0 0;
+}
+#stage > #svgCanvas {
+	overflow: visible;
+}
+.zoomButton {
+	font: 12px/28px var(--fp-mono);
+	color: var(--fp-pill-text);
+	text-align: center;
+	user-select: none;
+	cursor: pointer;
+	width: auto !important;
+	min-width: 28px;
+}
+#zoomValue {
+	min-width: 44px;
+}

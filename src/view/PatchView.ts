@@ -383,7 +383,7 @@ export class PatchView {
             const rect = widget?.getBoundingClientRect();
             const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
             port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
-            port.style.top = (anchor.top + anchor.height / 2 - box.top - MODULATION_PORT_SIZE / 2) + "px";
+            port.style.top = ((anchor.top + anchor.height / 2 - box.top) / this.zoom - MODULATION_PORT_SIZE / 2) + "px";
         }
     }
 
@@ -427,9 +427,12 @@ export class PatchView {
         return this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
     }
 
+    // The stage is scaled by the zoom (Scene.setView): its rectangles are on screen, its coordinates not.
+    zoom = 1;
+
     private toCanvas(clientX: number, clientY: number): Point {
         const svgRect = this.fSvg.getBoundingClientRect();
-        return { x: clientX - svgRect.left, y: clientY - svgRect.top };
+        return { x: (clientX - svgRect.left) / this.zoom, y: (clientY - svgRect.top) / this.zoom };
     }
 
     // Cable from a to b, leaving a in the direction da and b in the direction db: two audio ports
@@ -484,8 +487,8 @@ export class PatchView {
         }
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
-            const dx = e.clientX - moduleDrag.startX, dy = e.clientY - moduleDrag.startY;
-            moduleDrag.moved ||= Math.abs(dx) + Math.abs(dy) > 2;
+            const dx = (e.clientX - moduleDrag.startX) / this.zoom, dy = (e.clientY - moduleDrag.startY) / this.zoom;
+            moduleDrag.moved ||= Math.abs(dx) + Math.abs(dy) > 2 / this.zoom;
             for (const item of moduleDrag.items) {
                 const view = item.module.moduleView;
                 view.x = item.left + dx;

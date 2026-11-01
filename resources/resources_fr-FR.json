@@ -114,5 +114,9 @@
   "userModuleVersions": "{n} versions",
   "confirmUserModuleDelete": "Mettre le module « %s » à la corbeille ? Les documents qui l'utilisent ne changent pas.",
   "faustcodeLibfaustMismatch": "faustcode utilise libfaust {faustcode} et faustmodular libfaust {faustmodular} : leurs bibliothèques Faust diffèrent, un module peut ne pas se comporter de la même façon dans les deux.",
-  "titleDisplay": "Affichage"
+  "titleDisplay": "Affichage",
+  "zoomOut": "Zoom arrière (Ctrl/Cmd + molette)",
+  "zoomIn": "Zoom avant (Ctrl/Cmd + molette)",
+  "zoomReset": "Revenir à 100 %",
+  "zoomFit": "Ajuster : montrer tous les modules"
 }
