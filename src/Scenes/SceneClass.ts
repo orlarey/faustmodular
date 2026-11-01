@@ -107,6 +107,7 @@ export class Scene {
             codeOf: (module) => userCode(module.moduleFaust.getSource()),
             apply: (module, code) => this.editModuleCode(module, code),
             notify: (message) => { new Message(message) },
+            libfaust: () => faustWasmEnv.faustCompiler.version(),
         });
         this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
             allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),

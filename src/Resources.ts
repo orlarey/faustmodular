@@ -44,6 +44,7 @@ export class Resources {
     confirmReplaceScene: string;
     undo: string;
     redo: string;
+    faustcodeLibfaustMismatch: string;
     moduleUpdate: string;
     moduleUpdateFailed: string;
     titleUserModules: string;

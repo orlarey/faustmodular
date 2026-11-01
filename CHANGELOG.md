@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.1 (2026-11-01)
+
+- **faustcode and faustmodular use the same compiler and Faust libraries**: faustcode 0.14.0 moves from
+  libfaust 2.84.3 to 2.90.19 (faustwasm 0.19.6), the version of faustmodular; 47 of the 53 `.lib` files
+  differed. faustcode now announces its version of libfaust in its ready message, and faustmodular warns
+  (once) when it differs from its own (`FaustcodeLink`, `faustcodeLibfaustMismatch`).
+- faustcode 0.14.0 also drops its signals and tasks views: libfaust 2.88 to 2.90 fails on an assertion
+  (`sigtyperules.cpp:209`) when drawing the signals graph of any recursive program
+  (`process = _ : + ~ *(0.5);`).
+
 ## 3.2.0 (2026-11-01)
 
 Phase 2 of the documents: **user modules** (`Documentation/DOCUMENT-SPEC.md`).

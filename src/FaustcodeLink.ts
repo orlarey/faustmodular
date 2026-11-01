@@ -8,7 +8,8 @@
     postMessage (they may have different origins); every message has a `type` and the `protocol`
     version (LINK_PROTOCOL):
 
-        faustcode → faustmodular   faustcode-link-ready   { }                      ready to edit
+        faustcode → faustmodular   faustcode-link-ready   { libfaust? }            ready to edit (the version of its
+                                                                                   libfaust: a warning if it differs)
         faustmodular → faustcode   faustcode-link-edit    { id, name, code }       edit this code
         faustcode → faustmodular   faustcode-link-code    { id, code }             compiled new code
         faustmodular → faustcode   faustcode-link-result  { id, ok, error? }       applied or not
@@ -40,6 +41,7 @@ export interface FaustcodeLinkHost<M> {
     codeOf(module: M): string;                              // user's code
     apply(module: M, code: string): Promise<string | null>; // null, or why the code was not applied
     notify(message: string): void;
+    libfaust?(): string;                                    // version of the libfaust of faustmodular
 }
 
 type LinkMessage = { type: string; protocol: number; [key: string]: unknown };
@@ -60,6 +62,7 @@ export function faustcodeUrl(search: string = location.search): string {
 
 export class FaustcodeLink<M extends object> {
     private fWindow: Window | null = null;
+    private fWarnedVersion = false;
     private fReady = false;
     private fPending: LinkMessage[] = [];
     private fTimer: ReturnType<typeof setTimeout> | null = null;
@@ -126,6 +129,11 @@ export class FaustcodeLink<M extends object> {
         }
         switch (data.type) {
             case "faustcode-link-ready":
+                // the same compiler and Faust libraries in both applications, or a warning (once)
+                if (typeof data.libfaust == "string" && this.fHost.libfaust && data.libfaust != this.fHost.libfaust() && !this.fWarnedVersion) {
+                    this.fWarnedVersion = true;
+                    this.fHost.notify(this.resource("faustcodeLibfaustMismatch").replace("{faustcode}", data.libfaust).replace("{faustmodular}", this.fHost.libfaust()));
+                }
                 this.fReady = true;
                 this.stopTimeout();
                 this.fPending.forEach((m) => this.post(m));
@@ -171,7 +179,7 @@ export class FaustcodeLink<M extends object> {
         this.fTimer = null;
     }
 
-    private resource(key: "faustcodePopupBlocked" | "faustcodeNoAnswer" | "faustcodeUpdateFailed"): string {
+    private resource(key: "faustcodePopupBlocked" | "faustcodeNoAnswer" | "faustcodeUpdateFailed" | "faustcodeLibfaustMismatch"): string {
         return Utilitary.messageResource[key];
     }
 }

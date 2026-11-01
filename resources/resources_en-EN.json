@@ -112,5 +112,6 @@
   "userModuleRename": "Rename",
   "userModuleDelete": "Delete",
   "userModuleVersions": "{n} versions",
-  "confirmUserModuleDelete": "Move the module “%s” to the trash? The documents using it do not change."
+  "confirmUserModuleDelete": "Move the module “%s” to the trash? The documents using it do not change.",
+  "faustcodeLibfaustMismatch": "faustcode uses libfaust {faustcode} and faustmodular libfaust {faustmodular}: their Faust libraries differ, a module may not behave the same in both."
 }

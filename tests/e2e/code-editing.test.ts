@@ -144,6 +144,24 @@ describe("editing in faustcode (stub)", () => {
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);
+
+    it("warns when faustcode has another version of libfaust, and not when it has the same", async () => {
+        for (const [version, warned] of [["2.84.3", true], [null, false]] as const) {
+            const origin = "https://faustcode-version.test";
+            const app = await openApp("?faustcode=" + encodeURIComponent(origin + "/"));
+            const same = await app.page.evaluate(() => (globalThis as any).faustPlayground.scene.faustcodeLink.fHost.libfaust());
+            const stub = STUB.replace('{ type: "faustcode-link-ready", protocol: 1 }', `{ type: "faustcode-link-ready", protocol: 1, libfaust: "${version ?? same}" }`);
+            await app.context.route(origin + "/**", (route) => route.fulfill({ contentType: "text/html", body: stub }));
+            const { sel } = await addGain(app.page);
+            const [popup] = await Promise.all([app.page.waitForEvent("popup"), app.page.locator(sel + " .edit").click()]);
+            await waitReceived(popup, 1);
+            const shown = await app.page.evaluate(() => document.getElementById("dialogue")!.textContent ?? "");
+            expect(shown.includes(`faustcode uses libfaust ${version}`) || shown.includes(`faustcode utilise libfaust ${version}`)).toBe(warned);
+            if (!warned) expect(shown).not.toMatch(/libfaust/);
+            expect(app.errors).toEqual([]);
+            await app.context.close();
+        }
+    }, 120_000);
 });
 
 // The real faustcode, if a checkout is given: FAUSTCODE_DIR=/path/to/faustcode npm test
