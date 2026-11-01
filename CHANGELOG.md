@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.0 (2026-11-01)
+
+- **Menus and radio buttons**: a slider with `[style:menu{'sine':0;'triangle':1}]` is shown as a menu,
+  and one with `[style:radio{'off':0;'on':1}]` as radio buttons, as in faustcode and the Faust UIs. The
+  slider stays, hidden, as the state of the widget: saving, recall, undo and redo, modulation and the
+  accelerometer work as for any slider, and the menu or the buttons follow its value (the nearest
+  choice). The labels are read as the compiled JSON gives them (`menu{-sine-:0;...}`).
+  `src/model/WidgetStyle.ts` (`choicesOf`), `FaustInterfaceView.addChoices`; tests
+  `tests/model/widget-style.test.ts` and "widget styles" in `tests/e2e/app.test.ts`.
+
 ## 3.2.1 (2026-11-01)
 
 - **faustcode and faustmodular use the same compiler and Faust libraries**: faustcode 0.14.0 moves from

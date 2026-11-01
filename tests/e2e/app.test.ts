@@ -834,3 +834,51 @@ describe("widget modulation (interface)", () => {
         await page.close();
     }, 120_000);
 });
+
+describe("widget styles", () => {
+    async function addModule(page: Page, name: string, code: string, x: number): Promise<string> {
+        return page.evaluate(async ([n, c, xx]) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const before = scene.getModules().length;
+            await app.compileFaust({ name: n, sourceCode: c, x: xx, y: 200, callback: (f: any) => app.createModule(f, n, c, xx, 200) });
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[before].moduleId;
+        }, [name, code, x] as [string, string, number]);
+    }
+    const value = (page: Page, m: string, label: string) => page.evaluate(([m, label]) =>
+        Number((globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((c: any) => c.itemParam.label == label).value), [m, label]);
+    const flush = (page: Page) => page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+
+    it("shows [style:menu{...}] as a menu and [style:radio{...}] as radio buttons, kept in sync with undo and recall", async () => {
+        const { page, errors } = await openApp();
+        const lfo = await addModule(page, "LFO", `import("stdfaust.lib"); process = vgroup("LFO", select2(shape >= 2, os.osc(1), os.lf_saw(1)))
+            with { shape = hslider("Shape [style:menu{'sine':0;'triangle':1;'square':2;'saw':3}]", 0, 0, 3, 1); };`, 150);
+        const gate = await addModule(page, "Gate", `process = vgroup("Gate", _ * hslider("Level [style:radio{'off':0;'half':0.5;'full':1}]", 1, 0, 1, 0.5));`, 600);
+        await flush(page);
+        const menu = page.locator("select.choice-menu");
+        expect(await menu.locator("option").allTextContents()).toEqual(["sine", "triangle", "square", "saw"]);
+        expect(await page.locator(".choice-radios label").allTextContents()).toEqual(["off", "half", "full"]);
+        expect(await page.locator(".control-choice input.choice-slider").evaluateAll((s) => s.map((e) => getComputedStyle(e).display))).toEqual(["none", "none"]);
+        expect(await page.locator(".choice-radios input:checked").evaluate((e) => e.parentElement!.textContent)).toBe("full");
+
+        await menu.selectOption({ label: "square" });
+        await flush(page);
+        expect(await value(page, lfo, "Shape")).toBe(2);
+        await page.locator(".choice-radios label", { hasText: "half" }).click();
+        await flush(page);
+        expect(await value(page, gate, "Level")).toBe(0.5);
+
+        // undo: the value and what the menu and the radio buttons show
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        expect(await value(page, gate, "Level")).toBe(1);
+        expect(await page.locator(".choice-radios input:checked").evaluate((e) => e.parentElement!.textContent)).toBe("full");
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.redo());
+        // saved and recalled: the menu shows the saved value
+        const saved = await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false));
+        await page.evaluate((json) => (globalThis as any).faustPlayground.scene.recallScene(json), saved);
+        expect(await page.locator("select.choice-menu").evaluate((s: HTMLSelectElement) => s.options[s.selectedIndex].text)).toBe("square");
+        expect(await page.locator(".choice-radios input:checked").evaluate((e) => e.parentElement!.textContent)).toBe("half");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});

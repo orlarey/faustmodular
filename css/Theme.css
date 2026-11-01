@@ -538,3 +538,40 @@ input.userModuleName {
 	width: 100%;
 	box-sizing: border-box;
 }
+
+/* Sliders shown as a menu or radio buttons ([style:menu{...}], [style:radio{...}]): the slider stays,
+   hidden, as the state of the widget */
+.control-choice input.choice-slider, .control-choice .choice-value {
+	display: none;
+}
+.control-choice select.choice-menu {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	margin-top: 4px;
+	padding: 3px 6px;
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 6px;
+	font: 12px var(--fp-mono);
+	cursor: pointer;
+}
+.control-choice .choice-radios {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px 10px;
+	margin-top: 4px;
+	font: 12px var(--fp-mono);
+	color: var(--fp-value);
+}
+.control-choice .choice-radios label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+}
+.control-choice .choice-radios input[type="radio"] {
+	accent-color: var(--fp-accent);
+	margin: 0;
+}

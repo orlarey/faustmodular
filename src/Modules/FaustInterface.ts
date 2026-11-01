@@ -1,6 +1,7 @@
 import { AccelerometerHandler, AccelerometerSlider, Axis } from "../Accelerometer";
 import { Utilitary } from "../Utilitary";
 import { ModuleClass } from "./ModuleClass";
+import { choicesOf } from "../model/WidgetStyle";
 
 /*				FAUSTINTERFACE.JS
 
@@ -35,6 +36,7 @@ interface FaustMeta {
     acc: string;
     noacc: string;
     unit: string;
+    style?: string;
 }
 
 export interface AccParams {
@@ -280,6 +282,7 @@ export class FaustInterfaceControler {
         this.setDSPValueCallback(address, String(value));
         this.faustInterfaceView.slider.value = String((value - parseFloat(this.itemParam.min)) / parseFloat(this.itemParam.step))
         this.faustInterfaceView.output.textContent = String(value.toFixed(parseFloat(this.precision)));
+        this.faustInterfaceView.syncChoice();
 
     }
 }
@@ -294,6 +297,10 @@ export class FaustInterfaceView {
     output: HTMLElement;
     group: HTMLElement;
     label: HTMLElement;
+    // a menu or radio buttons in place of the slider ([style:menu{...}], [style:radio{...}]); the
+    // slider, hidden, stays the state of the widget (saving, undo, modulation, accelerometer)
+    private fChoice: { select?: HTMLSelectElement; radios?: HTMLInputElement[]; values: number[] } | null = null;
+    private fItemParam: Iitem | null = null;
 
     constructor(type: string) {
         this.type = type;
@@ -338,7 +345,73 @@ export class FaustInterfaceView {
         group.appendChild(slider);
 
         this.group = group
+        this.fItemParam = itemParam;
+        var choices = choicesOf(itemParam.meta);
+        if (choices) this.addChoices(choices, group, slider, val);
         return group;
+    }
+
+    // The value of a choice as a position of the slider.
+    private position(value: number): number {
+        var p = this.fItemParam!;
+        return Math.round((value - parseFloat(p.min)) / parseFloat(p.step));
+    }
+
+    private addChoices(choices: NonNullable<ReturnType<typeof choicesOf>>, group: HTMLElement, slider: HTMLInputElement, value: HTMLElement): void {
+        group.classList.add("control-choice", "control-" + choices.kind);
+        slider.classList.add("choice-slider");
+        value.classList.add("choice-value");
+        var values = choices.items.map((item) => item.value);
+        var choose = (v: number) => {
+            slider.value = String(this.position(v));
+            slider.dispatchEvent(new Event("input"));
+        };
+        if (choices.kind == "menu") {
+            var select = document.createElement("select");
+            select.className = "choice-menu";
+            choices.items.forEach((item, i) => {
+                var option = document.createElement("option");
+                option.value = String(i);
+                option.textContent = item.label;
+                select.appendChild(option);
+            });
+            select.addEventListener("change", () => choose(values[Number(select.value)]));
+            ["mousedown", "touchstart", "pointerdown"].forEach((type) => select.addEventListener(type, (e) => e.stopPropagation()));
+            group.appendChild(select);
+            this.fChoice = { select, values };
+        } else {
+            var box = document.createElement("div");
+            box.className = "choice-radios";
+            var name = "radio-" + Math.random().toString(36).slice(2);
+            var radios: HTMLInputElement[] = choices.items.map((item, i) => {
+                var label = document.createElement("label");
+                var radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = name;
+                radio.value = String(i);
+                radio.addEventListener("change", () => { if (radio.checked) choose(values[i]) });
+                ["mousedown", "touchstart", "pointerdown"].forEach((type) => label.addEventListener(type, (e) => e.stopPropagation()));
+                label.append(radio, document.createTextNode(item.label));
+                box.appendChild(label);
+                return radio;
+            });
+            group.appendChild(box);
+            this.fChoice = { radios, values };
+        }
+        // the slider changed by the program (undo, recall, modulation of the values saved...)
+        slider.addEventListener("input", () => this.syncChoice());
+        this.syncChoice();
+    }
+
+    // Shows the choice of the slider's value (the nearest one).
+    syncChoice(): void {
+        if (!this.fChoice || !this.slider) return;
+        var position = Number(this.slider.value);
+        var values = this.fChoice.values;
+        var index = 0;
+        values.forEach((v, i) => { if (Math.abs(this.position(v) - position) < Math.abs(this.position(values[index]) - position)) index = i; });
+        if (this.fChoice.select) this.fChoice.select.value = String(index);
+        this.fChoice.radios?.forEach((r, i) => { r.checked = i == index; });
     }
 
     addFaustCheckBox(ivalue: string): HTMLInputElement {
