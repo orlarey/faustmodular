@@ -258,9 +258,6 @@ input[type="range"]::-moz-range-thumb,
 }
 
 /* Widget modulation */
-.widget.modulated {
-	box-shadow: -3px 0 0 var(--fp-mod);
-}
 .widget.widget-target {
 	outline-color: var(--fp-mod);
 }

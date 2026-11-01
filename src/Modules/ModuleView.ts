@@ -107,15 +107,25 @@ export class ModuleView {
     // left edge above the zone is kept for the modulation ports (PatchView). Each port carries
     // data-module, data-dir ("in" | "out") and data-port (0-based) for hit testing.
 
+    // The physical input and output modules have no widgets: their ports are centered vertically,
+    // and the module grows only when they need more room than its icon.
     setPorts(moduleId: string, numInputs: number, numOutputs: number): void {
         this.clearPorts();
-        var zone = Math.max(ModuleView.columnHeight(numInputs), ModuleView.columnHeight(numOutputs));
-        zone = zone > 0 ? zone + 2 * ModuleView.PORT_INSET : 0;
-        this.fInputPorts = this.createPorts(moduleId, "in", numInputs, zone);
-        this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs, zone);
-        this.fModuleContainer.style.paddingBottom = zone > 0 ? zone + "px" : "";
+        var column = Math.max(ModuleView.columnHeight(numInputs), ModuleView.columnHeight(numOutputs));
+        var zone = column > 0 ? column + 2 * ModuleView.PORT_INSET : 0;
+        var centered = this.fName == "input" || this.fName == "output";
+        this.fInputPorts = this.createPorts(moduleId, "in", numInputs, zone, centered);
+        this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs, zone, centered);
+        if (centered) {
+            this.fModuleContainer.style.height = zone > ModuleView.PHYSICAL_HEIGHT ? zone + "px" : "";
+        } else {
+            this.fModuleContainer.style.paddingBottom = zone > 0 ? zone + "px" : "";
+        }
         this.fModuleContainer.style.minWidth = "";
     }
+
+    // Height of the physical input and output modules (css: #moduleInput, #moduleOutput).
+    static PHYSICAL_HEIGHT = 88;
 
     clearPorts(): void {
         this.fInputPorts.concat(this.fOutputPorts).forEach((port) => port.remove());
@@ -141,7 +151,7 @@ export class ModuleView {
         return { size: 18, pitch: 20 };
     }
 
-    private createPorts(moduleId: string, dir: "in" | "out", count: number, zone: number): HTMLElement[] {
+    private createPorts(moduleId: string, dir: "in" | "out", count: number, zone: number, centered: boolean): HTMLElement[] {
         var layout = ModuleView.portLayout(count);
         var ports: HTMLElement[] = [];
         for (var i = 0; i < count; i++) {
@@ -153,9 +163,14 @@ export class ModuleView {
             port.dataset.port = String(i);
             port.title = (dir == "in" ? "input " : "output ") + (i + 1);
             port.style.width = port.style.height = layout.size + "px";
-            // astride the left (inputs) or right (outputs) edge, from the top of the zone down
-            var center = zone - ModuleView.PORT_INSET - (i + 0.5) * layout.pitch;     // from the bottom
-            port.style.bottom = (center - layout.size / 2) + "px";
+            // astride the left (inputs) or right (outputs) edge, from the top of the zone down, or
+            // centered on the module (physical input and output)
+            if (centered) {
+                port.style.top = `calc(50% + ${(i - (count - 1) / 2) * layout.pitch - layout.size / 2}px)`;
+            } else {
+                var center = zone - ModuleView.PORT_INSET - (i + 0.5) * layout.pitch;     // from the bottom
+                port.style.bottom = (center - layout.size / 2) + "px";
+            }
             if (dir == "in") {
                 port.style.left = (-layout.size / 2) + "px";
             } else {

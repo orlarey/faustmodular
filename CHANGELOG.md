@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.10.1 (2026-11-01)
+
+- The coloured bar to the left of a modulated slider is removed: its modulation port already shows it.
+- The ports of the physical input (microphone) and output (speakers) modules are centered vertically;
+  these modules grow only when their ports need more room than their icon.
+
 ## 2.10.0 (2026-11-01)
 
 - **FaustPlayground (extended) is renamed faustmodular**, in lower case like faustcode. The header shows

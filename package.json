@@ -1,7 +1,7 @@
 {
   "name": "faustmodular",
   "private": true,
-  "version": "2.10.0",
+  "version": "2.10.1",
   "description": "Online platform to combine and run Faust DSP modules",
   "scripts": {
     "dev": "vite",

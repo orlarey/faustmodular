@@ -688,9 +688,6 @@ span.titleAcc {
 	outline: 3px solid rgb(255, 150, 0);
 	outline-offset: 2px;
 }
-.widget.modulated {
-	box-shadow: -4px 0 0 rgb(255, 150, 0);
-}
 .widget.modulated-drive input {
 	opacity: .35;
 	pointer-events: none;		/* the signal drives the parameter: the control has no effect */
