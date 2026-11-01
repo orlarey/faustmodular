@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.1 (2026-11-01)
+
+- **Fix: undo moved the microphone and speakers modules to the top left corner.** Their position was not
+  recorded in the patch model when they were created (it stayed at (0, 0) until they were dragged), and
+  undo, redo and the reopening of a document put them back there. They are now recorded where the page
+  shows them. A position (0, 0) in a document or a patch file (saved before this fix) is ignored, and a
+  restored position is kept inside the window.
+
 ## 3.1.0 (2026-11-01)
 
 - **Default depth of a ± modulation: 0.5** (half the way from the slider to its bounds), instead of 1. A

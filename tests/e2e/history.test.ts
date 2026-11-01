@@ -47,6 +47,14 @@ describe("undo and redo", () => {
     it("undoes and redoes connections, parameter values, positions and module removals", async () => {
         const { page, errors } = await openWithPatch();
         const initial = await state(page);
+        // the microphone and the speakers, where the page shows them (they must not move on undo)
+        const physical = () => page.evaluate(() => {
+            const s = (globalThis as any).faustmodular.scene;
+            return [s.fAudioInput, s.fAudioOutput].map((m: any) => [m.moduleView.x, m.moduleView.y, m.moduleView.getModuleContainer().style.left]);
+        });
+        const placed = await physical();
+        expect(placed[0][0]).toBe(10);
+        expect(["input", "output"].map((id) => initial.io.find((io: any) => io.id == id)).map((io: any) => [io.x, io.y])).toEqual(placed.map((p) => [p[0], p[1]]));
         expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.history.canUndo())).toBe(false);
 
         // a disconnection
@@ -84,6 +92,8 @@ describe("undo and redo", () => {
         expect(await state(page)).toEqual(initial);
         expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.audioGraph.getWireCount().wires)).toBe(initial.connections.length);
         expect(await page.locator("#svgCanvas path.cable").count()).toBe(initial.connections.length);
+
+        expect(await physical()).toEqual(placed);
 
         // a new change after an undo clears the redo list
         await page.evaluate(() => (globalThis as any).faustmodular.scene.patch.updateModule("2", { x: 40, y: 40 }));

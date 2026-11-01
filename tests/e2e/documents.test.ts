@@ -75,6 +75,18 @@ describe("documents", () => {
         expect(await info(page)).toMatchObject({ name: "Modulation_Example", dirty: true });
         expect(await sliderValue(page)).toBe("7");
 
+        // the physical modules: where they were, then where they were moved
+        const physical = () => page.evaluate(() => {
+            const s = (globalThis as any).faustmodular.scene;
+            return [s.fAudioInput, s.fAudioOutput].map((m: any) => [m.moduleView.x, m.moduleView.y]);
+        });
+        const placed = await physical();
+        expect(placed[0]).toEqual([10, 450]);
+        await page.evaluate(() => { const s = (globalThis as any).faustmodular.scene; s.moveModule(s.fAudioOutput, 900, 300); });
+        await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
+        await reload(page);
+        expect(await physical()).toEqual([placed[0], [900, 300]]);
+
         await page.mouse.click(700, 860);                   // the stage has the focus
         await page.keyboard.press("Control+s");
         await page.waitForFunction(() => !(globalThis as any).faustmodular.documents.dirty);

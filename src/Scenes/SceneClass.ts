@@ -374,7 +374,8 @@ export class Scene {
         this.fAudioOutput = new ModuleClass(Utilitary.idX++, positionOutput.x, positionOutput.y, "output", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
         var destination = Utilitary.audioContext.destination;
         var channels = Math.min(Math.max(destination.maxChannelCount || 2, 1), MAX_CHANNELS);
-        this.patch.addModule({ id: OUTPUT_ID, kind: "output", name: "output", numInputs: channels, numOutputs: 0 });
+        // its position in the model too: the history and the documents record it
+        this.patch.addModule({ id: OUTPUT_ID, kind: "output", name: "output", numInputs: channels, numOutputs: 0, x: positionOutput.x, y: positionOutput.y });
         this.fAudioOutput.moduleId = OUTPUT_ID;
         this.audioGraph.setNode(OUTPUT_ID, destination);
         this.addMuteOutputListner(this.fAudioOutput);
@@ -386,7 +387,7 @@ export class Scene {
     integrateInput() {
         var positionInput: PositionModule = this.positionInputModule();
         this.fAudioInput = new ModuleClass(Utilitary.idX++, positionInput.x, positionInput.y, "input", this.sceneView.inputOutputModuleContainer, (module) => { this.removeModule(module) }, this.compileFaust);
-        this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2 });
+        this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2, x: positionInput.x, y: positionInput.y });
         this.fAudioInput.moduleId = INPUT_ID;
         this.patchView.addModule(this.fAudioInput);
         this.activateAudioInput();
@@ -620,10 +621,14 @@ export class Scene {
     private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>, keepIds: boolean): Promise<string[]> {
         this.sceneName = sceneName;
         var warnings: string[] = [];
-        // positions of the physical input and output
+        // positions of the physical input and output, kept in the window. (0, 0) is no position: the
+        // files and documents saved before 3.1.1 had no other, and the modules stay where they are.
         for (var io of file.getModules()) {
             var physical = io.kind == "input" ? this.fAudioInput : io.kind == "output" ? this.fAudioOutput : undefined;
-            if (physical) this.moveModule(physical, io.x, io.y);
+            if (!physical || (io.x == 0 && io.y == 0)) continue;
+            var x = Math.max(0, Math.min(io.x, window.innerWidth - 98));
+            var y = Math.max(50, Math.min(io.y, window.innerHeight - 100));
+            this.moveModule(physical, x, y);
         }
         var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings, keepIds);
         for (var c of file.getConnections()) {
