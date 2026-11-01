@@ -392,7 +392,8 @@ export class FaustInterfaceView {
                 option.textContent = item.label;
                 select.appendChild(option);
             });
-            select.addEventListener("change", () => choose(values[Number(select.value)]));
+            // the choice made, the menu gives the focus back (keyboard shortcuts of the scene)
+            select.addEventListener("change", () => { choose(values[Number(select.value)]); select.blur(); });
             ["mousedown", "touchstart", "pointerdown"].forEach((type) => select.addEventListener(type, (e) => e.stopPropagation()));
             group.appendChild(select);
             this.fChoice = { select, values };

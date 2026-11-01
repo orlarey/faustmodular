@@ -10,6 +10,7 @@ export class LibraryView {
     multichannelLibrarySelect: HTMLUListElement
     modulationLibrarySelect: HTMLUListElement
     userLibrarySelect: HTMLUListElement
+    displayLibrarySelect: HTMLUListElement
     intrumentLibrary: HTMLElement
     effetLibrary: HTMLElement
     exempleLibrary: HTMLElement
@@ -128,6 +129,27 @@ export class LibraryView {
         modulationLibraryContent.appendChild(modulationLibraryTitle);
         modulationLibraryContent.appendChild(modulationLibrarySelect);
         libraryContent.appendChild(modulationLibraryContent)
+
+        /////////////Displays: level meters, value, oscilloscope, spectrum
+
+        var displayLibraryContent: HTMLElement = document.createElement("div");
+        displayLibraryContent.id = "displayLibraryContent";
+        displayLibraryContent.className = "submenuLibraryContent";
+
+        var displayLibraryTitle: HTMLSpanElement = document.createElement("span");
+        displayLibraryTitle.id = "displayLibraryTitle";
+        displayLibraryTitle.className = "libraryTitles";
+        displayLibraryTitle.appendChild(document.createTextNode(Utilitary.messageResource.titleDisplay));
+
+        var displayLibrarySelect: HTMLUListElement = document.createElement("ul");
+        displayLibrarySelect.id = "displayLibrarySelect";
+        displayLibrarySelect.className = "librarySelects";
+        Ps.initialize(displayLibrarySelect, { suppressScrollX: true, theme: 'my-theme-name' });
+        this.displayLibrarySelect = displayLibrarySelect;
+
+        displayLibraryContent.appendChild(displayLibraryTitle);
+        displayLibraryContent.appendChild(displayLibrarySelect);
+        libraryContent.appendChild(displayLibraryContent)
 
         /////////////My modules: the user modules (documents)
 

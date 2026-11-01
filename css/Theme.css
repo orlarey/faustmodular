@@ -503,7 +503,7 @@ ul.documentsList {
 
 /* Library: six columns, the last one for the user modules ("My modules") */
 .submenuLibraryContent {
-	width: calc(100% / 6);
+	width: calc(100% / 7);
 }
 li.userModule {
 	display: flex;
@@ -574,4 +574,41 @@ input.userModuleName {
 .control-choice .choice-radios input[type="radio"] {
 	accent-color: var(--fp-accent);
 	margin: 0;
+}
+/* the generic select:focus of the menus (Menu.css) must not repaint the menu of a widget */
+.control-choice select.choice-menu:focus, .control-choice select.choice-menu:focus-visible {
+	background: var(--fp-value-bg) !important;
+	border: 1px solid var(--fp-accent) !important;
+	outline: none;
+	box-shadow: none;
+}
+
+/* Displays (Modules/Displays.ts): bargraphs, oscilloscope, spectrum */
+.display-bar .bar-track {
+	height: 8px;
+	margin-top: 6px;
+	border-radius: 4px;
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	overflow: hidden;
+}
+.display-bar .bar-fill {
+	height: 100%;
+	width: 0;
+	background: linear-gradient(90deg, var(--fp-in), var(--fp-accent) 70%, var(--fp-mod) 90%, var(--fp-out));
+	background-size: 100% 100%;
+}
+.display-bar .value {
+	font-variant-numeric: tabular-nums;
+	min-width: 5.5em;
+	text-align: right;
+}
+canvas.display-canvas {
+	display: block;
+	width: 240px;
+	height: 105px;
+	margin: 6px auto 2px;
+	border-radius: 6px;
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
 }

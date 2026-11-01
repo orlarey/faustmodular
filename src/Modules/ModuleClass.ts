@@ -5,6 +5,7 @@
 import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { sliderRange, valueAt } from "../model/SliderScale";
+import { ModuleDisplays } from "./Displays";
 import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView } from "./FaustInterface";
 import { Message } from "../Messages";
 import { ModuleFaust } from "./ModuleFaust";
@@ -28,6 +29,7 @@ export class ModuleClass {
 
     private deleteCallback: (module: ModuleClass) => void;
     // why the last createDSP failed (shown by the code editors)
+    displays: ModuleDisplays | null = null;
     lastError: string | null = null;
     private fModuleInterfaceParams: { [label: string]: string } = {};
 
@@ -238,10 +240,15 @@ export class ModuleClass {
             faustInterfaceControler.setEventListener();
             faustInterfaceControler.createAccelerometer();
         }
+        // bargraphs, oscilloscope or spectrum (Displays.ts)
+        this.displays?.dispose();
+        this.displays = new ModuleDisplays(this.moduleView.getInterfaceContainer(), this.moduleFaust.getDSP() as any, Utilitary.audioContext);
     }
 
     // Delete all FaustInterfaceControler
     private deleteFaustInterface(): void {
+        this.displays?.dispose();
+        this.displays = null;
         this.deleteAccelerometerRef();
 
         while (this.moduleView.fInterfaceContainer.childNodes.length != 0) {

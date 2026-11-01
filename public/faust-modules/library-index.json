@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.4.0",
+ "version": "3.5.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -28,6 +28,11 @@
   "faust-modules/combined/TunedBars.dsp": "cca56133358ed201c110929b852e693554179c46",
   "faust-modules/combined/Whistles.dsp": "d44ee896fad9760827f7a3f5936403afce274546",
   "faust-modules/combined/WoodenKeyboard.dsp": "9cceb5e17f1b863876eb53ff3a518c707dbcd84e",
+  "faust-modules/display/Level.dsp": "4c209c3251737eaca0f23a054d05a7fcca7e03b8",
+  "faust-modules/display/Scope.dsp": "f7671b028999a4a8eb09229e20be3939f45e0b62",
+  "faust-modules/display/Spectrum.dsp": "932e9d33820d84b44f55425e40b7d461ce4421f0",
+  "faust-modules/display/StereoLevel.dsp": "b21e230d1f95b62eac3e53acecb40147175e5e5b",
+  "faust-modules/display/Value.dsp": "2461c36fc153c457592fc2b96da9b9d25cf27487",
   "faust-modules/effects/ASREnvelope.dsp": "8e82e97834378abceabf3c43c0e124b1a588e532",
   "faust-modules/effects/BandPassFilter.dsp": "a15dbde6d980a20b610d129e2a43ec6c734bd99f",
   "faust-modules/effects/CombFilter.dsp": "f3e5e96c1a9c918414dd38d8be7a23a6af4412e6",
@@ -111,6 +116,30 @@
   "00da4c25263e238f359d0736205f6b6ee4e1c78f": {
    "path": "faust-modules/effects/VibratoEnvelope.dsp",
    "until": "2026-10-30T13:27:28+00:00"
+  },
+  "025333571c30dff246eebf26fe920790ec0ed46b": {
+   "path": "faust-modules/display/Level.dsp",
+   "until": "3.4.0"
+  },
+  "2bf8d5a92b081672de8096edbcb6b75a6820b41c": {
+   "path": "faust-modules/display/Level.dsp",
+   "until": "3.4.0"
+  },
+  "61176db1bc3b0ad454d5331cd0e312db367d7719": {
+   "path": "faust-modules/display/Scope.dsp",
+   "until": "3.4.0"
+  },
+  "6bed6a59d2656c9081b60dcd40eebff36e80819d": {
+   "path": "faust-modules/display/Level.dsp",
+   "until": "3.4.0"
+  },
+  "8594bd8d6f2a14b11b36283fb1757bc8eeb77bb4": {
+   "path": "faust-modules/display/Value.dsp",
+   "until": "3.4.0"
+  },
+  "e65b23a949abd5e6bd788afc5da93b1238476bb8": {
+   "path": "faust-modules/display/StereoLevel.dsp",
+   "until": "3.4.0"
   }
  }
 }

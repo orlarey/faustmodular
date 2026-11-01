@@ -931,5 +931,35 @@ describe("widget styles", () => {
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
+
+    it("shows the bargraphs of a module and draws the oscilloscope of a module that declares it", async () => {
+        const { page, errors } = await openApp();
+        const source = await addModule(page, "Half", 'process = vgroup("Half", 0.5);', 100);
+        const value = await addModule(page, "Value", `process = vgroup("Value", _ <: attach(_, hbargraph("Value", -1, 1)));`, 350);
+        const scope = await addModule(page, "Scope", `declare display "scope"; process = vgroup("Scope", attach(_, hslider("Time[unit:ms][scale:log]", 20, 1, 5000, 1)));`, 650);
+        await page.evaluate(([a, b, c]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.connect({ module: a, port: 0 }, { module: b, port: 0 });
+            s.patch.connect({ module: b, port: 0 }, { module: c, port: 0 });
+            s.patch.connect({ module: c, port: 0 }, { module: "output", port: 0 });
+        }, [source, value, scope]);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.audioGraph.getNode("output").context.resume());
+        // the value 0.5: the number, and three quarters of the bar over [-1, 1]
+        await page.waitForFunction(() => document.querySelector(".display-bar .value")?.textContent == "0.50", null, { timeout: 10_000 });
+        expect(await page.locator(".display-bar .bar-fill").evaluate((e: HTMLElement) => parseFloat(e.style.width))).toBeCloseTo(75, 1);
+        // the oscilloscope draws a line (at 0.5 for a constant): lit pixels in its canvas
+        await page.waitForFunction(() => {
+            const canvas = document.querySelector("canvas.display-scope") as HTMLCanvasElement | null;
+            if (!canvas) return false;
+            const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 3; i < data.length; i += 4) if (data[i] > 0) return true;
+            return false;
+        }, null, { timeout: 10_000 });
+        // removed with the module
+        await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).deleteModule(), scope);
+        expect(await page.locator("canvas.display-scope").count()).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
 });
 

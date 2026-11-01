@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.5.0 (2026-11-01)
+
+- **Displays of signals.** The bargraphs of a module (`hbargraph`, `vbargraph`) are shown, refreshed at
+  each frame from the values the DSP reports: any Faust module can measure what it wants. A module that
+  declares `declare display "scope";` or `declare display "spectrum";` shows an oscilloscope or a spectrum
+  of its output. `src/Modules/Displays.ts`.
+- **Display**, a new column of the library, with pass-through modules to insert anywhere: **Level**
+  (RMS and peak in dB), **StereoLevel**, **Value** (the value of a control signal), **Scope** (its
+  **Time** slider sets the duration shown, from 1 ms to 5 s: triggered on a rising zero crossing for
+  short durations, scrolling for long ones), **Spectrum** (dB on a logarithmic frequency axis).
+- The menu of a `[style:menu{...}]` widget keeps its look once a choice is made (the generic style of
+  the focused selects of the menus repainted it), and gives the focus back to the stage.
+
 ## 3.4.0 (2026-11-01)
 
 - **Logarithmic sliders** (`[scale:log]`), as in faustcode and the Faust UIs: equal moves of the slider
