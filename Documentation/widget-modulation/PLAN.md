@@ -304,3 +304,12 @@ niveau (« × doser ») ; au minimum avec D = 1, il parcourt toute la plage quan
   oscillateur dont la fréquence est modulée : un écart d'un bit de poids faible sur la fréquence,
   intégré par l'oscillateur, donne 2,9·10⁻⁵ en fin de rendu (seuil 10⁻⁴ ; une erreur de sémantique
   donnerait des écarts de l'ordre de 0,1).
+
+### Évolution (2026-11-01, version 2.9.0) : plus de palette, ports audio sur les côtés
+
+- Le mode unique par sorte de widget est adopté après essai : la palette est supprimée (code,
+  styles, chaînes), et le dépôt sur un widget le module directement.
+- Les ports audio reviennent sur les côtés, dans une zone en bas du module sous le dernier widget
+  (entrées à gauche, sorties à droite). Les ports de modulation gardent le bord gauche au-dessus,
+  à la hauteur de leurs widgets : les deux ne peuvent plus se chevaucher.
+- L'éditeur intégré est supprimé ; le crayon, dans la barre de titre, ouvre faustcode.

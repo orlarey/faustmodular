@@ -157,7 +157,7 @@ li > a:hover {
 	padding: 10px 40px 9px;
 	border-bottom: 1px solid var(--fp-accent-border-soft);
 }
-.moduleFaust .close, .moduleFaust .minus, .moduleFaust .max, .edit,
+.moduleFaust .close, .moduleFaust .minus, .moduleFaust .max, .moduleFaust > .edit,
 #moduleInput > .content, #moduleOutput > .content {
 	filter: invert(0.85);
 }
@@ -269,40 +269,13 @@ input[type="range"]::-moz-range-thumb,
 .modulation-port .depth-arc {
 	stroke: var(--fp-mod);
 }
-.modulation-palette {
-	background: var(--fp-panel);
-	border: 1px solid var(--fp-accent-border-soft);
-	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
-}
-.modulation-mode {
-	color: var(--fp-pill-text);
-}
-.modulation-mode.mode-target {
-	background: var(--fp-mod);
-	color: var(--fp-value-bg);
-}
 .moduleFaust.compiling {
 	box-shadow: 0 0 0 3px rgba(255, 179, 92, 0.6), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
-/* Code editing */
-.edit-inline {
-	color: var(--fp-text-quiet);
-}
-.edit-inline:hover, .edit:hover {
-	background-color: rgba(176, 255, 220, 0.1);
-}
-.moduleFaust textarea.textArea {
-	color: var(--fp-value);
-	background: var(--fp-value-bg);
-	border: 1px solid var(--fp-accent-border-soft);
-	border-radius: 6px;
-	padding: 8px;
-	caret-color: var(--fp-accent);
-}
-.moduleFaust .edit-error {
-	color: #ffb4a8;
-	background: rgba(176, 40, 40, 0.25);
+/* The pencil, in the title bar */
+.moduleFaust > .edit:hover {
+	background-color: rgba(176, 255, 220, 0.12);
 }
 
 /* Messages and loading, as faustcode's notices */
@@ -313,9 +286,6 @@ input[type="range"]::-moz-range-thumb,
 }
 div#loadingPage {
 	background-color: rgba(20, 25, 34, 0.85);
-}
-#footer, #footer a {
-	color: var(--fp-text-quiet) !important;
 }
 
 /* Fixes for the dark look */
@@ -332,17 +302,6 @@ div#menuContainer {
 }
 .moduleFaust h6:empty {
 	display: none;				/* physical input and output modules */
-}
-#ChrisLine, #ChrisLine a {
-	color: var(--fp-text-quiet) !important;
-	font-style: normal;
-}
-#ChrisLine a {
-	text-decoration: underline;
-	text-decoration-color: var(--fp-accent-border);
-}
-.logoGrame {
-	filter: invert(0.85);
 }
 /* accelerometer axes: distinct, quieter hues */
 .x > input[type="range"]::-webkit-slider-thumb { background-color: #e06c75; }

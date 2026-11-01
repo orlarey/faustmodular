@@ -258,10 +258,6 @@ export class Scene {
     }
 
     private getDevice(device: MediaStream): void {
-        // The logo container historically moved to the body here; kept for an identical layout.
-        var logo = document.getElementById("input");
-        if (logo) document.body.appendChild(logo);
-
         var source = Utilitary.audioContext.createMediaStreamSource(device);
         var settings = device.getAudioTracks()[0]?.getSettings();
         var channels = Math.min(Math.max(settings?.channelCount || 2, 1), MAX_CHANNELS);
@@ -648,7 +644,6 @@ export class Scene {
 
     // Edits the code of a module in faustcode (see FaustcodeLink).
     editInFaustcode(module: ModuleClass): void {
-        module.closeEditor();
         this.faustcodeLink.edit(module);
     }
 

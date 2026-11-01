@@ -11,8 +11,9 @@ Version 2 is multichannel: modules have one port per input and output channel, c
 
 ## Connecting modules
 
-Each module has one port per input channel (green) and one port per output channel (red), astride its
-bottom edge as on modular synthesizers: inputs from the left, outputs from the right. Physical input and output modules have as many ports as the audio devices have
+Each module has one port per input channel (mint) and one port per output channel (coral), in a zone at
+the bottom of the module, under its last widget: inputs astride the left edge, outputs astride the right
+edge. Physical input and output modules have as many ports as the audio devices have
 channels.
 
 - Drag from a port and release on a port of the other kind to connect these two channels. Several
@@ -37,10 +38,9 @@ Patches with modulations are saved in format version 3.
 
 ## Editing the code of a module
 
-The pencil of a module opens its code in [faustcode](https://github.com/orlarey/faustcode), in a window
+The pencil, in the title bar of a module, opens its code in [faustcode](https://github.com/orlarey/faustcode), in a window
 reused for all the modules: each save that compiles (Cmd/Ctrl-S) updates the module in place, keeping its
-sound, slider values, modulations and connections; a code with errors stays in faustcode. The `</>` button
-opens a simpler integrated editor (Ctrl/Cmd-Enter compiles, Escape closes). The faustcode URL can be set
+sound, slider values, modulations and connections; a code with errors stays in faustcode. The faustcode URL can be set
 with `?faustcode=<url>` (e.g. a local faustcode).
 
 The export generates a single Faust program equivalent to the patch (`src/export/FaustExporter.ts`):

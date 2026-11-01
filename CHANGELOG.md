@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.9.0 (2026-11-01)
+
+- **Audio ports on the sides again**, in a zone at the bottom of the module, under its last widget:
+  inputs astride the left edge, outputs astride the right edge, numbered from the top. The modulation
+  ports keep the left edge above, at the height of their widgets. Cables leave the outputs to the right
+  and reach the inputs from the left.
+- **The pencil is in the title bar** of the module, and opens the code in faustcode. The integrated
+  editor (`</>`) is removed: faustcode is the only editor.
+- **The modulation palette is removed**: a single mode per kind of widget (2.8.0) left nothing to choose.
+- The GRAME logo and the credit line at the bottom left are removed.
+
 ## 2.8.0 (2026-10-31)
 
 - **One modulation mode per kind of widget, no palette.** Releasing a cable on a slider modulates it

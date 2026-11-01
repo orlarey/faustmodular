@@ -79,7 +79,6 @@
   "checkBox": "enable/disable accelerometer",
   "noDeviceMotion": "It appears that your browser does not support the Device Motion API, you will therefore be unable to access the accelerometers of your device.",
   "editInFaustcode": "Edit the code in faustcode: every successful compilation (Cmd/Ctrl-S) updates the module",
-  "editInline": "Integrated editor (Ctrl/Cmd-Enter: compile, Escape: close)",
   "faustcodePopupBlocked": "The browser blocked the faustcode window: allow pop-ups for this site",
   "faustcodeNoAnswer": "faustcode does not answer ({url}): this version may not know the link with the playground. The integrated editor (</>) is still available",
   "faustcodeUpdateFailed": "{name}: the code received from faustcode was not applied ({error})",

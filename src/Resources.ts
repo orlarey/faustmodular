@@ -42,7 +42,6 @@ export class Resources {
     modulationPortHint: string;
     editInFaustcode: string;
     confirmReplaceScene: string;
-    editInline: string;
     faustcodePopupBlocked: string;
     faustcodeNoAnswer: string;
     faustcodeUpdateFailed: string;

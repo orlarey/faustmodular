@@ -310,18 +310,22 @@ describe("application", () => {
             paths: 5,
         });
         expect(await cableMisalignment(page)).toBeLessThan(1);
-        // audio ports astride the bottom edge of their module, inputs on the left, outputs on the right
+        // audio ports astride the side edges, inputs on the left and outputs on the right, in a zone
+        // under the last widget (the left edge above it is for the modulation ports)
         const ports = await page.evaluate(() => {
             const s = (globalThis as any).faustPlayground.scene;
-            const box = s.getModuleById("3").moduleView.fModuleContainer.getBoundingClientRect();
+            const view = s.getModuleById("3").moduleView;
+            const box = view.fModuleContainer.getBoundingClientRect();
+            const content = view.fInterfaceContainer.getBoundingClientRect();
             return Array.from(document.querySelectorAll('.port[data-module="3"]')).map((p) => {
                 const r = p.getBoundingClientRect();
-                return { dir: (p as HTMLElement).dataset.dir, dy: r.top + r.height / 2 - box.bottom, x: r.left + r.width / 2 - box.left, width: box.width };
+                return { dir: (p as HTMLElement).dataset.dir, left: r.left + r.width / 2 - box.left, right: r.left + r.width / 2 - box.right, below: r.top - content.bottom };
             });
         });
-        ports.forEach((p: any) => expect(Math.abs(p.dy)).toBeLessThan(2));
-        expect(ports.filter((p: any) => p.dir == "in").every((p: any) => p.x < ports[0].width / 2)).toBe(true);
-        expect(ports.filter((p: any) => p.dir == "out").every((p: any) => p.x > ports[0].width / 2)).toBe(true);
+        expect(ports.map((p: any) => p.dir)).toEqual(["in", "in", "out", "out"]);
+        ports.filter((p: any) => p.dir == "in").forEach((p: any) => expect(Math.abs(p.left)).toBeLessThan(2));
+        ports.filter((p: any) => p.dir == "out").forEach((p: any) => expect(Math.abs(p.right)).toBeLessThan(2));
+        ports.forEach((p: any) => expect(p.below).toBeGreaterThanOrEqual(0));
 
         const body = await bodyOf(page, "3");
         const before = await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.getModule("3"));
@@ -656,7 +660,7 @@ describe("widget modulation (interface)", () => {
         expect(await page.locator(`${await widget(page, osc, "freq")}.modulated-modulate`).count()).toBe(1);
         expect(await page.locator(".cable.modulation").count()).toBe(1);
         // a modulation port of its type, at the height of the widget, astride the left edge, clear of
-        // the audio ports (bottom edge); the cable ends at its center
+        // the audio ports (in the zone under the widgets); the cable ends at its center
         expect(await page.locator(`.modulation-port.modulation-modulate[data-module="${osc}"]`).count()).toBe(1);
         const geometry = await page.evaluate(([m, sel]) => {
             const s = (globalThis as any).faustPlayground.scene;

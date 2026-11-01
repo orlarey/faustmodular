@@ -8,15 +8,11 @@
     H6 --> fTitle
     DIV --> fInterfaceContainer
     DIV --> fCloseButton
-    DIV --> fFooter
-    DIV --> fEditImg (edit in faustcode), fEditInline (integrated editor)
+    DIV --> fEditImg (pencil in the title bar: edit the code in faustcode)
     ===================*/
 
 import { HTMLInterfaceContainer } from "../Utilitary";
 
-interface HTMLfEdit extends HTMLDivElement {
-    area: HTMLTextAreaElement;
-}
 interface HTMLinterfaceElement extends HTMLElement {
     label: string;
 }
@@ -25,14 +21,11 @@ export class ModuleView {
     fModuleContainer: HTMLElement;
     fName: string;
     fInterfaceContainer: HTMLInterfaceContainer;
-    fEditImg: HTMLfEdit;
+    fEditImg: HTMLDivElement;
     fTitle: HTMLElement;
     fInputPorts: HTMLElement[] = [];
     fOutputPorts: HTMLElement[] = [];
     contentModule: HTMLElement;
-    textArea: HTMLTextAreaElement;
-    editError: HTMLElement;         // compilation errors of the integrated editor
-    fEditInline: HTMLDivElement;    // opens (and validates) the integrated editor
     miniButton: HTMLDivElement;
     maxButton: HTMLDivElement;
     closeButton: HTMLDivElement;
@@ -62,24 +55,6 @@ export class ModuleView {
         } else if (name == "output") {
             fModuleContainer.id = "moduleOutput";
         } else {
-            var textArea: HTMLTextAreaElement = document.createElement("textarea");
-            textArea.rows = 15;
-            textArea.cols = 60;
-            textArea.className = "textArea"
-            textArea.value = "";
-            textArea.style.display = "none";
-            textArea.spellcheck = false;
-            this.textArea = textArea;
-            fModuleContainer.appendChild(textArea);
-
-            var editError = document.createElement("pre");
-            editError.className = "edit-error";
-            editError.style.display = "none";
-            this.editError = editError;
-            fModuleContainer.appendChild(editError);
-
-            var fFooter: HTMLElement = document.createElement("footer");
-            fFooter.id = "moduleFooter";
             fModuleContainer.id = "module" + ID;
 
             var fCloseButton: HTMLDivElement = document.createElement("div");
@@ -101,20 +76,12 @@ export class ModuleView {
             fModuleContainer.appendChild(fMinButton);
             fModuleContainer.appendChild(fMaxButton);
 
-            var fEditImg = <HTMLfEdit>document.createElement("div");
-            fEditImg.className = "edit"
+            // the pencil, in the title bar: edits the code in faustcode
+            var fEditImg = document.createElement("div");
+            fEditImg.className = "edit";
             fEditImg.draggable = false;
             this.fEditImg = fEditImg;
-
-            fFooter.appendChild(fEditImg);
-
-            var fEditInline = document.createElement("div");
-            fEditInline.className = "edit-inline";
-            fEditInline.draggable = false;
-            fEditInline.textContent = "</>";
-            this.fEditInline = fEditInline;
-            fFooter.appendChild(fEditInline);
-            fModuleContainer.appendChild(fFooter);
+            fModuleContainer.appendChild(fEditImg);
         }
 
         htmlParent.appendChild(fModuleContainer);
@@ -135,21 +102,19 @@ export class ModuleView {
     }
 
     /******************** PORTS ********************/
-    // One port per channel, on the bottom edge as on a modular synthesizer: inputs (green) in a row
-    // from the left, outputs (red) in a row ending on the right. The left edge is kept for the
-    // modulation ports (PatchView). Each port carries data-module, data-dir ("in" | "out") and
-    // data-port (0-based) for hit testing.
+    // One port per channel, astride the side edges in a zone at the bottom of the module, under the
+    // last widget: inputs on the left edge, outputs on the right edge, numbered from the top. The
+    // left edge above the zone is kept for the modulation ports (PatchView). Each port carries
+    // data-module, data-dir ("in" | "out") and data-port (0-based) for hit testing.
 
     setPorts(moduleId: string, numInputs: number, numOutputs: number): void {
         this.clearPorts();
-        this.fInputPorts = this.createPorts(moduleId, "in", numInputs);
-        this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs);
-        // wide enough for both rows, and room under the content for the half of the ports inside
-        var rows = [numInputs, numOutputs].filter((n) => n > 0);
-        var width = rows.reduce((sum, n) => sum + n * ModuleView.portLayout(n).pitch, 0) + ModuleView.PORT_INSET * 2 + (rows.length > 1 ? ModuleView.PORT_GAP : 0);
-        var size = Math.max(0, ...rows.map((n) => ModuleView.portLayout(n).size));
-        this.fModuleContainer.style.minWidth = rows.length > 0 ? width + "px" : "";
-        this.fModuleContainer.style.paddingBottom = size > 0 ? (size / 2 + 2) + "px" : "";
+        var zone = Math.max(ModuleView.columnHeight(numInputs), ModuleView.columnHeight(numOutputs));
+        zone = zone > 0 ? zone + 2 * ModuleView.PORT_INSET : 0;
+        this.fInputPorts = this.createPorts(moduleId, "in", numInputs, zone);
+        this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs, zone);
+        this.fModuleContainer.style.paddingBottom = zone > 0 ? zone + "px" : "";
+        this.fModuleContainer.style.minWidth = "";
     }
 
     clearPorts(): void {
@@ -162,9 +127,12 @@ export class ModuleView {
         return (dir == "in" ? this.fInputPorts : this.fOutputPorts)[index];
     }
 
-    // Distance of the rows from the corners, and between the input and output rows (px).
-    static PORT_INSET = 10;
-    static PORT_GAP = 16;
+    // Margin above and below the columns of ports (px).
+    static PORT_INSET = 8;
+
+    private static columnHeight(count: number): number {
+        return count > 0 ? count * ModuleView.portLayout(count).pitch : 0;
+    }
 
     // Port size and spacing shrink when there are many ports.
     static portLayout(count: number): { size: number; pitch: number } {
@@ -173,7 +141,7 @@ export class ModuleView {
         return { size: 18, pitch: 20 };
     }
 
-    private createPorts(moduleId: string, dir: "in" | "out", count: number): HTMLElement[] {
+    private createPorts(moduleId: string, dir: "in" | "out", count: number, zone: number): HTMLElement[] {
         var layout = ModuleView.portLayout(count);
         var ports: HTMLElement[] = [];
         for (var i = 0; i < count; i++) {
@@ -185,13 +153,13 @@ export class ModuleView {
             port.dataset.port = String(i);
             port.title = (dir == "in" ? "input " : "output ") + (i + 1);
             port.style.width = port.style.height = layout.size + "px";
-            // astride the bottom edge; inputs numbered from the left, outputs ending on the right
-            port.style.bottom = (-layout.size / 2) + "px";
-            var offset = ModuleView.PORT_INSET + (layout.pitch - layout.size) / 2;
+            // astride the left (inputs) or right (outputs) edge, from the top of the zone down
+            var center = zone - ModuleView.PORT_INSET - (i + 0.5) * layout.pitch;     // from the bottom
+            port.style.bottom = (center - layout.size / 2) + "px";
             if (dir == "in") {
-                port.style.left = (offset + i * layout.pitch) + "px";
+                port.style.left = (-layout.size / 2) + "px";
             } else {
-                port.style.right = (offset + (count - 1 - i) * layout.pitch) + "px";
+                port.style.right = (-layout.size / 2) + "px";
             }
             var dot = document.createElement("span");
             dot.draggable = false;

@@ -1,4 +1,4 @@
-// Editing the code of modules: the integrated editor, and faustcode (src/FaustcodeLink.ts) through a
+// Editing the code of modules in faustcode (src/FaustcodeLink.ts), through a
 // stub that follows the protocol, or the real faustcode when FAUSTCODE_DIR names a checkout of it
 // (https://github.com/orlarey/faustcode, served here as static files).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -73,58 +73,6 @@ function moduleState(page: Page, id: string) {
         };
     }, id);
 }
-
-describe("integrated code editor", () => {
-    it("shows the user's code, keeps the DSP and the text on an error, and applies a correct code", async () => {
-        const { context, page, errors } = await openApp();
-        const { id, sel } = await addGain(page);
-        await setGain(page, id, 0.8);
-        const isSameDsp = () => page.evaluate((m) => {
-            const module = (globalThis as any).faustPlayground.scene.getModuleById(m);
-            const same = (globalThis as any).firstDsp === module.moduleFaust.getDSP();
-            (globalThis as any).firstDsp = module.moduleFaust.getDSP();
-            return same;
-        }, id);
-        await isSameDsp();
-
-        await page.locator(sel + " .edit-inline").click();
-        const area = page.locator(sel + " textarea");
-        expect(await area.inputValue()).toBe(USER_CODE);            // without the group of the module
-        expect(await page.locator(sel + " .content").isVisible()).toBe(false);
-
-        // an error on line 3: shown under the code, the module keeps its DSP, the text is kept
-        await area.click();
-        await page.keyboard.press("Control+End");
-        await page.keyboard.type("\nfoo = ;");
-        await page.keyboard.press("Control+Enter");
-        await page.waitForFunction((s) => (document.querySelector(s + " .edit-error") as HTMLElement).style.display == "block", sel, { timeout: 30_000 });
-        expect(await page.locator(sel + " .edit-error").textContent()).toMatch(/^line 3 : ERROR/);
-        expect(await area.inputValue()).toBe(USER_CODE + "\nfoo = ;");
-        expect(await isSameDsp()).toBe(true);
-
-        // corrected: compiled in the group of the module, the slider value is kept
-        await page.keyboard.press("Backspace");
-        await page.keyboard.press("Backspace");
-        await page.keyboard.type("1;");
-        await page.keyboard.press("Control+s");
-        await page.waitForFunction((s) => !(document.querySelector(s + " textarea") as HTMLElement).checkVisibility(), sel, { timeout: 30_000 });
-        const after = await moduleState(page, id);
-        expect(after.source).toBe(`process = vgroup("Gain",environment{\n${USER_CODE}\nfoo =1;\n}.process);`);
-        expect(after.gain).toBeCloseTo(0.8, 5);
-        expect(await isSameDsp()).toBe(false);
-        expect(await page.locator(sel + " .content").isVisible()).toBe(true);
-
-        // Escape closes without compiling
-        await page.locator(sel + " .edit-inline").click();
-        await page.keyboard.type("garbage");
-        await page.keyboard.press("Escape");
-        expect(await area.isVisible()).toBe(false);
-        expect((await moduleState(page, id)).source).toBe(after.source);
-        expect(await isSameDsp()).toBe(true);
-        expect(errors).toEqual([]);
-        await context.close();
-    }, 120_000);
-});
 
 describe("editing in faustcode (stub)", () => {
     const STUB_ORIGIN = "https://faustcode.test";

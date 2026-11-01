@@ -49,31 +49,6 @@ export class SceneView {
 
         //------------ MENUS
 
-        var linkWilson: HTMLDivElement = document.createElement("div");
-        linkWilson.id = "ChrisLine"
-        linkWilson.className = "link";
-        linkWilson.textContent = Utilitary.messageResource.reference;
-        container.appendChild(linkWilson);
-
-        var alink: HTMLAnchorElement = document.createElement("a");
-        alink.href = "https://github.com/cwilso/WebAudio";
-        alink.textContent = Utilitary.messageResource.chrisWilson;
-        linkWilson.appendChild(alink);
-
-        var srcDiv: HTMLDivElement = document.createElement("div");
-        srcDiv.id = "input";
-        srcDiv.className = "source";
-        container.appendChild(srcDiv);
-
-        var imageDiv: HTMLDivElement = document.createElement('div');
-        imageDiv.id = "logoDiv";
-        srcDiv.appendChild(imageDiv);
-
-        var imageLogo: HTMLImageElement = document.createElement('img');
-        imageLogo.className = "logoGrame";
-        imageLogo.src = "img/grame.png";
-        imageDiv.appendChild(imageLogo);
-
         var dropElementScene = document.createElement("div");
         dropElementScene.className = "dropElementGraph";
         dropElementScene.style.display = "none";

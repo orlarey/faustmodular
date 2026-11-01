@@ -7,17 +7,16 @@
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
         - on a widget (from an output): modulates the widget with the mode of its kind ("modulate"
-          for sliders, "drive" for buttons and checkboxes). If several modes were allowed, a palette
-          would show them after a short delay, to release the cable on one of them
-          (Documentation/widget-modulation/PLAN.md);
+          for sliders, "drive" for buttons and checkboxes; Documentation/widget-modulation/PLAN.md);
     - click on a cable to delete it.
 
     Each pointer is tracked separately (pointerId), so several cables can be drawn at once
     on a touch screen. Cables are redrawn when a module moves or changes size; cables closing
     a cycle (delayed in the audio graph) are dashed.
 
-    Audio ports are on the bottom edge of the modules, and their cables hang between them as patch
-    cords. Each modulation has its own port, astride the left edge at the height of its widget: an
+    Audio ports are astride the side edges, in a zone at the bottom of the modules, under the last
+    widget: inputs on the left, outputs on the right. Each modulation has its own port, astride the
+    left edge at the height of its widget: an
     icon shows its type and, for "modulate", a ring shows its depth (arc length = |depth|, clockwise
     when positive). Dragging a "modulate" port vertically sets the depth live (0.01 per pixel, 0.001
     with Shift); a double click sets it back to 1.
@@ -28,9 +27,6 @@ import type { ModulationMode } from "../model/Modulation";
 import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
-
-// Hovering time of a widget before its modulation palette opens.
-export const PALETTE_DELAY = 250;
 
 export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", scale: "×", drive: "→" };
 
@@ -46,9 +42,9 @@ const MODULATION_PORT_SIZE = 24;
 const DEPTH_PER_PIXEL = 0.01;
 const FINE_DEPTH_PER_PIXEL = 0.001;
 
-// Direction in which a cable leaves a port: down for the audio ports (bottom edge), left for the
-// modulation ports (left edge).
-const DOWN: Point = { x: 0, y: 1 };
+// Direction in which a cable leaves a port: right for the outputs (right edge), left for the audio
+// inputs and the modulation ports (left edge).
+const RIGHT: Point = { x: 1, y: 0 };
 const LEFT: Point = { x: -1, y: 0 };
 
 // What the view needs from the scene to modulate widgets.
@@ -80,19 +76,11 @@ interface Point {
 type DropTarget =
     | { kind: "port"; element: HTMLElement; module: ModuleId; port: number }
     | { kind: "bus"; element: HTMLElement; module: ModuleId }
-    | { kind: "widget"; element: HTMLElement; module: ModuleId; widget: string }
-    | { kind: "palette"; element: HTMLElement }
-    | { kind: "mode"; element: HTMLElement; module: ModuleId; widget: string; mode: ModulationMode };
+    | { kind: "widget"; element: HTMLElement; module: ModuleId; widget: string };
 
 const TARGET_CLASSES: Record<DropTarget["kind"], string | undefined> = {
-    port: "port-target", bus: "bus-target", widget: "widget-target", palette: undefined, mode: "mode-target",
+    port: "port-target", bus: "bus-target", widget: "widget-target",
 };
-
-interface Palette {
-    element: HTMLElement;
-    module: ModuleId;
-    widget: string;
-}
 
 interface CableDrag {
     module: ModuleClass;
@@ -101,8 +89,6 @@ interface CableDrag {
     element: HTMLElement;
     path: SVGPathElement;
     target?: DropTarget;
-    palette?: Palette;
-    hover?: { module: ModuleId; widget: string; timer: number };
 }
 
 interface ModuleDrag {
@@ -114,7 +100,7 @@ interface ModuleDrag {
 }
 
 // Elements of a module that keep their own pointer behaviour (controls, buttons, editor).
-const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit, .edit-inline, .edit-error";
+const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit";
 
 export class PatchView {
     private fCables = new Map<ConnectionId, SVGPathElement>();
@@ -239,12 +225,12 @@ export class PatchView {
         if (modulation) {
             // ends on the modulation port, next to the widget
             const port = this.modulationPort(connection.to.module, modulation.id);
-            if (port) path.setAttribute("d", PatchView.curve(this.center(from), DOWN, this.center(port), LEFT));
+            if (port) path.setAttribute("d", PatchView.curve(this.center(from), RIGHT, this.center(port), LEFT));
             return;
         }
         const to = this.fLookup(connection.to.module)?.moduleView.getPort("in", connection.to.port);
         if (to) {
-            path.setAttribute("d", PatchView.curve(this.center(from), DOWN, this.center(to), DOWN));
+            path.setAttribute("d", PatchView.curve(this.center(from), RIGHT, this.center(to), LEFT));
         }
     }
 
@@ -381,7 +367,7 @@ export class PatchView {
     }
 
     private static direction(port: HTMLElement): Point {
-        return port.classList.contains("modulation-port") ? LEFT : DOWN;
+        return port.classList.contains("port-output") ? RIGHT : LEFT;
     }
 
     /******************** POINTER INTERACTIONS ********************/
@@ -460,8 +446,6 @@ export class PatchView {
                 this.connect(cableDrag);
             }
             this.setTarget(cableDrag, undefined);
-            this.cancelHover(cableDrag);
-            this.closePalette(cableDrag);
             cableDrag.path.remove();
         }
     }
@@ -497,79 +481,6 @@ export class PatchView {
         drag.path.setAttribute("d", drag.dir == "out" ? PatchView.curve(start, leaving, pointer, none) : PatchView.curve(pointer, none, start, leaving));
         const target = this.findTarget(drag, e);
         this.setTarget(drag, target);
-        this.updatePalette(drag, target);
-    }
-
-    /******************** MODULATION PALETTE ********************/
-
-    // Opens the palette of a widget after a short hovering, keeps it while the pointer is on the
-    // widget or on the palette, closes it elsewhere.
-    private updatePalette(drag: CableDrag, target: DropTarget | undefined): void {
-        if (target?.kind == "mode" || target?.kind == "palette") {
-            return;
-        }
-        if (target?.kind == "widget" && (this.fModulation?.allowedModes(target.module, target.widget).length ?? 0) > 1) {
-            if (drag.palette?.module == target.module && drag.palette.widget == target.widget) return;
-            if (drag.hover?.module == target.module && drag.hover.widget == target.widget) return;
-            this.closePalette(drag);
-            this.cancelHover(drag);
-            drag.hover = {
-                module: target.module, widget: target.widget,
-                timer: window.setTimeout(() => this.openPalette(drag, target.module, target.widget, target.element), PALETTE_DELAY),
-            };
-            return;
-        }
-        this.cancelHover(drag);
-        this.closePalette(drag);
-    }
-
-    private openPalette(drag: CableDrag, module: ModuleId, widget: string, anchor: HTMLElement): void {
-        drag.hover = undefined;
-        const modes = this.fModulation?.allowedModes(module, widget) ?? [];
-        if (modes.length == 0 || !this.fCableDrags.has(this.pointerOf(drag))) return;
-        const labels: Record<ModulationMode, string> = {
-            modulate: Utilitary.messageResource.modulationModulate,
-            scale: Utilitary.messageResource.modulationScale,
-            drive: Utilitary.messageResource.modulationDrive,
-        };
-        const palette = document.createElement("div");
-        palette.className = "modulation-palette";
-        for (const mode of modes) {
-            const item = document.createElement("div");
-            item.className = "modulation-mode";
-            item.dataset.mode = mode;
-            const symbol = document.createElement("span");
-            symbol.className = "symbol";
-            symbol.textContent = MODE_SYMBOLS[mode];
-            const label = document.createElement("span");
-            label.className = "name";
-            label.textContent = labels[mode];
-            item.appendChild(symbol);
-            item.appendChild(label);
-            palette.appendChild(item);
-        }
-        document.body.appendChild(palette);
-        // against the right side of the widget (left side if there is no room), vertically centered
-        const rect = anchor.getBoundingClientRect();
-        const left = rect.right + palette.offsetWidth <= window.innerWidth ? rect.right : rect.left - palette.offsetWidth;
-        palette.style.left = Math.max(0, left) + "px";
-        palette.style.top = Math.max(0, rect.top + rect.height / 2 - palette.offsetHeight / 2) + "px";
-        drag.palette = { element: palette, module, widget };
-    }
-
-    private closePalette(drag: CableDrag): void {
-        drag.palette?.element.remove();
-        drag.palette = undefined;
-    }
-
-    private cancelHover(drag: CableDrag): void {
-        if (drag.hover) window.clearTimeout(drag.hover.timer);
-        drag.hover = undefined;
-    }
-
-    private pointerOf(drag: CableDrag): number {
-        for (const [pointer, d] of this.fCableDrags) if (d === drag) return pointer;
-        return -1;
     }
 
     // What is under the pointer: a port of the other direction, or the body of another module
@@ -577,12 +488,6 @@ export class PatchView {
     private findTarget(drag: CableDrag, e: PointerEvent): DropTarget | undefined {
         const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
         if (!element) return undefined;
-        if (drag.palette && drag.palette.element.contains(element)) {
-            const item = element.closest("[data-mode]") as HTMLElement | null;
-            return item
-                ? { kind: "mode", element: item, module: drag.palette.module, widget: drag.palette.widget, mode: item.dataset.mode as ModulationMode }
-                : { kind: "palette", element: drag.palette.element };
-        }
         const port = element.closest(".port") as HTMLElement | null;
         if (port) {
             return port.dataset.dir != drag.dir
@@ -622,19 +527,10 @@ export class PatchView {
         const target = drag.target;
         if (!target) return;
         const self = drag.module.moduleId;
-        if (target.kind == "mode") {
-            this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, target.mode);
-            return;
-        }
         if (target.kind == "widget") {
-            // a single mode: no choice to make; several: it must be chosen in the palette
-            const modes = this.fModulation?.allowedModes(target.module, target.widget) ?? [];
-            if (modes.length == 1) {
-                this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, modes[0]);
-            }
-            return;
-        }
-        if (target.kind == "palette") {
+            // the mode of the widget's kind (Modulation.allowedModes): no choice to make
+            const [mode] = this.fModulation?.allowedModes(target.module, target.widget) ?? [];
+            if (mode) this.fModulation?.modulate({ module: self, port: drag.port }, target.module, target.widget, mode);
             return;
         }
         try {

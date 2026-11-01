@@ -13,7 +13,6 @@ import { AccelerometerHandler } from "../Accelerometer";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
 import { DEPTH_METADATA } from "../model/Modulation";
-import { userCode } from "../model/ModuleCode";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 
 interface DSPCallback { (): void; }
@@ -47,13 +46,6 @@ export class ModuleClass {
     //add all event listener to the moduleView
     addEvents() {
         // dragging of the module and of its cables is handled by the PatchView (Pointer Events)
-        if (this.moduleView.textArea != undefined) {
-            this.moduleView.textArea.addEventListener("touchstart", (e) => { e.stopPropagation() });
-            this.moduleView.textArea.addEventListener("touchend", (e) => { e.stopPropagation() });
-            this.moduleView.textArea.addEventListener("touchmove", (e) => { e.stopPropagation() });
-            this.moduleView.textArea.addEventListener("mousedown", (e) => { e.stopPropagation() });
-            this.moduleView.textArea.addEventListener("keydown", (e) => { this.editorKey(e) });
-        }
         if (this.moduleView.closeButton != undefined) {
             this.moduleView.closeButton.addEventListener("click", () => { this.deleteModule(); });
             this.moduleView.closeButton.addEventListener("touchend", () => { this.deleteModule(); });
@@ -70,10 +62,6 @@ export class ModuleClass {
             // the pencil edits the code in faustcode (FaustcodeLink)
             this.moduleView.fEditImg.title = Utilitary.messageResource.editInFaustcode;
             this.moduleView.fEditImg.addEventListener("click", () => { Utilitary.currentScene.editInFaustcode(this) });
-        }
-        if (this.moduleView.fEditInline != undefined) {
-            this.moduleView.fEditInline.title = Utilitary.messageResource.editInline;
-            this.moduleView.fEditInline.addEventListener("click", () => { this.isEditing() ? this.validateEdit() : this.edit() });
         }
     }
 
@@ -199,69 +187,7 @@ export class ModuleClass {
             // faust.deleteDSPInstance(todelete);
     }
     /******************** EDIT SOURCE & RECOMPILE *************************/
-    // The integrated editor shows the user's code (without the group of the module, model/ModuleCode).
-    // While it is open, the module keeps playing its current DSP; its interface is hidden. A code that
-    // does not compile leaves the DSP as it is and the editor open, with the errors under the code.
-    // Ctrl/Cmd-Enter or Ctrl/Cmd-S (or the </> button) compiles, Escape closes without compiling.
-
-    isEditing(): boolean {
-        return this.moduleView.textArea != undefined && this.moduleView.textArea.style.display != "none";
-    }
-
-    edit(): void {
-        if (this.isEditing()) return;
-        document.dispatchEvent(new CustomEvent("codeeditevent"));   // closes the menus
-        this.moduleView.textArea.value = userCode(this.moduleFaust.fSource);
-        this.showEditor(true);
-        this.moduleView.textArea.focus();
-    }
-
-    // Closes the integrated editor without compiling.
-    closeEditor(): void {
-        if (this.isEditing()) this.showEditor(false);
-    }
-
-    async validateEdit(): Promise<boolean> {
-        var view = this.moduleView;
-        view.fEditInline.classList.add("busy");
-        var error = await Utilitary.currentScene.editModuleCode(this, view.textArea.value);
-        view.fEditInline.classList.remove("busy");
-        if (error != null) {
-            view.editError.textContent = error;
-            view.editError.style.display = "block";
-            this.redrawCables();
-            return false;
-        }
-        this.showEditor(false);
-        return true;
-    }
-
-    private showEditor(shown: boolean): void {
-        var view = this.moduleView;
-        view.textArea.style.display = shown ? "block" : "none";
-        view.fInterfaceContainer.style.display = shown ? "none" : "";
-        view.editError.textContent = "";
-        view.editError.style.display = "none";
-        view.fEditInline.textContent = shown ? "\u2713" : "</>";
-        view.fModuleContainer.classList.toggle("editing", shown);
-        this.redrawCables();
-    }
-
-    private editorKey(e: KeyboardEvent): void {
-        e.stopPropagation();
-        if ((e.ctrlKey || e.metaKey) && (e.key == "Enter" || e.key == "s")) {
-            e.preventDefault();
-            this.validateEdit();
-        } else if (e.key == "Escape") {
-            e.preventDefault();
-            this.closeEditor();
-        } else if (e.key == "Tab" && !e.shiftKey) {
-            // indentation instead of leaving the editor
-            e.preventDefault();
-            var area = this.moduleView.textArea;
-            area.setRangeText("    ", area.selectionStart, area.selectionEnd, "end");
-        }
-    }
+    // The code is edited in faustcode (the pencil, FaustcodeLink, Scene.editModuleCode).
 
     // Replaces the code of the module (code dropped on it): `code` is a complete module code.
     update(name: string, code: string): Promise<boolean> {
