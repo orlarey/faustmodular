@@ -8,6 +8,9 @@
     state; the host computes what differs and applies only that (Scene.restoreSnapshot), so a change
     of one parameter does not recompile anything.
 
+    Each new state reached (a step recorded, an undo, a redo) is announced (settled): the document's
+    working copy is saved then (documents/Documents.ts).
+
     Changes made while a state is being restored are not recorded. After a restore, the recorded state
     is replaced by the state the scene actually reached (a code that no longer compiles, for instance),
     so that a late event does not record a spurious step and clear the redo list.
@@ -17,6 +20,7 @@ export interface HistoryHost {
     capture(): Promise<string>;                 // the scene as it stands, once pending work is done
     restore(state: string): Promise<void>;      // brings the scene to this state
     changed?(): void;                           // undo/redo availability changed
+    settled?(): void;                           // the scene reached another state (new step, undo, redo)
 }
 
 export class History {
@@ -98,6 +102,7 @@ export class History {
         this.fStates.push(state);
         if (this.fStates.length > History.LIMIT) this.fStates.shift();
         this.fIndex = this.fStates.length - 1;
+        this.fHost.settled?.();
     }
 
     private async restore(): Promise<void> {
@@ -108,6 +113,7 @@ export class History {
         } finally {
             this.fRestoring = false;
         }
+        this.fHost.settled?.();
     }
 
     private enqueue(task: () => Promise<void>): Promise<void> {

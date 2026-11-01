@@ -16,6 +16,8 @@ import { Resources } from "./Resources";
 import { Utilitary } from "./Utilitary";
 import { Message } from "./Messages";
 import { APP_TITLE } from "./Version";
+import { Documents } from "./documents/Documents";
+import { shippedEnvironment } from "./documents/Environment";
 
 //@ts-ignore
 declare const faust: never;
@@ -83,7 +85,24 @@ export function resumeInit(app: App) {
 
     // Access point for debugging and end-to-end tests (browser console: faustmodular.scene.patch);
     // faustPlayground: its name before 2.10.0
-    (globalThis as any).faustmodular = (globalThis as any).faustPlayground = { app, get scene() { return Utilitary.currentScene; } };
+    var access: any = { app, documents: null, get scene() { return Utilitary.currentScene; } };
+    (globalThis as any).faustmodular = (globalThis as any).faustPlayground = access;
+
+    // The documents: the scene becomes the last open document (documents/Documents.ts)
+    Documents.start(Utilitary.currentScene, {
+        environment: (store) => shippedEnvironment(faustWasmEnv.faustCompiler, store),
+        legacyStorage: (() => { try { return localStorage; } catch { return null; } })(),
+        untitled: Utilitary.messageResource.untitled,
+        notify: (message) => { new Message(message) },
+    }).then((documents) => {
+        access.documents = documents;
+        app.menu.setDocuments(documents);
+    }).catch((e) => {
+        console.error("documents unavailable", e);
+        new Message(Utilitary.messageResource.documentsUnavailable + " : " + e);
+    });
+    // the pending step of the history recorded when the page is left
+    window.addEventListener("pagehide", () => { Utilitary.currentScene.history.flush() });
 
     //error catcher
     window.addEventListener("error", (e: ErrorEvent) => {

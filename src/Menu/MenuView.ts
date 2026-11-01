@@ -11,9 +11,13 @@ import { ExportView } from "./ExportView";
 import { SaveView } from "./SaveView";
 import { Utilitary } from "../Utilitary";
 import { APP_NAME, APP_VERSION } from "../Version";
+import { DocumentsPanel } from "./DocumentsPanel";
 
 export class MenuView {
     menuContainer: HTMLElement;
+    documentsButton: HTMLElement;
+    documentsContent: HTMLElement;
+    documentsPanel: DocumentsPanel;
     libraryButtonMenu: HTMLElement;
     exportButtonMenu: HTMLElement;
     editButtonMenu: HTMLElement;
@@ -50,6 +54,12 @@ export class MenuView {
 
         var buttonsMenu: HTMLElement = document.createElement("div");
         buttonsMenu.id = "buttonsMenu";
+
+        var documentsButton: HTMLElement = document.createElement("div");
+        documentsButton.id = "documentsButtonMenu";
+        documentsButton.className = "buttonsMenu";
+        documentsButton.appendChild(document.createTextNode(Utilitary.messageResource.buttonDocuments));
+        this.documentsButton = documentsButton;
 
         var libraryButtonMenu: HTMLElement = document.createElement("div");
         libraryButtonMenu.id = "libraryButtonMenu";
@@ -110,6 +120,7 @@ export class MenuView {
         appName.appendChild(appVersion);
         buttonsMenu.appendChild(appName);
 
+        buttonsMenu.appendChild(documentsButton);
         buttonsMenu.appendChild(libraryButtonMenu);
         buttonsMenu.appendChild(loadButtonMenu)
         buttonsMenu.appendChild(editButtonMenu);
@@ -135,7 +146,7 @@ export class MenuView {
         this.redoButton = redoButton;
         buttonsMenu.appendChild(redoButton);
 
-        this.HTMLButtonsMenu.push(libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
+        this.HTMLButtonsMenu.push(documentsButton, libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
 
         var myScene: HTMLDivElement = document.createElement("div");
         myScene.id = "PatchName";
@@ -157,6 +168,11 @@ export class MenuView {
         var CloseButtonContainer: HTMLElement = document.createElement("div");
         CloseButtonContainer.id = "closeButtonContainer";
         CloseButtonContainer.appendChild(closeButton);
+
+        var documentsPanel = new DocumentsPanel();
+        var documentsContent = documentsPanel.element;
+        documentsContent.style.display = "none";
+        this.documentsPanel = documentsPanel;
 
         var libraryView: LibraryView = new LibraryView();
         var libraryContent: HTMLElement = libraryView.initLibraryView();
@@ -184,6 +200,7 @@ export class MenuView {
         this.accEditView = accEditView;
 
         contentsMenu.appendChild(CloseButtonContainer);
+        contentsMenu.appendChild(documentsContent);
         contentsMenu.appendChild(libraryContent);
         contentsMenu.appendChild(loadContent);
         contentsMenu.appendChild(saveContent);
@@ -194,7 +211,8 @@ export class MenuView {
         menuContainer.appendChild(accEditContent);
 
         htmlContainer.appendChild(menuContainer);
-        this.HTMLElementsMenu.push(libraryContent, loadContent, saveContent, exportContent)
+        this.HTMLElementsMenu.push(documentsContent, libraryContent, loadContent, saveContent, exportContent)
+        this.documentsContent = documentsContent;
 
         this.libraryContent = libraryContent;
         this.loadContent = loadContent;

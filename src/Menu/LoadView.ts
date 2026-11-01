@@ -188,7 +188,7 @@ export class LoadView {
         loadCloudContainer.appendChild(driveContainer);
 
         loadContainer.appendChild(loadFileContainer);
-        loadContainer.appendChild(loadLocalContainer);
+        // the scenes of the localStorage are now documents (menu Documents)
         loadContainer.appendChild(loadCloudContainer);
 
         return loadContainer;

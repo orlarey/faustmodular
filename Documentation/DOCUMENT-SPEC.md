@@ -381,6 +381,10 @@ Points ouverts :
 
 Chaque phase est utile seule.
 
+::: note [État]
+Phase 1 livrée dans faustmodular 3.0.0. La corbeille est un état de l'index (`trashed`) plutôt qu'un dossier `trash/` ; un document migré du stockage local garde son ancien fichier (`legacy`) jusqu'à sa première ouverture ; un document vierge que personne n'a utilisé est remplacé, plutôt que gardé, par un nouveau document ou un fichier ouvert.
+:::
+
 1. **Documents.** Magasin de codes, documents en OPFS (copie validée et de travail), autosave, Nouveau, Ouvrir, Enregistrer, Revenir, Renommer, Dupliquer, Supprimer, corbeille ; migration du stockage local. La bibliothèque reste celle d'aujourd'hui. Le document enregistre déjà `faust` et `generator`, pour que les documents créés dès cette phase soient préservables.
 2. **Modules utilisateur.** Création au dépôt d'un fichier et à la modification dans faustcode, versions, instances épinglées et mise à jour, colonne Mes modules ; index des empreintes de la bibliothèque, `library-history.json` et règle du statut.
 3. **Échange.** Export et import du document autonome (version 4), import des anciens formats, exemples comme modèles.

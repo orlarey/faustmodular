@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.0.0 (2026-11-01)
+
+Phase 1 of the documents (`Documentation/DOCUMENT-SPEC.md`).
+
+- **The scene is a document, persistent in the browser.** It is saved in the Origin Private File System
+  (OPFS; the localStorage when the browser cannot write OPFS files from the page). Every step of the
+  history (and every undo or redo) writes the document's **working copy**; **Save** (Cmd/Ctrl-S) makes it
+  the **committed copy**. A dot ● after the name in the header marks a document that differs from its
+  committed copy; a change undone back to it removes the dot. Closing the tab loses nothing: the next
+  start reopens the last document as it was, working copy included.
+- **Documents menu**: the open document (name, New, Save, Save as, Revert to saved, Rename), the list of
+  the documents (a click opens one; Duplicate, Delete), and the trash (Restore, Empty the trash). Names
+  are unique (`Name 2`, `Name 3`...). One document per tab. A click on the name in the header opens
+  the menu.
+- **Opening never replaces a document**: a file, an example or a Google Drive scene opened becomes a new
+  document; the open one keeps its copies. The question "replace the modified scene?" is gone. A new
+  blank document nobody used is replaced rather than kept.
+- **Document format 4** (`src/documents/DocumentFormat.ts`): the codes are replaced by the SHA-1 of the
+  user's code (without the group faustmodular wraps it in), kept once in a store of codes shared by all
+  the documents; the codes no document references are collected at start. A document also records the
+  version of libfaust, the environment of the Faust libraries it was written with (the `.lib` files,
+  stored once by hash), and the version of the code generator, so that it can be preserved
+  (phase 4). The positions of the physical input and output are restored.
+- **Migration**: the scenes saved in the localStorage (key `FaustPlayground`) become documents at the
+  first start, converted when first opened; the old key is removed after at least 7 days and 2 starts.
+  The local sections of the Load and Save menus are removed (the documents replace them).
+- `src/documents/`: `FileStore` (OPFS, localStorage, memory), `DocumentStore` (index, copies, trash, codes,
+  environments, collection), `Documents` (the scene as the open document), `Environment`;
+  `src/Menu/DocumentsPanel.ts`; `Scene.describePatch`, `Scene.replaceScene`; the history announces each
+  state reached (`settled`). Tests: `tests/documents/` (store and controller with a simulated scene),
+  `tests/e2e/documents.test.ts` (reload, Cmd-S, undo, revert, save as, menu, migration).
+
 ## 2.11.0 (2026-11-01)
 
 - **Undo and redo of every change**: modules added, removed, moved or recompiled (code edited in

@@ -25,8 +25,15 @@ channels.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 
-Patches are saved in format version 2; patches saved by FaustPlayground 1.x can still be loaded. Opening a
-patch replaces the current scene.
+## Documents
+
+The scene is a document, kept in the browser (OPFS): every change is saved in its working copy, and
+Cmd/Ctrl-S makes it the committed copy (a dot ● after the name in the header marks the difference;
+Revert goes back to the committed copy). Closing the tab loses nothing. The **Documents** menu creates,
+opens, renames, duplicates and deletes documents (with a trash). Opening a file or an example creates a
+new document and never replaces one. Documents are stored in format version 4, their codes once in a
+store shared by all the documents (see `Documentation/DOCUMENT-SPEC.md`); patch files of versions 1, 2
+and 3 can still be opened.
 
 To modulate a parameter, drag a cable from an output onto a widget (slider, button, checkbox) and
 release it there. A slider is modulated from its value: the slider is the rest position, a signal of +1

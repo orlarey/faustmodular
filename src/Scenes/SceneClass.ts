@@ -15,7 +15,7 @@ import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
 import { allowedModes, depthWidget, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
-import { encodeFactoryCode, isPatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
+import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
@@ -38,6 +38,14 @@ interface SceneSnapshot {
     }>;
     io: Array<{ id: ModuleId; x: number; y: number }>;        // physical input and output modules
     connections: string[];                                      // "from:port>to:port", sorted
+}
+
+// The documents of the scene (documents/Documents.ts), once the storage is open.
+export interface SceneDocuments {
+    readonly dirty: boolean;
+    changed(): void;                                // a new state of the scene (history)
+    importPatch(json: string): Promise<boolean>;    // a patch file opened: a new document
+    flush(): Promise<void>;                         // pending saves written
 }
 
 interface ModuleDescription {
@@ -72,6 +80,8 @@ export class Scene {
     //-- Graphical Scene container
     sceneView: SceneView;
     sceneName: string = "Patch";
+    // Set by the documents once the storage is open: the scene is then the open document.
+    documents: SceneDocuments | null = null;
     //used to keep loading page when loading the two input and output default modules
     isInitLoading: boolean = true;
     isOutputTouch: boolean = false;
@@ -120,6 +130,7 @@ export class Scene {
             capture: () => this.captureSnapshot(),
             restore: (state) => this.restoreSnapshot(state),
             changed: () => document.dispatchEvent(new CustomEvent("historychange")),
+            settled: () => this.documents?.changed(),
         });
         this.history.reset();
         document.addEventListener("keydown", (e) => {
@@ -453,6 +464,46 @@ export class Scene {
         return { code: encodeFactoryCode(code), json: JSON.parse(json), poly, shaKey };
     }
 
+    // The scene as a patch file, without changing the patch model (the documents save it at every
+    // step of the history): the values shown by the interface, the code of the modules, and the
+    // positions of the model (those the history records).
+    describePatch(): PatchFileV2 {
+        var modules: ModuleFileV2[] = [];
+        for (var state of this.patch.getModules()) {
+            var base = { id: state.id, kind: state.kind, inputs: state.numInputs, outputs: state.numOutputs };
+            if (state.kind != "faust") {
+                modules.push({ ...base, name: state.name, code: "", x: state.x, y: state.y, params: {}, acc: [] });
+                continue;
+            }
+            var module = this.getModuleById(state.id);
+            if (!module) continue;
+            var dsp = module.moduleFaust.getDSP();
+            var shown = new Map<string, number>();
+            module.moduleControles.forEach((c) => {
+                var value = parseFloat(c.value);
+                if (!isNaN(value)) shown.set(c.itemParam.address, value);
+            });
+            var params: Record<string, number> = {};
+            for (var path of dsp.getParams() ?? []) {
+                params[path] = shown.get(path) ?? dsp.getParamValue(path);
+            }
+            var acc: AccMapping[] = module.moduleControles.map((controler) => {
+                var slider = controler.accelerometerSlider;
+                return { address: slider.address, axis: slider.axis, curve: slider.curve, amin: slider.amin, amid: slider.amid, amax: slider.amax, enabled: slider.isEnabled };
+            });
+            var file: ModuleFileV2 = { ...base, name: module.moduleFaust.getName(), code: module.moduleFaust.getSource(), x: state.x, y: state.y, params, acc };
+            if (state.modulations.length > 0) file.modulations = state.modulations.map((m) => ({ widget: m.widget, ...m.spec }));
+            modules.push(file);
+        }
+        return {
+            format: PATCH_FORMAT,
+            version: modules.some((m) => m.modulations) ? PATCH_VERSION_MODULATIONS : PATCH_VERSION,
+            sceneName: this.sceneName,
+            modules,
+            connections: this.patch.getConnections().map((c) => ({ from: { ...c.from }, to: { ...c.to } })),
+        };
+    }
+
     // Saves the scene as a version 2 patch file (JSON string).
     // isPrecompiled is used to save or not the compiled wasm code
     saveScene(isPrecompiled: boolean): string {
@@ -472,8 +523,10 @@ export class Scene {
         this.fModified = false;
     }
 
-    // Work that opening another patch would lose (an empty scene has none).
+    // Work that opening another patch would lose (an empty scene has none). With documents: the
+    // open document differs from its committed copy (nothing is lost, it has a working copy).
     hasUnsavedChanges(): boolean {
+        if (this.documents) return this.documents.dirty;
         return this.fModified && (this.fModuleList.length > 0 || this.patch.getConnections().length > 0);
     }
 
@@ -494,14 +547,25 @@ export class Scene {
         this.sceneName = "Patch";
     }
 
-    // Opens a patch file (version 1, 2 or 3) in place of the current scene, as a document replaces
-    // another. A file that cannot be read leaves the scene as it is.
+    // Opens a patch file (version 1, 2 or 3). With documents, it becomes a new document (the open
+    // one keeps its copies); otherwise it replaces the scene, after confirmation if it was modified.
     async recallScene(json: string | null): Promise<void> {
+        if (json != null && this.documents) {
+            await this.documents.importPatch(json);
+            return;
+        }
+        await this.replaceScene(json, { confirm: true });
+    }
+
+    // Replaces the scene by a patch file. A file that cannot be read leaves the scene as it is
+    // (false). keepIds: the modules keep the ids of the file (documents).
+    async replaceScene(json: string | null, options: { confirm?: boolean; keepIds?: boolean } = {}): Promise<boolean> {
         if (json == null) {
             Utilitary.hideFullPageLoading();
             new Message(Utilitary.messageResource.errorLoading);
-            return;
+            return false;
         }
+        var replaced = false;
         var warnings: string[] = [];
         try {
             var data: unknown = JSON.parse(json);
@@ -509,22 +573,23 @@ export class Scene {
             var recall: () => Promise<string[]>;
             if (isPatchFileV2(data)) {
                 var v2 = parsePatchV2(data);
-                recall = () => this.recallV2(v2);
+                recall = () => this.recallV2(v2, options.keepIds ?? false);
             } else if (isPatchFileV1(data)) {
                 var v1 = readV1(data);
                 recall = () => this.recallV1(v1);
             } else {
                 throw new Error("unknown patch format");
             }
-            if (this.hasUnsavedChanges()) {
+            if (options.confirm && this.hasUnsavedChanges()) {
                 Utilitary.hideFullPageLoading();
-                if (!(await this.confirmReplace())) return;
+                if (!(await this.confirmReplace())) return false;
                 Utilitary.showFullPageLoading();
             }
             this.fRecalling++;
             try {
                 this.clearScene();
                 warnings = await recall();
+                replaced = true;
             } finally {
                 this.fRecalling--;
                 this.fModified = false;     // a scene just opened has nothing to save
@@ -538,14 +603,20 @@ export class Scene {
             warnings.forEach((w) => console.warn(w));
             new Message(warnings.join("\n"));
         }
-        document.dispatchEvent(new CustomEvent("updatename"));
+        if (replaced && !this.documents) document.dispatchEvent(new CustomEvent("updatename"));
         Utilitary.hideFullPageLoading();
+        return replaced;
     }
 
-    private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>): Promise<string[]> {
+    private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>, keepIds: boolean): Promise<string[]> {
         this.sceneName = sceneName;
         var warnings: string[] = [];
-        var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings);
+        // positions of the physical input and output
+        for (var io of file.getModules()) {
+            var physical = io.kind == "input" ? this.fAudioInput : io.kind == "output" ? this.fAudioOutput : undefined;
+            if (physical) this.moveModule(physical, io.x, io.y);
+        }
+        var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings, keepIds);
         for (var c of file.getConnections()) {
             var from = ids.get(c.from.module);
             var to = ids.get(c.to.module);
@@ -573,10 +644,10 @@ export class Scene {
     }
 
     // Creates the modules (in sequence) and returns the map: id in the file -> id in the patch.
-    private async recallModules(descriptions: ModuleDescription[], warnings: string[]): Promise<Map<ModuleId, ModuleId>> {
+    private async recallModules(descriptions: ModuleDescription[], warnings: string[], keepIds: boolean = false): Promise<Map<ModuleId, ModuleId>> {
         var ids = new Map<ModuleId, ModuleId>([[INPUT_ID, INPUT_ID], [OUTPUT_ID, OUTPUT_ID]]);
         for (var description of descriptions) {
-            var module = await this.createModule(description);
+            var module = await this.createModule(description, keepIds);
             if (module) {
                 ids.set(description.id, module.moduleId);
             } else {

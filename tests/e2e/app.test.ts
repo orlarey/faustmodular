@@ -35,7 +35,7 @@ async function openApp(options: { hasTouch?: boolean } = {}): Promise<{ page: Pa
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(url);
-    await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene, null, { timeout: 60_000 });
+    await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { page, errors };
 }
 
@@ -247,44 +247,30 @@ describe("application", () => {
         await page.close();
     }, 120_000);
 
-    it("asks before replacing a modified scene: cancel keeps it, confirm replaces it", async () => {
+    it("opens a file without asking: the modified document keeps its changes (documents)", async () => {
         const { page, errors } = await openApp();
         const unsaved = () => page.evaluate(() => (globalThis as any).faustPlayground.scene.hasUnsavedChanges());
         await loadExample(page, "patch_light.json");
-        expect(await unsaved()).toBe(false);                     // just opened
+        expect(await unsaved()).toBe(false);                     // just opened: a new, clean document
         // a parameter moved through the interface
         await page.evaluate(() => {
             const c = (globalThis as any).faustPlayground.scene.getModules()[0].moduleControles[0];
             c.faustInterfaceView.slider.value = "3";
             c.faustInterfaceView.slider.dispatchEvent(new Event("input"));
         });
+        await page.evaluate(() => (globalThis as any).faustPlayground.documents.flush());
         expect(await unsaved()).toBe(true);
-        const before = await state(page);
+        const modified = await state(page);
         const file = await page.evaluate(async () => (await fetch("/json/Modulation_Example.json")).text());
-        const open = () => page.evaluate((j) => { (globalThis as any).opening = (globalThis as any).faustPlayground.scene.recallScene(j); }, file);
-
-        await open();
-        await page.locator("#dialogue #cancelButton").click();
-        await page.evaluate(() => (globalThis as any).opening);
-        expect(await state(page)).toEqual(before);
-        expect(await unsaved()).toBe(true);
-
-        await open();
-        await page.locator("#dialogue #validButton").click();
-        await page.evaluate(() => (globalThis as any).opening);
+        await page.evaluate((j) => (globalThis as any).faustPlayground.scene.recallScene(j), file);
+        expect(await page.locator("#dialogue #validButton").count()).toBe(0);
         expect((await state(page)).modules.map((m) => m.split(":")[1])).toEqual(["SOscillator", "LFO", "Clock", "ADSR", "Volume"]);
         expect(await unsaved()).toBe(false);
-
-        // a module moved, then saved locally: no question any more
-        await page.evaluate(() => { const s = (globalThis as any).faustPlayground.scene; const m = s.getModules()[0]; s.patch.updateModule(m.moduleId, { x: 10, y: 10 }); });
+        // the first document is still there, modified
+        const first = await page.evaluate(() => (globalThis as any).faustPlayground.documents.store.list().find((d: any) => d.name == "Patch").id);
+        await page.evaluate((id) => (globalThis as any).faustPlayground.documents.open(id), first);
+        expect(await state(page)).toEqual(modified);
         expect(await unsaved()).toBe(true);
-        await page.evaluate(() => {
-            const { app, scene } = (globalThis as any).faustPlayground;
-            app.menu.save.saveView.inputLocalStorage.value = scene.sceneName;
-            app.menu.save.saveLocal();
-        });
-        expect(await unsaved()).toBe(false);
-        expect(await page.locator("#dialogue #validButton").count()).toBe(0);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

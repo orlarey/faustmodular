@@ -11,6 +11,7 @@ import { MenuView } from "./MenuView";
 import { Scene } from "../Scenes/SceneClass";
 import { Confirm, Message } from "../Messages";
 import { AccelerometerHandler } from "../Accelerometer";
+import type { Documents } from "../documents/Documents";
 
 declare global {
     interface Document {
@@ -26,7 +27,7 @@ declare global {
     }
 }
 
-export enum MenuChoices { library, export, kids, edit, save, load, null }
+export enum MenuChoices { library, export, kids, edit, save, load, documents, null }
 
 export class Menu {
     isMenuDriveLoading: boolean = false;
@@ -42,6 +43,7 @@ export class Menu {
     isFullScreen: boolean = false;
     isAccelerometer: boolean = Utilitary.isAccelerometerOn;
     drive: DriveAPI;
+    documents: Documents | null = null;
 
     constructor(htmlContainer: HTMLElement) {
         //create and init menu view wich gone create and init all sub menus views
@@ -49,6 +51,10 @@ export class Menu {
         this.menuView.init(htmlContainer);
 
         //add Event Listeners
+        this.menuView.documentsButton.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.documents) };
+        this.menuView.patchNameScene.addEventListener("click", () => {
+            if (this.currentMenuChoices != MenuChoices.documents) this.menuHandler(this.newMenuChoices = MenuChoices.documents);
+        });
         this.menuView.libraryButtonMenu.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.library) };
         this.menuView.exportButtonMenu.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.export) };
         this.menuView.editButtonMenu.addEventListener("click", () => { this.menuHandler(this.newMenuChoices = MenuChoices.edit) });
@@ -64,6 +70,16 @@ export class Menu {
             var history = Utilitary.currentScene.history;
             this.menuView.undoButton.classList.toggle("disabled", !history.canUndo());
             this.menuView.redoButton.classList.toggle("disabled", !history.canRedo());
+        });
+
+        // the open document: its name, and a dot when it differs from its committed copy
+        document.addEventListener("documentchange", () => { this.showSceneName() });
+        // Cmd/Ctrl-S: the working copy becomes the committed copy
+        document.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() == "s" && this.documents) {
+                e.preventDefault();
+                this.documents.save();
+            }
         });
 
         //add eventListern customs
@@ -102,6 +118,9 @@ export class Menu {
     // dispatch the action of the menu buttons to the right submenu handler
     menuHandler(newMenuChoices: MenuChoices): any {
         switch (newMenuChoices) {
+            case MenuChoices.documents:
+                this.panelMenu(MenuChoices.documents, this.menuView.documentsButton, this.menuView.documentsContent);
+                break;
             case MenuChoices.library:
                 this.libraryMenu();
                 break;
@@ -122,6 +141,44 @@ export class Menu {
                 this.closeMenu();
                 break;
         }
+    }
+
+    // shows or hides a panel of the menu, as the other menus do
+    panelMenu(choice: MenuChoices, buttonElement: HTMLElement, content: HTMLElement) {
+        if (this.currentMenuChoices == choice) {
+            this.menuView.contentsMenu.style.display = "none";
+            content.style.display = "none";
+            this.currentMenuChoices = MenuChoices.null;
+            buttonElement.style.backgroundColor = this.menuView.menuColorDefault;
+            buttonElement.style.zIndex = "0";
+            return;
+        }
+        this.cleanMenu();
+        this.menuView.contentsMenu.style.display = "block";
+        content.style.display = choice == MenuChoices.documents ? "grid" : "block";
+        this.currentMenuChoices = choice;
+        buttonElement.style.backgroundColor = this.menuView.menuColorSelected;
+        buttonElement.style.zIndex = "1";
+        if (choice == MenuChoices.documents) this.menuView.documentsPanel.render();
+    }
+
+    setDocuments(documents: Documents) {
+        this.documents = documents;
+        this.menuView.documentsPanel.setDocuments(documents);
+        this.showSceneName();
+    }
+
+    // the name of the scene (of the open document) wherever it is shown
+    showSceneName() {
+        var name = Utilitary.currentScene.sceneName;
+        this.menuView.patchNameScene.textContent = name + (this.documents?.dirty ? " \u25CF" : "");
+        this.menuView.patchNameScene.title = this.documents?.dirty ? Utilitary.messageResource.documentModified : "";
+        this.menuView.exportView.dynamicName.textContent = name;
+        this.menuView.exportView.inputNameApp.value = name;
+        this.menuView.saveView.dynamicName.textContent = name;
+        this.menuView.saveView.inputDownload.value = name;
+        this.menuView.saveView.inputLocalStorage.value = name;
+        this.menuView.saveView.inputCloudStorage.value = name;
     }
 
     //manage the library display
@@ -288,13 +345,7 @@ export class Menu {
 
     //update all element that display the scene name
     updatePatchNameToInput(e: Event) {
-        this.menuView.patchNameScene.textContent = Utilitary.currentScene.sceneName;
-        this.menuView.exportView.dynamicName.textContent = Utilitary.currentScene.sceneName;
-        this.menuView.exportView.inputNameApp.value = Utilitary.currentScene.sceneName;
-        this.menuView.saveView.dynamicName.textContent = Utilitary.currentScene.sceneName;
-        this.menuView.saveView.inputDownload.value = Utilitary.currentScene.sceneName;
-        this.menuView.saveView.inputLocalStorage.value = Utilitary.currentScene.sceneName;
-        this.menuView.saveView.inputCloudStorage.value = Utilitary.currentScene.sceneName;
+        this.showSceneName();
         new Message(Utilitary.messageResource.successRenameScene, "messageTransitionOutFast", 2000, 500)
     }
 

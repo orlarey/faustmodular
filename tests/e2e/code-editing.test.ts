@@ -33,7 +33,7 @@ async function openApp(query: string = ""): Promise<{ context: BrowserContext; p
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(url + query);
-    await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene, null, { timeout: 60_000 });
+    await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { context, page, errors };
 }
 

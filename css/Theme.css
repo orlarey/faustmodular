@@ -413,3 +413,90 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	opacity: 0.25;
 	pointer-events: none;
 }
+
+/* Documents menu: the open document, the list of the documents, the trash */
+#documentsContainer {
+	display: grid;
+	grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.4fr) minmax(240px, 1fr);
+	gap: 24px;
+	padding: 0 24px 24px;
+	box-sizing: border-box;
+}
+#documentsContainer .exportTitle {
+	text-align: left;
+	margin-bottom: 8px;
+}
+#documentsContainer input#documentName {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 10px;
+	margin-bottom: 10px;
+}
+.documentsActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.documentsActions .button, .documentRow .button {
+	display: inline-block;
+	width: auto;
+	max-width: none;
+	margin: 0;
+	min-height: 26px;
+	padding: 0 12px;
+	font-size: 12px;
+	flex: none;
+}
+.documentsActions .button:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+.documentsNotice {
+	font-size: 12px;
+	color: var(--fp-mod);
+}
+ul.documentsList {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 50vh;
+	overflow-y: auto;
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 8px;
+}
+.documentRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 10px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.documentRow.openable {
+	cursor: pointer;
+}
+.documentRow.openable:hover {
+	background: rgba(152, 255, 210, 0.06);
+}
+.documentRow.current {
+	background: rgba(152, 255, 210, 0.1);
+}
+.documentRowName {
+	flex: 1;
+	font: 13px var(--fp-mono);
+	color: var(--fp-value);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.documentRow.current .documentRowName {
+	color: var(--fp-accent);
+}
+.documentRowDate {
+	font: 11px var(--fp-mono);
+	color: var(--fp-text-quiet);
+	white-space: nowrap;
+}
+.sceneTitle {
+	cursor: pointer;
+}

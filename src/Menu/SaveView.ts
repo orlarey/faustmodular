@@ -202,7 +202,7 @@ export class SaveView {
         cloudSaveContainer.appendChild(driveContainer);
 
         saveContainer.appendChild(downloadContainer);
-        saveContainer.appendChild(localSaveContainer);
+        // the scenes of the localStorage are now documents (menu Documents)
         saveContainer.appendChild(cloudSaveContainer);
 
         return saveContainer;
