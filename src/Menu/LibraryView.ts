@@ -10,6 +10,14 @@ export class LibraryView {
     multichannelLibrarySelect: HTMLUListElement
     modulationLibrarySelect: HTMLUListElement
     userLibrarySelect: HTMLUListElement
+    // the modular library: a family of functions, its modules, the description of a module
+    librarySwitch: HTMLElement;
+    libraryContent: HTMLElement;
+    modularPanel: HTMLElement;
+    classicPanel: HTMLElement;
+    modularFamilies: HTMLUListElement;
+    modularModules: HTMLUListElement;
+    modularDescription: HTMLElement;
     displayLibrarySelect: HTMLUListElement
     intrumentLibrary: HTMLElement
     effetLibrary: HTMLElement
@@ -20,6 +28,50 @@ export class LibraryView {
         var libraryContent: HTMLElement = document.createElement("div");
         libraryContent.id = "libraryContent";
         libraryContent.className = "menuContent";
+
+        // which library: modular (by families of functions) or FaustPlayground (the columns below)
+        var librarySwitch = document.createElement("div");
+        librarySwitch.id = "librarySwitch";
+        for (var [kind, label] of [["modular", Utilitary.messageResource.libraryModular], ["classic", Utilitary.messageResource.libraryClassic]]) {
+            var pill = document.createElement("button");
+            pill.type = "button";
+            pill.className = "button librarySwitchButton";
+            pill.dataset.library = kind;
+            pill.textContent = label;
+            librarySwitch.appendChild(pill);
+        }
+        this.librarySwitch = librarySwitch;
+
+        var modularPanel = document.createElement("div");
+        modularPanel.id = "modularPanel";
+        modularPanel.className = "libraryPanel";
+        var column = (id: string, title: string, list: HTMLElement) => {
+            var content = document.createElement("div");
+            content.id = id;
+            content.className = "submenuLibraryContent modularColumn";
+            var t = document.createElement("span");
+            t.className = "libraryTitles";
+            t.textContent = title;
+            content.append(t, list);
+            modularPanel.appendChild(content);
+            return content;
+        };
+        this.modularFamilies = document.createElement("ul");
+        this.modularFamilies.className = "librarySelects modularFamilies";
+        this.modularModules = document.createElement("ul");
+        this.modularModules.id = "modularModules";
+        this.modularModules.className = "librarySelects";
+        this.modularDescription = document.createElement("div");
+        this.modularDescription.className = "modularDescription";
+        column("modularFamiliesContent", Utilitary.messageResource.titleFamilies, this.modularFamilies);
+        column("modularModulesContent", Utilitary.messageResource.titleModules, this.modularModules);
+        column("modularDescriptionContent", Utilitary.messageResource.titleDescription, this.modularDescription);
+        this.modularPanel = modularPanel;
+
+        var classicPanel = document.createElement("div");
+        classicPanel.id = "classicPanel";
+        classicPanel.className = "libraryPanel";
+        this.classicPanel = classicPanel;
 
         /////////////////Instruments
 
@@ -104,10 +156,10 @@ export class LibraryView {
         multichannelLibraryContent.appendChild(multichannelLibraryTitle);
         multichannelLibraryContent.appendChild(multichannelLibrarySelect);
 
-        libraryContent.appendChild(instrumentLibraryContent)
-        libraryContent.appendChild(effetLibraryContent)
-        libraryContent.appendChild(exempleLibraryContent)
-        libraryContent.appendChild(multichannelLibraryContent)
+        classicPanel.appendChild(instrumentLibraryContent)
+        classicPanel.appendChild(effetLibraryContent)
+        classicPanel.appendChild(exempleLibraryContent)
+        classicPanel.appendChild(multichannelLibraryContent)
 
         /////////////Modulation sources (LFO, envelopes...)
 
@@ -128,7 +180,7 @@ export class LibraryView {
 
         modulationLibraryContent.appendChild(modulationLibraryTitle);
         modulationLibraryContent.appendChild(modulationLibrarySelect);
-        libraryContent.appendChild(modulationLibraryContent)
+        classicPanel.appendChild(modulationLibraryContent)
 
         /////////////Displays: level meters, value, oscilloscope, spectrum
 
@@ -149,7 +201,7 @@ export class LibraryView {
 
         displayLibraryContent.appendChild(displayLibraryTitle);
         displayLibraryContent.appendChild(displayLibrarySelect);
-        libraryContent.appendChild(displayLibraryContent)
+        classicPanel.appendChild(displayLibraryContent)
 
         /////////////My modules: the user modules (documents)
 
@@ -170,7 +222,13 @@ export class LibraryView {
 
         userLibraryContent.appendChild(userLibraryTitle);
         userLibraryContent.appendChild(userLibrarySelect);
-        libraryContent.appendChild(userLibraryContent)
+
+        // the user modules: next to either library
+        var panels = document.createElement("div");
+        panels.id = "libraryPanels";
+        panels.append(modularPanel, classicPanel, userLibraryContent);
+        libraryContent.append(librarySwitch, panels);
+        this.libraryContent = libraryContent;
 
         return libraryContent;
     }

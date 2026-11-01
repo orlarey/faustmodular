@@ -963,3 +963,106 @@ describe("widget styles", () => {
     }, 120_000);
 });
 
+describe("modular library", () => {
+    it("computes a module whose inputs are not connected (silence in, not no computation)", async () => {
+        const { page, errors } = await openApp();
+        const id = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const code = 'process = vgroup("Half", _ + 0.5);';
+            await app.compileFaust({ name: "Half", sourceCode: code, x: 300, y: 200, callback: (f: any) => app.createModule(f, "Half", code, 300, 200) });
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId;
+        });
+        const value = await page.evaluate(async (m) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(m);
+            await node.context.resume();
+            const analyser = node.context.createAnalyser();
+            node.connect(analyser);
+            await new Promise((r) => setTimeout(r, 600));
+            const x = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(x);
+            return x[x.length - 1];
+        }, id);
+        expect(value).toBeCloseTo(0.5, 5);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("plays a sequenced voice: Clock, Sequencer, Quantizer, VCO, VCF, VCA and ADSR, in tune", async () => {
+        const { page, errors } = await openApp();
+        const add = (file: string, x: number, y: number) => page.evaluate(async ([f, xx, yy]) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const before = scene.getModules().length;
+            app.uploadUrl(app, null, xx, yy, location.origin + "/faust-modules/modular/" + f);
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[before].moduleId as string;
+        }, [file, x, y] as [string, number, number]);
+        const clock = await add("Clock.dsp", 40, 80);
+        const seq = await add("Sequencer.dsp", 300, 80);
+        const quant = await add("Quantizer.dsp", 560, 80);
+        const vco = await add("VCO.dsp", 820, 80);
+        const vcf = await add("VCF.dsp", 560, 420);
+        const vca = await add("VCA.dsp", 820, 420);
+        const adsr = await add("ADSR.dsp", 300, 420);
+        // one step, 7 semitones above C4: the Quantizer (C major) keeps G4, 392 Hz
+        await page.evaluate(([c, s, q, o, f, a, e]) => {
+            const scene = (globalThis as any).faustPlayground.scene;
+            const set = (m: string, label: string, v: number) => {
+                const module = scene.getModuleById(m);
+                const c = module.moduleControles.find((x: any) => x.itemParam.label == label);
+                scene.restoreParams(module, { [c.itemParam.address]: v });
+            };
+            set(s, "Length", 1);
+            set(s, "Step 1", 7);
+            set(c, "Tempo", 240);
+            set(e, "Release", 0.01);               // silent between the notes (a gate every 250 ms)
+            const connect = (from: string, fp: number, to: string, tp: number) => scene.patch.connect({ module: from, port: fp }, { module: to, port: tp });
+            connect(c, 0, s, 0);
+            connect(s, 0, q, 0);
+            connect(q, 0, o, 0);
+            connect(o, 2, f, 0);            // saw
+            connect(f, 0, a, 0);
+            connect(s, 1, e, 0);            // gate
+            connect(e, 0, a, 1);
+            connect(a, 0, "output", 0);
+        }, [clock, seq, quant, vco, vcf, vca, adsr]);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.audioGraph.getNode("output").context.resume());
+        // the sine of the VCO: its frequency
+        const hz = await page.evaluate(async (o) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(o);
+            const ctx = node.context as AudioContext;
+            const split = ctx.createChannelSplitter(4);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 32768;
+            node.connect(split);
+            split.connect(analyser, 0);
+            await new Promise((r) => setTimeout(r, 1200));
+            const x = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(x);
+            const crossings: number[] = [];
+            for (let t = 1; t < x.length; t++) if (x[t - 1] < 0 && x[t] >= 0) crossings.push(t - 1 + x[t - 1] / (x[t - 1] - x[t]));
+            return (ctx.sampleRate * (crossings.length - 1)) / (crossings[crossings.length - 1] - crossings[0]);
+        }, vco);
+        expect(Math.abs(1200 * Math.log2(hz / (261.6256 * 2 ** (7 / 12))))).toBeLessThan(5);
+        // the VCA opens and closes with the envelope: the output level varies between quiet and loud
+        const levels = await page.evaluate(async (a) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(a);
+            const analyser = node.context.createAnalyser();
+            analyser.fftSize = 1024;
+            node.connect(analyser);
+            const out: number[] = [];
+            const x = new Float32Array(analyser.fftSize);
+            for (let i = 0; i < 40; i++) {
+                await new Promise((r) => setTimeout(r, 25));
+                analyser.getFloatTimeDomainData(x);
+                out.push(Math.sqrt(x.reduce((s: number, v: number) => s + v * v, 0) / x.length));
+            }
+            return out;
+        }, vca);
+        expect(Math.max(...levels)).toBeGreaterThan(0.05);
+        expect(Math.min(...levels)).toBeLessThan(Math.max(...levels) / 2);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+

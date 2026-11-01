@@ -50,6 +50,17 @@ interface jsonObjectLibrary {
     affichage?: string[];
 }
 
+interface CatalogModule {
+    path: string;
+    name: string;
+    functions: string[];
+    family: string | null;
+    summary: string;
+    description: string;
+    inlets: string[];
+    outlets: string[];
+}
+
 export class Library {
     libraryView: LibraryView;
     isLibraryTouch: boolean;
@@ -131,8 +142,112 @@ export class Library {
         input.addEventListener("blur", () => finish(true));
     }
 
+    // The modular library (Documentation/MODULAR-LIBRARY.md): families of functions, their modules,
+    // and the description of the module pointed at. Which library is shown is remembered.
+    private fCatalog: { families: string[]; modules: CatalogModule[] } | null = null;
+    private fFamily: string | null = null;
+
+    fillModular() {
+        Utilitary.getXHR("faust-modules/modular-catalog.json", (json: string) => {
+            this.fCatalog = JSON.parse(json);
+            this.fFamily = this.remembered("family") ?? this.fCatalog!.families[0];
+            this.renderFamilies();
+        }, (errorMessage: string) => { Utilitary.errorCallBack(errorMessage) });
+        this.libraryView.librarySwitch.querySelectorAll<HTMLElement>(".librarySwitchButton").forEach((b) => {
+            b.addEventListener("click", () => this.showLibrary(b.dataset.library as "modular" | "classic"));
+        });
+        this.showLibrary(this.remembered("library") == "classic" ? "classic" : "modular");
+    }
+
+    private remembered(key: string): string | null {
+        try { return localStorage.getItem("faustmodular:library:" + key); } catch { return null; }
+    }
+
+    private remember(key: string, value: string): void {
+        try { localStorage.setItem("faustmodular:library:" + key, value); } catch { /* not kept */ }
+    }
+
+    showLibrary(kind: "modular" | "classic") {
+        this.libraryView.modularPanel.style.display = kind == "modular" ? "" : "none";
+        this.libraryView.classicPanel.style.display = kind == "classic" ? "" : "none";
+        this.libraryView.librarySwitch.querySelectorAll<HTMLElement>(".librarySwitchButton").forEach((b) => b.classList.toggle("selected", b.dataset.library == kind));
+        this.libraryView.libraryContent?.classList.toggle("modular", kind == "modular");
+        this.remember("library", kind);
+    }
+
+    private renderFamilies() {
+        var catalog = this.fCatalog!;
+        var list = this.libraryView.modularFamilies;
+        list.replaceChildren();
+        for (var family of catalog.families) {
+            var count = catalog.modules.filter((m) => m.family == family).length;
+            if (count == 0) continue;
+            var li = document.createElement("li");
+            li.className = "modularFamily" + (family == this.fFamily ? " selected" : "");
+            li.dataset.family = family;
+            li.textContent = (Utilitary.messageResource as any)["family_" + family] ?? family;
+            var badge = document.createElement("span");
+            badge.className = "modularCount";
+            badge.textContent = String(count);
+            li.appendChild(badge);
+            li.addEventListener("click", ((f: string) => () => { this.fFamily = f; this.remember("family", f); this.renderFamilies(); })(family));
+            list.appendChild(li);
+        }
+        this.renderModules();
+    }
+
+    private renderModules() {
+        var list = this.libraryView.modularModules;
+        list.replaceChildren();
+        var modules = this.fCatalog!.modules.filter((m) => m.family == this.fFamily);
+        for (var module of modules) {
+            var li = document.createElement("li");
+            var a = document.createElement("a");
+            a.href = module.path;
+            a.draggable = true;
+            a.title = Utilitary.messageResource.hoverLibraryElement;
+            a.text = module.name;
+            a.addEventListener("click", (e) => { e.preventDefault() });
+            a.ondblclick = this.dispatchEventLibrary.bind(this, a.href);
+            a.ontouchstart = (e) => { this.dbleTouchMenu(e) };
+            var show = ((m: CatalogModule) => () => this.describe(m))(module);
+            a.addEventListener("mouseenter", show);
+            a.addEventListener("focus", show);
+            li.appendChild(a);
+            list.appendChild(li);
+        }
+        if (modules[0]) this.describe(modules[0]);
+    }
+
+    private describe(module: CatalogModule) {
+        var t = Utilitary.messageResource;
+        var box = this.libraryView.modularDescription;
+        box.replaceChildren();
+        var title = document.createElement("div");
+        title.className = "modularName";
+        title.textContent = module.name;
+        var functions = document.createElement("div");
+        functions.className = "modularFunctions";
+        functions.textContent = module.functions.join(" \u00b7 ");
+        box.append(title, functions);
+        var ports = (label: string, names: string[]) => {
+            if (names.length == 0) return;
+            var line = document.createElement("div");
+            line.className = "modularPorts";
+            line.textContent = label + " : " + names.join(", ");
+            box.appendChild(line);
+        };
+        ports(t.portInlets, module.inlets);
+        ports(t.portOutlets, module.outlets);
+        var text = document.createElement("div");
+        text.className = "modularText";
+        text.textContent = module.description;
+        box.appendChild(text);
+    }
+
     //get json with library infos
     fillLibrary() {
+        this.fillModular();
         var url: string = "faust-modules/index.json"
         Utilitary.getXHR(url, (json: string) => { this.fillLibraryCallBack(json) }, (errorMessage: string) => { Utilitary.errorCallBack(errorMessage) });
     }

@@ -164,6 +164,20 @@ export class ModuleView {
         return { size: 18, pitch: 20 };
     }
 
+    // Names of the ports, declared by the module (declare inlets "V/oct; FM"; declare outlets "...";).
+    private fPortNames: { in: string[]; out: string[] } = { in: [], out: [] };
+
+    setPortNames(inlets: string[], outlets: string[]): void {
+        this.fPortNames = { in: inlets, out: outlets };
+        this.fInputPorts?.forEach((port, i) => { port.title = this.portTitle("in", i) });
+        this.fOutputPorts?.forEach((port, i) => { port.title = this.portTitle("out", i) });
+    }
+
+    private portTitle(dir: "in" | "out", i: number): string {
+        var name = this.fPortNames[dir][i];
+        return (dir == "in" ? "input " : "output ") + (i + 1) + (name ? " : " + name : "");
+    }
+
     private createPorts(moduleId: string, dir: "in" | "out", count: number, zone: number, centered: boolean): HTMLElement[] {
         var layout = ModuleView.portLayout(count);
         var ports: HTMLElement[] = [];
@@ -174,7 +188,7 @@ export class ModuleView {
             port.dataset.module = moduleId;
             port.dataset.dir = dir;
             port.dataset.port = String(i);
-            port.title = (dir == "in" ? "input " : "output ") + (i + 1);
+            port.title = this.portTitle(dir, i);
             port.style.width = port.style.height = layout.size + "px";
             // astride the left (inputs) or right (outputs) edge, from the top of the zone down, or
             // centered on the module (physical input and output)

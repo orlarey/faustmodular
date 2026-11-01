@@ -44,6 +44,14 @@ export class Resources {
     confirmReplaceScene: string;
     undo: string;
     redo: string;
+    libraryModular: string;
+    libraryClassic: string;
+    titleFamilies: string;
+    titleModules: string;
+    titleDescription: string;
+    portInlets: string;
+    portOutlets: string;
+    [key: `family_${string}`]: string;
     zoomOut: string;
     zoomIn: string;
     zoomReset: string;

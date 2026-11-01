@@ -129,6 +129,10 @@ export class ModuleClass {
                 //faust.createDSPWorkletInstance(factory, Utilitary.audioContext, function(dsp) { moduleFaust.fDSP = dsp; callback(); });
                 if (dsp != null) {
                     moduleFaust.fDSP = dsp;
+                    // the names of the ports the module declares (declare inlets "..."; declare outlets "...";)
+                    var meta: Array<Record<string, string>> = JSON.parse(factory.json).meta ?? [];
+                    var names = (key: string) => (meta.find((m) => m[key] !== undefined)?.[key] ?? "").split(";").map((n) => n.trim()).filter(Boolean);
+                    this.moduleView.setPortNames(names("inlets"), names("outlets"));
                     callback();
                 } else {
                     new Message(Utilitary.messageResource.errorCreateDSP);

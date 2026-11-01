@@ -118,5 +118,20 @@
   "zoomOut": "Zoom arrière (Ctrl/Cmd + molette)",
   "zoomIn": "Zoom avant (Ctrl/Cmd + molette)",
   "zoomReset": "Revenir à 100 %",
-  "zoomFit": "Ajuster : montrer tous les modules"
+  "zoomFit": "Ajuster : montrer tous les modules",
+  "libraryModular": "Modulaire",
+  "libraryClassic": "FaustPlayground",
+  "titleFamilies": "Familles",
+  "titleModules": "Modules",
+  "titleDescription": "Description",
+  "family_Sources": "Sources",
+  "family_Timbre": "Timbre",
+  "family_Level": "Niveau et mélange",
+  "family_Control": "Contrôle",
+  "family_Time": "Temps et événements",
+  "family_Random and pitch": "Hasard et hauteur",
+  "family_Effects": "Effets",
+  "family_Measure": "Mesure",
+  "portInlets": "Entrées",
+  "portOutlets": "Sorties"
 }

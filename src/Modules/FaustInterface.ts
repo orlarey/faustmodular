@@ -161,7 +161,9 @@ export class FaustInterfaceControler {
         }
 
         if (this.itemParam.step != undefined) {
-            var precision = this.itemParam.step.toString().split('.').pop()!.length;
+            // the decimals of the step (none for an integer step: "8", not "8.0")
+            var step = this.itemParam.step.toString();
+            var precision = step.includes('.') ? step.split('.').pop()!.length : 0;
             this.precision = String(precision);
             this.range = sliderRange(this.itemParam);
         }

@@ -27,6 +27,13 @@ channels.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 
+## Modular library
+
+The *Modular* library (Library menu) holds modules organized by function, as on ModularGrid, with common
+conventions: audio and bipolar CV in [-1, 1], unipolar CV in [0, 1], pitch 0.1 per octave from C4,
+gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer,
+SampleHold (see `Documentation/MODULAR-LIBRARY.md`). The former library stays under *FaustPlayground*.
+
 ## Documents
 
 The scene is a document, kept in the browser (OPFS): every change is saved in its working copy, and

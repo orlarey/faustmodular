@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.8.0 (2026-11-01)
+
+- **A modular library** (`Documentation/MODULAR-LIBRARY.md`), organized as [ModularGrid](https://modulargrid.net)
+  organizes Eurorack modules, by function. A first voice of twelve modules: **VCO** (four waveforms, V/oct
+  and FM inputs), **Noise** (white, pink), **VCF** (low, band or high pass, cutoff following a pitch),
+  **VCA** (linear or exponential), **ADSR**, **LFO** (four shapes, bipolar or unipolar, reset), **Mixer**,
+  **Offset** (attenuverter, offset, transposition in semitones), **Clock** (tempo, division, reset),
+  **Sequencer** (eight steps of pitch, rests, length, reset), **Quantizer** (five scales, tonic),
+  **SampleHold** (input or noise).
+- **Common signal conventions**, the voltages of a rack divided by 10: audio and bipolar CV in [-1, 1],
+  unipolar CV in [0, 1], **pitch 0.1 per octave, 0 = C4 (261.63 Hz)**, gates and triggers 0/1 (high
+  above 0.6, low below 0.4, triggers on the rising edge). The parameters are not CV inputs: any widget is
+  modulated by releasing a cable on it.
+- **Library menu**: a selector, *Modular* or *FaustPlayground*. The modular library shows families of
+  functions, their modules, and the description of the module pointed at (its functions, ports and
+  description); *My modules* stays next to either. The catalog (`public/faust-modules/modular-catalog.json`)
+  is built from the declarations of the modules by `npm run library-index`, and checked by a test.
+- **Port names**: a module declaring `declare inlets "V/oct; FM";` and `declare outlets "...";` names its
+  ports in their tooltips.
+- **Fix: a module whose inputs were not connected computed nothing** (an oscillator without pitch input, a
+  clock without reset input stayed silent): Web Audio then gives the Faust node an empty input, which
+  faustwasm skips. Every module input now also receives a shared silent source.
+- Sliders with an integer step show integers ("8", not "8.0").
+
 ## 3.7.0 (2026-11-01)
 
 - **Menus and radio buttons in the library**, where a slider chose among named options:

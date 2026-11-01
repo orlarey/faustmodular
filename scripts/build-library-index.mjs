@@ -61,6 +61,56 @@ function pastVersions(p, current) {
     return past;
 }
 
+// The catalog of the modular library (Documentation/MODULAR-LIBRARY.md): its modules and the display
+// modules, with their functions (as ModularGrid names them), family, summary and description, read from
+// their declarations (declare function "...", declare function2 "...", declare summary "...") and from
+// their DESCRIPTION comment.
+export const FAMILIES = [
+    ["Sources", ["Oscillator", "Noise", "Drum", "Voice", "Synth", "Resonator", "Sampling"]],
+    ["Timbre", ["Filter", "Low Pass Gate", "Waveshaper", "Distortion", "Fuzz", "Ring Modulator", "Equalizer", "Phase Shifter", "Pitch Shifter"]],
+    ["Level", ["VCA", "Mixer", "Panning", "Dynamics", "Attenuator", "Polarizer", "Precision Adder"]],
+    ["Control", ["Envelope Generator", "Function Generator", "LFO", "Envelope Follower", "Slew Limiter", "CV Modulation"]],
+    ["Time", ["Clock Generator", "Clock Modulator", "Frequency Divider", "Sequencer", "Shift Register", "Logic", "Comparator", "Switch"]],
+    ["Random and pitch", ["Random", "Sample and Hold", "Quantizer"]],
+    ["Effects", ["Delay", "Reverb", "Looper", "Effect"]],
+    ["Measure", ["Display"]],
+];
+
+export function familyOf(func) {
+    return FAMILIES.find(([, functions]) => functions.includes(func))?.[0] ?? null;
+}
+
+function declared(code, key) {
+    const m = new RegExp(`^\\s*declare\\s+${key}\\s+"([^"]*)"\\s*;`, "m").exec(code);
+    return m ? m[1] : null;
+}
+
+export function catalogEntry(p, code) {
+    const functions = [declared(code, "function"), declared(code, "function2")].filter(Boolean);
+    if (functions.length == 0 && p.includes("/display/")) functions.push("Display");
+    const description = /={3,}\s*DESCRIPTION\s*={3,}([\s\S]*?)\*\//.exec(code)?.[1].trim().split("\n").map((l) => l.trim()).filter(Boolean).join("\n") ?? "";
+    return {
+        path: p,
+        name: declared(code, "name") ?? path.basename(p, ".dsp"),
+        functions,
+        family: familyOf(functions[0]),
+        summary: declared(code, "summary") ?? description.split("\n")[0]?.replace(/^- /, "") ?? "",
+        description,
+        inlets: (declared(code, "inlets") ?? "").split(";").map((s) => s.trim()).filter(Boolean),
+        outlets: (declared(code, "outlets") ?? "").split(";").map((s) => s.trim()).filter(Boolean),
+    };
+}
+
+export function modularCatalog() {
+    const index = JSON.parse(readFileSync(path.join(root, "public/faust-modules/index.json"), "utf8"));
+    const paths = [...(index.modular ?? []), ...(index.affichage ?? [])];
+    return {
+        format: "faustmodular-modular-catalog",
+        families: FAMILIES.map(([name]) => name),
+        modules: paths.map((p) => catalogEntry(p, readFileSync(path.join(root, "public", p), "utf8"))),
+    };
+}
+
 function build() {
     const version = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version;
     const previous = existsSync(output) ? JSON.parse(readFileSync(output, "utf8")) : { modules: {}, history: {} };
@@ -78,6 +128,9 @@ function build() {
     for (const hash of Object.values(modules)) delete history[hash];     // shipped again
     const sorted = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
     writeFileSync(output, JSON.stringify({ format: "faustmodular-library-index", version, modules: sorted(modules), history: sorted(history) }, null, 1) + "\n");
+    const catalog = modularCatalog();
+    writeFileSync(path.join(root, "public/faust-modules/modular-catalog.json"), JSON.stringify(catalog, null, 1) + "\n");
+    console.log(`modular catalog: ${catalog.modules.length} modules`);
     console.log(`${output}: ${Object.keys(modules).length} modules, ${Object.keys(history).length} past versions`);
 }
 

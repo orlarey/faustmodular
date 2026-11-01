@@ -1,0 +1,280 @@
+{
+ "format": "faustmodular-modular-catalog",
+ "families": [
+  "Sources",
+  "Timbre",
+  "Level",
+  "Control",
+  "Time",
+  "Random and pitch",
+  "Effects",
+  "Measure"
+ ],
+ "modules": [
+  {
+   "path": "faust-modules/modular/VCO.dsp",
+   "name": "VCO",
+   "functions": [
+    "Oscillator"
+   ],
+   "family": "Sources",
+   "summary": "Oscillator: sine, triangle, saw and square, 0.1 per octave",
+   "description": "- Voltage controlled oscillator, four waveforms at once (alias-suppressed), in [-1, 1]\n- V/oct: pitch, 0.1 per octave, 0 = C4 (261.63 Hz)\n- FM: exponential frequency modulation, the FM knob giving the octaves for an input of 1\n- Octave and Tune transpose; Width is the duty cycle of the square",
+   "inlets": [
+    "V/oct",
+    "FM"
+   ],
+   "outlets": [
+    "sine",
+    "triangle",
+    "saw",
+    "square"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Noise.dsp",
+   "name": "Noise",
+   "functions": [
+    "Noise"
+   ],
+   "family": "Sources",
+   "summary": "White and pink noise",
+   "description": "- Noise source: white noise, and pink (1/f) noise whose peaks stay near 1 (it sounds softer)\n- Level: the level of both outputs",
+   "inlets": [],
+   "outlets": [
+    "white",
+    "pink"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/VCF.dsp",
+   "name": "VCF",
+   "functions": [
+    "Filter"
+   ],
+   "family": "Timbre",
+   "summary": "Filter: low-pass, band-pass or high-pass, cutoff following a pitch",
+   "description": "- Voltage controlled state variable filter (12 dB per octave)\n- Mode: low pass, band pass or high pass\n- Cutoff in Hz; the V/oct input moves it in octaves (0.1 per octave), scaled by Tracking\n- Resonance: from no resonance to a sharp peak (Q from 0.5 to 25)",
+   "inlets": [
+    "audio",
+    "V/oct"
+   ],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/VCA.dsp",
+   "name": "VCA",
+   "functions": [
+    "VCA"
+   ],
+   "family": "Level",
+   "summary": "Amplifier: gain plus CV, linear or exponential",
+   "description": "- Voltage controlled amplifier: the gain is the Gain knob plus the CV input, kept in [0, 1]\n- Gain 0 (default): closed until a CV (an envelope) opens it\n- Response: linear, or exponential (60 dB from 0 to 1, a natural loudness curve)",
+   "inlets": [
+    "audio",
+    "CV"
+   ],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/ADSR.dsp",
+   "name": "ADSR",
+   "functions": [
+    "Envelope Generator"
+   ],
+   "family": "Control",
+   "summary": "Envelope: attack, decay, sustain, release, from a gate",
+   "description": "- Envelope generator in [0, 1], started by a gate (high above 0.5) and released when it falls\n- Attack, Decay and Release in seconds; Sustain is a level\n- To shape a level: connect it to the CV input of a VCA",
+   "inlets": [
+    "gate"
+   ],
+   "outlets": [
+    "envelope"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/LFO.dsp",
+   "name": "LFO",
+   "functions": [
+    "LFO"
+   ],
+   "family": "Control",
+   "summary": "Low frequency oscillator, four shapes, bipolar or unipolar, with reset",
+   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Polarity: bipolar in [-1, 1], or unipolar in [0, 1]\n- Reset: a rising edge restarts the cycle (sync to a clock)",
+   "inlets": [
+    "reset"
+   ],
+   "outlets": [
+    "LFO"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Mixer.dsp",
+   "name": "Mixer",
+   "functions": [
+    "Mixer"
+   ],
+   "family": "Level",
+   "summary": "Mixer: four inputs, one output",
+   "description": "- Mixes four signals (audio or CV): the sum of each input times its level\n- At level 1 a signal goes through unchanged",
+   "inlets": [
+    "1",
+    "2",
+    "3",
+    "4"
+   ],
+   "outlets": [
+    "mix"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Offset.dsp",
+   "name": "Offset",
+   "functions": [
+    "Attenuator",
+    "Precision Adder"
+   ],
+   "family": "Level",
+   "summary": "Attenuverter and offset; transposes a pitch in semitones",
+   "description": "- Attenuverter, offset and precision adder: out = in * Gain + Offset + Transpose\n- Gain from -1 (inverted) to 1; Offset from -1 to 1\n- Transpose in semitones, for a pitch (0.1 per octave): 12 semitones add 0.1",
+   "inlets": [
+    "in"
+   ],
+   "outlets": [
+    "out"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Clock.dsp",
+   "name": "Clock",
+   "functions": [
+    "Clock Generator"
+   ],
+   "family": "Time",
+   "summary": "Clock: gates at a tempo, quarter, eighth or sixteenth notes, with reset",
+   "description": "- Clock: gates (0 or 1) at Tempo beats per minute\n- Division: a gate per quarter, eighth or sixteenth note\n- Width: how long each gate stays high, as a fraction of its period\n- Reset: a rising edge restarts the clock (a gate starts at once)",
+   "inlets": [
+    "reset"
+   ],
+   "outlets": [
+    "clock"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Sequencer.dsp",
+   "name": "Sequencer",
+   "functions": [
+    "Sequencer"
+   ],
+   "family": "Time",
+   "summary": "Sequencer: eight steps of pitch and gate, driven by a clock",
+   "description": "- Step sequencer: each rising edge of the clock moves to the next of the Length steps\n- Each step is a pitch in semitones above C4 (0.1 per octave on the V/oct output); -1 is a rest\n- Gate: high while the clock is high, except on rests; the pitch holds during a rest\n- Reset: a rising edge goes back before the first step (the next clock plays it)",
+   "inlets": [
+    "clock",
+    "reset"
+   ],
+   "outlets": [
+    "V/oct",
+    "gate"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Quantizer.dsp",
+   "name": "Quantizer",
+   "functions": [
+    "Quantizer"
+   ],
+   "family": "Random and pitch",
+   "summary": "Quantizer: a pitch to the nearest note of a scale",
+   "description": "- Moves a pitch (0.1 per octave) to the nearest note of a scale, ties going down\n- Scale: chromatic, major, natural minor, major or minor pentatonic\n- Tonic: the first note of the scale",
+   "inlets": [
+    "V/oct"
+   ],
+   "outlets": [
+    "V/oct"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/SampleHold.dsp",
+   "name": "SampleHold",
+   "functions": [
+    "Sample and Hold",
+    "Random"
+   ],
+   "family": "Random and pitch",
+   "summary": "Sample and hold of an input or of noise, at each trigger",
+   "description": "- Samples a signal at each rising edge of the trigger and holds it until the next one\n- Source: the input, or internal noise (random values in [-1, 1], with a clock: stepped random)",
+   "inlets": [
+    "in",
+    "trigger"
+   ],
+   "outlets": [
+    "out"
+   ]
+  },
+  {
+   "path": "faust-modules/display/Level.dsp",
+   "name": "Level",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Level meter, inserted anywhere: the signal goes through unchanged",
+   "description": "- Level meter, inserted anywhere: the signal goes through unchanged\n- RMS: mean level over 50 ms, in dB\n- Peak: peak level, held and released over 0.5 s, in dB",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/StereoLevel.dsp",
+   "name": "StereoLevel",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Level meter of two channels, inserted anywhere: the signals go through unchanged",
+   "description": "- Level meter of two channels, inserted anywhere: the signals go through unchanged\n- RMS level over 50 ms of each channel, in dB",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/Value.dsp",
+   "name": "Value",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Shows the value of a signal (a modulation source, a control signal), inserted anywhere: the signal",
+   "description": "- Shows the value of a signal (a modulation source, a control signal), inserted anywhere: the signal\ngoes through unchanged\n- The bar covers [-1, 1]; the number is the value itself",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/Scope.dsp",
+   "name": "Scope",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Oscilloscope, inserted anywhere: the signal goes through unchanged",
+   "description": "- Oscilloscope, inserted anywhere: the signal goes through unchanged\n- Time: the duration shown, from 1 ms to 5 s, in [-1, 1]\n- Short durations are triggered on a rising zero crossing (a stable image of a periodic signal);\nlong ones scroll (modulation sources, envelopes)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/Spectrum.dsp",
+   "name": "Spectrum",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Spectrum analyser, inserted anywhere: the signal goes through unchanged",
+   "description": "- Spectrum analyser, inserted anywhere: the signal goes through unchanged\n- Magnitude in dB (-100 to 0) on a logarithmic frequency axis from 20 Hz",
+   "inlets": [],
+   "outlets": []
+  }
+ ]
+}

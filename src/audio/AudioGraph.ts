@@ -11,6 +11,11 @@
     by Web Audio. Feedback connections (Patch.analyze) go through a DelayNode, without
     which Web Audio would cut the cycle; its delay is one render quantum (128 samples).
 
+    A merger always receives a silent source (a ConstantSourceNode at 0, shared): a module whose inputs
+    are not connected still computes. Without it, Web Audio hands the Faust node an empty input, and
+    faustwasm skips the computation of a DSP that has inputs: an oscillator with an unconnected V/oct
+    input, a clock with an unconnected reset input stayed silent.
+
     The graph is kept in sync by reconciliation: after any change, every connection of
     the patch whose two ends have a node is wired, with or without delay as required,
     and every other wire is removed.
@@ -38,6 +43,18 @@ export class AudioGraph {
     private fPorts = new Map<ModuleId, ModulePorts>();
     private fWires = new Map<ConnectionId, Wire>();
     private fUnsubscribe: () => void;
+    private fSilence: AudioNode | null = null;
+
+    // The silent source feeding every merger (created once).
+    private silence(): AudioNode | null {
+        if (!this.fSilence && typeof (this.fContext as any).createConstantSource == "function") {
+            const source = this.fContext.createConstantSource();
+            source.offset.value = 0;
+            source.start();
+            this.fSilence = source;
+        }
+        return this.fSilence;
+    }
 
     constructor(private fContext: BaseAudioContext, private fPatch: Patch) {
         this.fUnsubscribe = fPatch.subscribe((event) => this.onPatchEvent(event));
@@ -72,6 +89,10 @@ export class AudioGraph {
         this.fUnsubscribe();
         Array.from(this.fPorts.keys()).forEach((id) => this.releasePorts(id));
         this.reconcile();
+        if (this.fSilence) {
+            safely(() => (this.fSilence as ConstantSourceNode).stop());
+            this.fSilence = null;
+        }
     }
 
     /******************** PRIVATE ********************/
@@ -105,6 +126,7 @@ export class AudioGraph {
         // a modulation, before its new DSP replaces the node (setNode)
         if (numInputs > 0) {
             ports.merger = this.fContext.createChannelMerger(numInputs);
+            this.silence()?.connect(ports.merger, 0, 0);
             if (node.numberOfInputs > 0) ports.merger.connect(node);
         }
         if (numOutputs > 0) {
@@ -121,6 +143,8 @@ export class AudioGraph {
         this.fPorts.delete(id);
         if (ports.merger) {
             ports.merger.disconnect();
+            const merger = ports.merger;
+            if (this.fSilence) safely(() => this.fSilence!.disconnect(merger));
         }
         if (ports.splitter && ports.node.numberOfOutputs > 0) {
             safely(() => ports.node.disconnect(ports.splitter!));
