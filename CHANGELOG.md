@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.21.0 (2026-11-02)
+
+- **Knobs** for `[style:knob]` (170 widgets of the library declare it): the label above, the knob, the value below.
+  A vertical drag turns it, 200 px for the whole range (2000 with Shift); a double click sets it back to its
+  initial value. The slider, hidden, stays the state (saving, undo, modulation, accelerometer); its positions,
+  a logarithmic scale included, are the angles of the knob, from −135° to 135°.
+- **Rows and tabs**: an `hgroup` lays out its children as a row, wrapped when the module would be wider than
+  520 px; a `tgroup` as tabs, one per child, titled with its label. The tab chosen is kept when the interface is
+  rebuilt (a recompilation); not saved.
+- **Modulation ports of the widgets in a row**: on the top left corner of their widget (on the edge of the
+  module, the ports of a row would be on top of one another); a widget in a hidden tab has its port on the title.
+
 ## 3.20.0 (2026-11-02)
 
 - **The library in one view**, as the modular library was: the families, grouped (*Modular*, then *FaustPlayground*,

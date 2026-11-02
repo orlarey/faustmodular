@@ -393,7 +393,8 @@ export class PatchView {
     }
 
     // Each port astride the left edge of the module, at the height of its widget (of the title when
-    // the widget is hidden: module minimized, code being edited).
+    // the widget is hidden: module minimized, code being edited, another tab); on the corner of its
+    // widget when the widget is in a row.
     private placeModulationPorts(id: ModuleId): void {
         const view = this.fLookup(id)?.moduleView;
         const state = this.fPatch.getModule(id);
@@ -404,7 +405,15 @@ export class PatchView {
             if (!port) continue;
             const widget = this.widgetElement(id, modulation.widget);
             const rect = widget?.getBoundingClientRect();
-            const anchor = rect && rect.width > 0 && rect.height > 0 ? rect : view.fTitle.getBoundingClientRect();
+            const shown = rect && rect.width > 0 && rect.height > 0;
+            if (shown && widget!.closest(".ui-row")) {
+                // a widget in a row (hgroup): its port on its top left corner (on the edge, the ports of
+                // the widgets of a row would be on top of one another)
+                port.style.left = ((rect!.left - box.left) / this.zoom - MODULATION_PORT_SIZE / 4) + "px";
+                port.style.top = ((rect!.top - box.top) / this.zoom - MODULATION_PORT_SIZE / 4) + "px";
+                continue;
+            }
+            const anchor = shown ? rect! : view.fTitle.getBoundingClientRect();
             port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
             port.style.top = ((anchor.top + anchor.height / 2 - box.top) / this.zoom - MODULATION_PORT_SIZE / 2) + "px";
         }

@@ -693,7 +693,7 @@ span.titleAcc {
 	pointer-events: none;		/* the signal drives the parameter: the control has no effect */
 }
 .widget.modulation-depth {
-	display: none;				/* the depth is shown and set on the modulation port */
+	display: none !important;	/* the depth is shown and set on the modulation port (a knob, flex, too) */
 }
 .modulation-port {
 	padding: 0;

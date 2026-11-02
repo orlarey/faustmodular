@@ -7,7 +7,8 @@
     - a group named as the module (case ignored): the library modules repeat it, vgroup("VCO", ...);
     - a group without label, or with the label Faust generates for it ("0x00");
     - a group whose widgets are all hidden ([hidden:1]).
-    Its widgets stay grouped in its container (a later step lays out hgroup as rows, tgroup as tabs).
+    Its widgets stay grouped in its container: an hgroup lays them out as a row (wrapped when too wide), a
+    tgroup as tabs, one per child, titled with its label (ModuleClass.createFaustInterface).
     The level of a section is the number of sections around it, plus one.
 
     Widgets with [hidden:1] are kept (their controller holds the value: saving, undo, modulation) and
@@ -26,6 +27,7 @@ export interface LayoutGroup {
     kind: "group";
     type: string;                   // vgroup, hgroup, tgroup
     label: string | null;           // the section label shown, null if none
+    title: string;                  // the label of the group in the code (the title of a tab)
     tooltip: string | null;
     level: number;                  // 1 for a section not inside another section
     children: LayoutNode[];
@@ -68,7 +70,7 @@ export function uiLayout(ui: UIItem[], moduleName: string): LayoutNode[] {
         const label = item.label.trim();
         const named = depth > 0 && label != "" && !GENERATED_GROUP.test(label) && label.toLowerCase() != name;
         const group: LayoutGroup = {
-            kind: "group", type: item.type, label: named ? label : null, tooltip: metaValue(item, "tooltip") ?? null,
+            kind: "group", type: item.type, label: named ? label : null, title: label, tooltip: metaValue(item, "tooltip") ?? null,
             level: named ? level : level - 1, children: [],
         };
         group.children = item.items.map((child) => build(child, depth + 1, named ? level + 1 : level));

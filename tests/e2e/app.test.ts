@@ -1313,6 +1313,80 @@ process = vgroup("Demo", hgroup("[0]Oscillator", os.osc(hslider("[0]Freq[unit:Hz
     }, 120_000);
 });
 
+describe("knobs, rows and tabs", () => {
+    const CODE = `import("stdfaust.lib");
+process = vgroup("Synth", tgroup("[0]Pages", vgroup("[0]Osc", hgroup("[0]Main", os.osc(hslider("[0]freq[style:knob][unit:Hz][scale:log]", 440, 20, 2000, 1)) * hslider("[1]gain[style:knob]", 0.5, 0, 1, 0.01)))
+  : vgroup("[1]Filter", fi.lowpass(2, hslider("cutoff", 1000, 20, 20000, 1)))));`;
+
+    it("turns a knob by a vertical drag, lays out an hgroup as a row, a tgroup as tabs; ports on the widgets of a row", async () => {
+        const { page, errors } = await openApp();
+        const id = await page.evaluate(async (c) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            await app.compileFaust({ name: "Synth", sourceCode: c, x: 200, y: 80, callback: (f: any) => app.createModule(f, "Synth", c, 200, 80) });
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId as string;
+        }, CODE);
+        const container = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, id);
+        const value = (label: string) => page.evaluate(([m, l]) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((c: any) => c.itemParam.label == l).value, [id, label]);
+        // tabs: Osc shown, Filter hidden
+        expect(await page.locator(`${container} .ui-tab`).allTextContents()).toEqual(["Osc", "Filter"]);
+        expect(await page.locator(`${container} .ui-tab.selected`).textContent()).toBe("Osc");
+        expect(await page.locator(`${container} .widget:has(.label:text-is("cutoff"))`).isVisible()).toBe(false);
+        // the row: the two knobs side by side
+        const [k1, k2] = [(await page.locator(`${container} svg.knob`).nth(0).boundingBox())!, (await page.locator(`${container} svg.knob`).nth(1).boundingBox())!];
+        expect(Math.abs(k1.y - k2.y)).toBeLessThan(1);
+        expect(k2.x).toBeGreaterThan(k1.x + k1.width);
+        // a knob: 100 px up is half the range of positions; Shift: ten times finer; double click: its initial value
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        await page.mouse.move(k2.x + k2.width / 2, k2.y + k2.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(k2.x + k2.width / 2, k2.y + k2.height / 2 - 40, { steps: 8 });
+        await page.mouse.up();
+        expect(Number(await value("gain"))).toBeCloseTo(0.7, 2);
+        await page.keyboard.down("Shift");
+        await page.mouse.move(k2.x + k2.width / 2, k2.y + k2.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(k2.x + k2.width / 2, k2.y + k2.height / 2 - 40, { steps: 8 });
+        await page.mouse.up();
+        await page.keyboard.up("Shift");
+        expect(Number(await value("gain"))).toBeCloseTo(0.72, 2);
+        expect(await page.evaluate((c) => document.querySelector(c)!.getBoundingClientRect().left, container)).toBe(await page.evaluate((c) => document.querySelector(c)!.getBoundingClientRect().left, container));
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await page.waitForFunction(([m]) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((c: any) => c.itemParam.label == "gain").value == "0.50", [id]);
+        await page.locator(`${container} svg.knob`).nth(1).dblclick();
+        expect(await value("gain")).toBe("0.50");
+        // a modulation of a knob in a row: its port on the corner of the knob, not on the edge of the module
+        const freq = await page.evaluate(async (m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const source = s.patch.getModules().find((x: any) => x.kind == "input").id;
+            const address = s.widgetsOf(s.getModuleById(m)).find((w: any) => w.label == "freq").address;
+            await s.modulate({ module: source, port: 0 }, m, address, s.allowedModesOf(m, address)[0]);
+            return address;
+        }, id);
+        await page.waitForSelector(`${container} .modulation-port`);
+        const port = (await page.locator(`${container} .modulation-port`).boundingBox())!;
+        const knob = (await page.locator(`${container} [data-widget="${freq}"]`).boundingBox())!;
+        expect(Math.abs((port.x + port.width / 2) - knob.x)).toBeLessThan(port.width);
+        expect(Math.abs((port.y + port.height / 2) - knob.y)).toBeLessThan(port.height);
+        // the tab chosen stays after the recompilation; a hidden widget's port goes to the title
+        await page.locator(`${container} .ui-tab`, { hasText: "Filter" }).click();
+        expect(await page.locator(`${container} .widget:has(.label:text-is("cutoff"))`).isVisible()).toBe(true);
+        const title = (await page.locator(`${container} h6`).boundingBox())!;
+        const hidden = (await page.locator(`${container} .modulation-port`).boundingBox())!;
+        expect(Math.abs((hidden.y + hidden.height / 2) - (title.y + title.height / 2))).toBeLessThan(2);
+        // the modulation removed: recompiled, the interface rebuilt, still on the Filter tab
+        const dsp = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs(), id);
+        await page.evaluate((m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.disconnect(s.patch.connectionsTo(m)[0].id);
+        }, id);
+        await page.waitForFunction(([m, n]) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP().getNumInputs() < n, [id, dsp] as const);
+        expect(await page.locator(`${container} .ui-tab.selected`).textContent()).toBe("Filter");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("buttons and checkboxes", () => {
     it("centers a button at half the width (at least 96 px), spaced as the sliders, lit while held; a checkbox is a button with a LED", async () => {
         const { page, errors } = await openApp();

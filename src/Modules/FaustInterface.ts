@@ -316,6 +316,16 @@ export function setControlerValue(controler: FaustInterfaceControler, value: num
 /********************************************************************
 ********************* ADD GRAPHICAL ELEMENTS ***********************
 ********************************************************************/
+// An arc of the knob (radius 18 around the center of a 48 × 48 box), from angle a0 to a1 in degrees,
+// 0 at the top, clockwise.
+function knobArc(a0: number, a1: number): string {
+    var point = (a: number) => {
+        var r = (a - 90) * Math.PI / 180;
+        return `${(24 + 18 * Math.cos(r)).toFixed(2)} ${(24 + 18 * Math.sin(r)).toFixed(2)}`;
+    };
+    return `M ${point(a0)} A 18 18 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${point(a1)}`;
+}
+
 export class FaustInterfaceView {
     type: string;
     slider: HTMLInputElement;
@@ -329,6 +339,8 @@ export class FaustInterfaceView {
     private fChoice: { select?: HTMLSelectElement; radios?: HTMLInputElement[]; values: number[] } | null = null;
     // a number entry (nentry) in place of the slider, which stays the state of the widget as for a choice
     private fEntry: { input: HTMLInputElement; precision: number } | null = null;
+    // a knob ([style:knob]) in place of the slider, which stays the state of the widget
+    private fKnob: { value: SVGPathElement; pointer: SVGLineElement } | null = null;
     private fItemParam: Iitem | null = null;
     private fRange: SliderRange | null = null;
 
@@ -380,8 +392,67 @@ export class FaustInterfaceView {
         var choices = choicesOf(itemParam.meta);
         if (choices) this.addChoices(choices, group, slider, val);
         else if (itemParam.type == "nentry") this.addEntry(group, slider, val, precision);
+        else if ((itemParam.meta ?? []).some((m: any) => String(m.style ?? "").trim().toLowerCase() == "knob")) this.addKnob(group, info, lab, val, slider, itemParam);
         // a vslider is shown as an hslider: the modules are laid out as a column of widgets
         return group;
+    }
+
+    // A knob: the label above, the value below; a vertical drag turns it (200 px for the whole range, 2000
+    // with Shift), a double click sets it back to its initial value. The slider, hidden, is its state: the
+    // positions of the slider (a logarithmic scale included) are the angles of the knob, from -135° to 135°.
+    private addKnob(group: HTMLElement, info: HTMLElement, label: HTMLElement, value: HTMLElement, slider: HTMLInputElement, itemParam: Iitem): void {
+        group.classList.add("control-knob");
+        slider.classList.add("choice-slider");
+        label.title = itemParam.label;
+        info.remove();
+        var NS = "http://www.w3.org/2000/svg" as const;
+        var svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("class", "knob");
+        svg.setAttribute("viewBox", "0 0 48 48");
+        var track = document.createElementNS(NS, "path");
+        track.setAttribute("class", "knob-track");
+        track.setAttribute("d", knobArc(-135, 135));
+        var arc = document.createElementNS(NS, "path");
+        arc.setAttribute("class", "knob-value");
+        var pointer = document.createElementNS(NS, "line");
+        pointer.setAttribute("class", "knob-pointer");
+        svg.append(track, arc, pointer);
+        group.insertBefore(label, slider);
+        group.insertBefore(svg, slider);
+        group.insertBefore(value, slider);
+        this.fKnob = { value: arc, pointer };
+        var steps = Number(slider.max);
+        var drag: { y: number; position: number } | null = null;
+        var set = (position: number) => {
+            var p = String(Math.round(Math.min(steps, Math.max(0, position))));
+            if (p == slider.value) return;
+            slider.value = p;
+            slider.dispatchEvent(new Event("input"));
+        };
+        svg.addEventListener("pointerdown", (e: PointerEvent) => {
+            if (e.pointerType == "mouse" && e.button != 0) return;
+            e.stopPropagation();
+            e.preventDefault();
+            svg.setPointerCapture(e.pointerId);
+            drag = { y: e.clientY, position: Number(slider.value) };
+        });
+        svg.addEventListener("pointermove", (e: PointerEvent) => {
+            if (!drag) return;
+            // by steps from the previous position, so that pressing or releasing Shift does not jump
+            drag.position += ((drag.y - e.clientY) / (e.shiftKey ? 2000 : 200)) * steps;
+            drag.y = e.clientY;
+            set(drag.position);
+        });
+        var end = () => { drag = null; };
+        svg.addEventListener("pointerup", end);
+        svg.addEventListener("pointercancel", end);
+        svg.addEventListener("dblclick", (e) => {
+            e.stopPropagation();
+            set(this.position(parseFloat(itemParam.init)));
+        });
+        ["mousedown", "touchstart"].forEach((type) => svg.addEventListener(type, (e) => e.stopPropagation()));
+        slider.addEventListener("input", () => this.syncChoice());
+        this.syncChoice();
     }
 
     // A number entry: typed values, kept in the range of the widget, set through the hidden slider.
@@ -475,6 +546,15 @@ export class FaustInterfaceView {
 
     // Shows the choice of the slider's value (the nearest one).
     syncChoice(): void {
+        if (this.fKnob && this.slider) {
+            var angle = -135 + 270 * (Number(this.slider.value) / Math.max(1, Number(this.slider.max)));
+            this.fKnob.value.setAttribute("d", angle > -134.9 ? knobArc(-135, angle) : "");
+            var r = (angle - 90) * Math.PI / 180;
+            this.fKnob.pointer.setAttribute("x1", String(24 + 7 * Math.cos(r)));
+            this.fKnob.pointer.setAttribute("y1", String(24 + 7 * Math.sin(r)));
+            this.fKnob.pointer.setAttribute("x2", String(24 + 15 * Math.cos(r)));
+            this.fKnob.pointer.setAttribute("y2", String(24 + 15 * Math.sin(r)));
+        }
         if (this.fEntry && this.slider) {
             var range = this.fRange ?? sliderRange(this.fItemParam!);
             this.fEntry.input.value = valueAt(range, Number(this.slider.value)).toFixed(this.fEntry.precision);

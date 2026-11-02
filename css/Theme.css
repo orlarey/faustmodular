@@ -986,3 +986,118 @@ li.libraryFamily.selected {
 .widget.modulated-drive.control-button.lit input[type="button"] {
 	color: rgba(13, 23, 31, 0.75);
 }
+
+/* Knobs ([style:knob]): the label above, the knob, the value below; the slider, hidden, is the state */
+.control-group.control-knob {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin: 4px 0 10px;
+}
+.control-knob input.choice-slider {
+	display: none;
+}
+.control-knob > .label {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--fp-text-quiet);
+	font-size: 10px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	text-align: center;
+}
+.control-knob svg.knob {
+	width: 44px;
+	height: 44px;
+	margin: 2px 0;
+	cursor: ns-resize;
+	touch-action: none;
+	overflow: visible;
+}
+.control-knob .knob-track, .control-knob .knob-value {
+	fill: none;
+	stroke-width: 4;
+	stroke-linecap: round;
+}
+.control-knob .knob-track {
+	stroke: rgba(176, 255, 220, 0.18);
+}
+.control-knob .knob-value {
+	stroke: var(--fp-accent);
+}
+.control-knob .knob-pointer {
+	stroke: var(--fp-title);
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+.control-knob > .value {
+	font: 10px var(--fp-mono);
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border-radius: 4px;
+	padding: 0 5px;
+	white-space: nowrap;
+}
+
+/* hgroup: a row of its children, wrapped when the module would be too wide */
+.ui-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 0 12px;
+	max-width: 520px;
+}
+.ui-row > * {
+	flex: 1 1 0;
+	min-width: 64px;
+	width: auto;			/* not the 100% of a control group (FaustInterface.css): it would fill the row */
+}
+.ui-row > .control-group:not(.control-knob):not(.control-button) {
+	min-width: 130px;		/* a slider, a menu, a number entry */
+}
+.ui-row > .control-button {
+	flex: 0 1 auto;
+}
+.ui-row > .control-button input[type="button"], .ui-row > .control-checkbox .pill {
+	width: auto;
+	min-width: 72px;
+}
+.ui-row > .ui-group {
+	min-width: 130px;
+}
+
+/* tgroup: tabs, one page shown */
+.ui-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 2px 0 10px;
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+}
+.ui-tab {
+	padding: 3px 10px;
+	border: 1px solid transparent;
+	border-bottom: none;
+	border-radius: 6px 6px 0 0;
+	background: transparent;
+	color: var(--fp-text-quiet);
+	font: 11px var(--fp-sans);
+	letter-spacing: 0.04em;
+	cursor: pointer;
+}
+.ui-tab:hover {
+	color: var(--fp-pill-text);
+}
+.ui-tab.selected {
+	color: var(--fp-accent);
+	border-color: var(--fp-accent-border-soft);
+	background: var(--fp-value-bg);
+}
+.ui-page {
+	display: none;
+}
+.ui-page.selected {
+	display: block;
+}

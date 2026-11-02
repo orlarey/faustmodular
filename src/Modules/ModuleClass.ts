@@ -258,7 +258,8 @@ export class ModuleClass {
         // the sections and the widgets, in the order of the code; a place for each bargraph
         var container = this.moduleView.getInterfaceContainer();
         var bars = new Map<string, HTMLElement>();
-        var build = (nodes: LayoutNode[], parent: HTMLElement) => {
+        // an hgroup: a row of its children (wrapped); a tgroup: a tab per child, the one chosen remembered
+        var build = (nodes: LayoutNode[], parent: HTMLElement, path: string) => {
             for (var node of nodes) {
                 if (node.kind == "group") {
                     var section = document.createElement("div");
@@ -270,7 +271,17 @@ export class ModuleClass {
                         if (node.tooltip) heading.title = node.tooltip;
                         section.appendChild(heading);
                     }
-                    build(node.children, section);
+                    var key = path + "/" + node.title;
+                    if (node.type == "hgroup") {
+                        var row = document.createElement("div");
+                        row.className = "ui-row";
+                        section.appendChild(row);
+                        build(node.children, row, key);
+                    } else if (node.type == "tgroup") {
+                        this.buildTabs(node.children, section, key, build);
+                    } else {
+                        build(node.children, section, key);
+                    }
                     parent.appendChild(section);
                 } else if (node.item.type == "hbargraph" || node.item.type == "vbargraph") {
                     var place = document.createElement("div");
@@ -287,7 +298,7 @@ export class ModuleClass {
                 }
             }
         };
-        build(uiLayout(JSON.parse(this.moduleFaust.getDSP().getJSON()).ui, this.moduleFaust.getName()), container);
+        build(uiLayout(JSON.parse(this.moduleFaust.getDSP().getJSON()).ui, this.moduleFaust.getName()), container, "");
         elements.forEach((widget) => container.appendChild(widget));     // none expected
         // bargraphs, oscilloscope or spectrum (Displays.ts)
         this.displays?.dispose();
@@ -322,6 +333,44 @@ export class ModuleClass {
                 Utilitary.currentScene.markModified();
             },
         });
+    }
+
+    // The tab chosen in each tgroup of the module (by the path of its labels): kept when the interface is
+    // rebuilt (recompilation), not saved.
+    private fTabs = new Map<string, number>();
+
+    // The children of a tgroup as tabs: a bar of their titles, one page shown.
+    private buildTabs(children: LayoutNode[], section: HTMLElement, key: string, build: (nodes: LayoutNode[], parent: HTMLElement, path: string) => void): void {
+        var bar = document.createElement("div");
+        bar.className = "ui-tabs";
+        var pages = document.createElement("div");
+        pages.className = "ui-pages";
+        section.append(bar, pages);
+        var shown = children.filter((c) => c.kind == "widget" ? !c.hidden : true);
+        var buttons: HTMLElement[] = [], contents: HTMLElement[] = [];
+        var select = (i: number, redraw: boolean) => {
+            buttons.forEach((b, j) => b.classList.toggle("selected", j == i));
+            contents.forEach((p, j) => p.classList.toggle("selected", j == i));
+            this.fTabs.set(key, i);
+            if (redraw) this.redrawCables();          // the modulation ports of the widgets shown or hidden
+        };
+        shown.forEach((child, i) => {
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "ui-tab";
+            button.textContent = (child.kind == "group" ? child.title : child.item.label) || String(i + 1);
+            button.addEventListener("click", () => select(i, true));
+            ["mousedown", "touchstart", "pointerdown"].forEach((type) => button.addEventListener(type, (e) => e.stopPropagation()));
+            bar.appendChild(button);
+            buttons.push(button);
+            var page = document.createElement("div");
+            page.className = "ui-page";
+            // the title of the child is that of its tab: not repeated as a section
+            build([child.kind == "group" ? { ...child, label: null } : child], page, key);
+            pages.appendChild(page);
+            contents.push(page);
+        });
+        select(Math.min(this.fTabs.get(key) ?? 0, Math.max(0, shown.length - 1)), false);
     }
 
     // Delete all FaustInterfaceControler
