@@ -1238,6 +1238,68 @@ describe("context menu and clipboard", () => {
     }, 120_000);
 });
 
+describe("alignment guides", () => {
+    const create = (page: Page, name: string, code: string, x: number, y: number) => page.evaluate(async ([n, c, xx, yy]) => {
+        const { app, scene } = (globalThis as any).faustPlayground;
+        const before = scene.getModules().length;
+        await app.compileFaust({ name: n, sourceCode: c, x: xx, y: yy, callback: (f: any) => app.createModule(f, n, c, xx, yy) });
+        while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+        return scene.getModules()[before].moduleId as string;
+    }, [name, code, x, y] as [string, string, number, number]);
+    const box = (page: Page, id: string) => page.evaluate((m) => {
+        const r = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }, id);
+    const position = (page: Page, id: string) => page.evaluate((m) => {
+        const s = (globalThis as any).faustPlayground.scene.patch.getModule(m);
+        return { x: s.x, y: s.y };
+    }, id);
+    // drags a module by its title so that its top-left corner goes by (dx, dy) on screen; returns the
+    // guides shown just before the release
+    const drag = async (page: Page, id: string, dx: number, dy: number, alt = false) => {
+        const b = await box(page, id);
+        const start = { x: b.left + 30, y: b.top + 12 };
+        await page.mouse.move(start.x, start.y);
+        await page.mouse.down();
+        if (alt) await page.keyboard.down("Alt");
+        await page.mouse.move(start.x + dx, start.y + dy, { steps: 12 });
+        const guides = await page.evaluate(() => Array.from(document.querySelectorAll(".alignment-guide")).map((l) => ({
+            x1: +l.getAttribute("x1")!, y1: +l.getAttribute("y1")!, x2: +l.getAttribute("x2")!, y2: +l.getAttribute("y2")!,
+        })));
+        await page.mouse.up();
+        if (alt) await page.keyboard.up("Alt");
+        return guides;
+    };
+
+    it("pulls a module dragged within 4 px onto the top of another, shows a horizontal line, and lets go with Alt", async () => {
+        const { page, errors } = await openApp();
+        const a = await create(page, "A", 'process = vgroup("A", hslider("x", 0, 0, 1, 0.01));', 120, 120);
+        // B taller than A: their bottoms do not meet when their tops do
+        const b = await create(page, "B", 'process = vgroup("B", hslider("y", 0, 0, 1, 0.01) + hslider("z", 0, 0, 1, 0.01));', 560, 330);
+        const [ba, bb] = [await box(page, a), await box(page, b)];
+        // B's top 3 px below A's top, far from its sides
+        const guides = await drag(page, b, 0, ba.top + 3 - bb.top);
+        expect(guides).toHaveLength(1);
+        expect(guides[0].y1).toBe(guides[0].y2);                  // horizontal
+        expect(guides[0].x1).toBeLessThan(guides[0].x2);
+        expect(await page.locator(".alignment-guide").count()).toBe(0);      // gone after the release
+        expect((await position(page, b)).y).toBeCloseTo((await position(page, a)).y, 6);
+        // B's left 2 px right of A's right: side by side, a vertical line
+        const [ba2, bb2] = [await box(page, a), await box(page, b)];
+        const side = await drag(page, b, ba2.right + 2 - bb2.left, 0);
+        expect(side.some((g) => g.x1 == g.x2)).toBe(true);
+        const after = await box(page, b);
+        expect(after.left).toBeCloseTo(ba2.right, 1);
+        // with Alt: no magnetism, 3 px away and no guide
+        const [ba3, bb3] = [await box(page, a), await box(page, b)];
+        const free = await drag(page, b, 0, ba3.top + 60 + 3 - bb3.top, true);
+        expect(free.filter((g) => g.y1 == g.y2)).toEqual([]);
+        expect((await box(page, b)).top).toBeCloseTo(ba3.top + 63, 1);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("modular library", () => {
     it("computes a module whose inputs are not connected (silence in, not no computation)", async () => {
         const { page, errors } = await openApp();

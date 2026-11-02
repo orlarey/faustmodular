@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.15.0 (2026-11-02)
+
+- **Alignment guides**, as in Faust DAW (for its clips, on the time axis), in two dimensions: while modules
+  are dragged, their left and right edges are compared with the left and right edges of the other modules
+  (the physical input and output included), their tops and bottoms with the tops and bottoms. Within 4
+  screen pixels (whatever the zoom), the dragged group is pulled onto the nearest coincidence, on each axis
+  independently; every coincidence reached is shown as a thin line from the dragged module to the aligned
+  one, slightly beyond both. A left edge may meet a right edge: two modules then sit side by side. With a
+  selection, each dragged module counts, and the group moves as a block. Alt while dragging: no magnetism.
+- The computation is a pure function (`src/view/Alignment.ts`), tested apart; end to end, a real drag.
+
 ## 3.14.0 (2026-11-02)
 
 - **A context menu on the modules**: a right click acts on the selection (the module alone if it is not

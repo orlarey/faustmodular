@@ -159,11 +159,13 @@ describe("selection", () => {
         await page.mouse.click(c2.x, c2.y);
         await page.keyboard.up("Shift");
         expect(await page.evaluate(() => (globalThis as any).faustmodular.scene.patchView.getSelection().sort())).toEqual(["1", "2"]);
-        // dragging one of them moves both
+        // dragging one of them moves both (with Alt: no magnetism, the displacement is exact)
         await page.mouse.move(c1.x, c1.y);
         await page.mouse.down();
+        await page.keyboard.down("Alt");
         await page.mouse.move(c1.x + 40, c1.y + 30, { steps: 5 });
         await page.mouse.up();
+        await page.keyboard.up("Alt");
         expect(await position(page, "1")).toEqual([p1[0] + 40, p1[1] + 30]);
         expect(await position(page, "2")).toEqual([p2[0] + 40, p2[1] + 30]);
         expect(await position(page, "3")).toEqual(p3);

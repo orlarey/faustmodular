@@ -816,3 +816,11 @@ li.modularFamily.selected {
 	margin: 4px 6px;
 	background: var(--fp-accent-border-soft);
 }
+
+/* Alignment guides while modules are dragged (view/Alignment.ts): thin, light, as in Faust DAW */
+.alignment-guide {
+	stroke: rgba(86, 215, 255, 0.75);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+	pointer-events: none;
+}

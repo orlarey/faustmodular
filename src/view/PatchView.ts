@@ -2,7 +2,9 @@
     Graphical view of the patch: ports of the modules, one SVG cable per connection,
     and the pointer interactions (mouse, touch and pen through Pointer Events):
 
-    - drag a module by its body: the selected modules move with it. Shift (or Ctrl, Cmd) and click
+    - drag a module by its body: the selected modules move with it. Their edges are pulled onto the
+      edges of the other modules within 4 screen pixels (not with Alt), and each coincidence is shown
+      as a thin line (Alignment.ts). Shift (or Ctrl, Cmd) and click
       adds a module to the selection or removes it; dragging on the empty stage draws a rectangle
       that selects the modules it touches; a click on the stage clears the selection;
     - drag from a port to start a cable, then release
@@ -28,6 +30,7 @@
 
 import type { ModulationMode } from "../model/Modulation";
 import { defaultDepth, depthRange, hasDepth } from "../model/Modulation";
+import { align, Guide, Rect } from "./Alignment";
 import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
@@ -104,7 +107,13 @@ interface ModuleDrag {
     startY: number;
     items: Array<{ module: ModuleClass; left: number; top: number }>;
     moved: boolean;
+    rects: Rect[];              // the dragged modules where the drag started (stage coordinates)
+    others: Rect[];             // the modules that stay: their edges are the alignment guides
 }
+
+// Alignment guides (Alignment.ts): magnetism threshold and length beyond the modules, in screen pixels.
+const ALIGN_THRESHOLD = 4;
+const ALIGN_EXTEND = 8;
 
 interface BandDrag {
     startX: number;
@@ -446,6 +455,35 @@ export class PatchView {
     // The stage is scaled by the zoom (Scene.setView): its rectangles are on screen, its coordinates not.
     zoom = 1;
 
+    // The rectangle of a module on the stage (its box, without the ports astride its edges).
+    private stageRect(container: HTMLElement): Rect {
+        const box = container.getBoundingClientRect();
+        const a = this.toCanvas(box.left, box.top), b = this.toCanvas(box.right, box.bottom);
+        return { left: a.x, top: a.y, right: b.x, bottom: b.y };
+    }
+
+    // The alignment guides of a module drag: thin lines in the cable layer.
+    private fGuides?: SVGGElement;
+
+    private showGuides(guides: Guide[]): void {
+        if (guides.length == 0 && !this.fGuides?.firstChild) return;
+        if (!this.fGuides) {
+            this.fGuides = document.createElementNS(SVG_NS, "g") as SVGGElement;
+            this.fGuides.setAttribute("class", "alignment-guides");
+        }
+        if (this.fGuides.parentNode !== this.fSvg) this.fSvg.appendChild(this.fGuides);
+        this.fGuides.replaceChildren(...guides.map((g) => {
+            const line = document.createElementNS(SVG_NS, "line");
+            line.setAttribute("class", "alignment-guide");
+            const [x1, y1, x2, y2] = g.axis == "x" ? [g.at, g.from, g.at, g.to] : [g.from, g.at, g.to, g.at];
+            line.setAttribute("x1", String(x1));
+            line.setAttribute("y1", String(y1));
+            line.setAttribute("x2", String(x2));
+            line.setAttribute("y2", String(y2));
+            return line;
+        }));
+    }
+
     private toCanvas(clientX: number, clientY: number): Point {
         const svgRect = this.fSvg.getBoundingClientRect();
         return { x: (clientX - svgRect.left) / this.zoom, y: (clientY - svgRect.top) / this.zoom };
@@ -506,8 +544,13 @@ export class PatchView {
         }
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
-            const dx = (e.clientX - moduleDrag.startX) / this.zoom, dy = (e.clientY - moduleDrag.startY) / this.zoom;
-            moduleDrag.moved ||= Math.abs(dx) + Math.abs(dy) > 2 / this.zoom;
+            const rawX = (e.clientX - moduleDrag.startX) / this.zoom, rawY = (e.clientY - moduleDrag.startY) / this.zoom;
+            moduleDrag.moved ||= Math.abs(rawX) + Math.abs(rawY) > 2 / this.zoom;
+            // pulled onto the edges of the other modules (not with Alt), the coincidences shown
+            const { dx, dy, guides } = moduleDrag.moved
+                ? align(moduleDrag.rects, moduleDrag.others, rawX, rawY, { threshold: ALIGN_THRESHOLD / this.zoom, snap: !e.altKey, epsilon: 0.5 / this.zoom, extend: ALIGN_EXTEND / this.zoom })
+                : { dx: rawX, dy: rawY, guides: [] };
+            this.showGuides(guides);
             for (const item of moduleDrag.items) {
                 const view = item.module.moduleView;
                 view.x = item.left + dx;
@@ -533,6 +576,7 @@ export class PatchView {
         const moduleDrag = this.fModuleDrags.get(e.pointerId);
         if (moduleDrag) {
             this.fModuleDrags.delete(e.pointerId);
+            this.showGuides([]);
             if (moduleDrag.moved) {
                 for (const item of moduleDrag.items) {
                     const view = item.module.moduleView;
@@ -572,7 +616,14 @@ export class PatchView {
             .map((sid) => this.fLookup(sid))
             .filter((m): m is ModuleClass => m !== undefined)
             .map((m) => ({ module: m, left: parseFloat(m.moduleView.getModuleContainer().style.left) || 0, top: parseFloat(m.moduleView.getModuleContainer().style.top) || 0 }));
-        this.fModuleDrags.set(e.pointerId, { clicked: module, startX: e.clientX, startY: e.clientY, items, moved: false });
+        // the rectangles of the modules, on the stage: the dragged ones, and the others
+        const moving = new Set(items.map((item) => item.module.moduleView.getModuleContainer()));
+        const rects: Rect[] = [], others: Rect[] = [];
+        this.fContainers.forEach((_, container) => {
+            if (!container.isConnected) return;
+            (moving.has(container) ? rects : others).push(this.stageRect(container));
+        });
+        this.fModuleDrags.set(e.pointerId, { clicked: module, startX: e.clientX, startY: e.clientY, items, moved: false, rects, others });
     }
 
     private startCableDrag(e: PointerEvent, module: ModuleClass, port: HTMLElement): void {
