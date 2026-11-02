@@ -85,7 +85,8 @@ take their settings as arguments: their modules give them an interface made for 
 `scripts/faust-filter-modules.mjs`. *Cutoff* in Hz on a log scale (modulated in octaves), a *Pitch* slider
 (0.1 per octave) on the filters for the keyboard tracking, *Q* on a log scale, gains in dB, the responses and
 the orders in menus, no smoothing. Their frequency responses are measured offline against the theory
-(`tests/library/filters.test.ts`).
+(`tests/library/filters.test.ts`). The Diode Ladder corrects a typo of `ve.diodeLadder` (the feedback through
+its second stage) and is tuned on its analog model so that its cutoff is at -3 dB whatever the resonance.
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

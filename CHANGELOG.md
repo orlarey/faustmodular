@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.23.1 (2026-11-02)
+
+- **The Diode Ladder at -3 dB at its cutoff, whatever the resonance.** `ve.diodeLadder` placed its -3 dB
+  frequency at 0.075 of the frequency asked for Q = 0.707, 0.45 for Q = 5, 1.0 for Q = 20: turning the
+  resonance moved the cutoff by almost four octaves. Its analog model, read in its code, is
+  H(s) = 1/(D(s) + k), D(s) = 8s⁴ + 32s³ + 40s² + 16s + 1 (the four stages coupled; self oscillation at
+  k = 17 and 0.707 of the frequency of the stages, as the code says). The module solves |D(jω) + k|² = 2(1 + k)²
+  (a quartic in ω², one positive root, by bisection) and tunes the stages so that the -3 dB frequency is the
+  cutoff (bilinear transform: tan(πf/SR) scaled by 1/ω). Measured: within 4 cents from 50 Hz to 15 kHz, Q from
+  0.707 to 20; the peak of the resonance at 0.674 of the cutoff for Q = 20, 17.7 dB above the gain at 0 Hz.
+- **A typo of the library corrected in the module**: the feedback through the second stage of
+  `ve.diodeLadder` uses `SG3` where the derivation has `SG2` (defined in the function, never used); it detunes
+  the filter as the feedback rises (up to 280 cents at 10 kHz). Corrected, the filter is the bilinear transform
+  of its analog model within 4 cents. The feedback of the module depends on Q alone (the library lowers it
+  above 5 kHz, by (17 - nf¹⁰·9.7)): a bilinear transform keeps the filter stable below k = 17 (k = 13.5 for
+  Q = 20); tested at 20 Hz, 1 kHz and 20 kHz, and with a cutoff swept over 8 octaves at 50 Hz.
+
 ## 3.23.0 (2026-11-02)
 
 - **22 filters, equalizers and pedals of the Faust libraries** (`filters.lib`, `vaeffects.lib`) as modules, in

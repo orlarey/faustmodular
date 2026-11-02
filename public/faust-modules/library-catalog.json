@@ -1934,7 +1934,7 @@
    "functions": [],
    "family": "Lib filters",
    "summary": "Virtual analog model of the diode ladder (EMS, Roland TB-303), after a saturation of the input",
-   "description": "- Virtual analog model of the diode ladder (EMS, Roland TB-303), after a saturation of the input\n- Cutoff in Hz; an envelope or an LFO dropped on it moves it in octaves\n- Pitch: moves the cutoff, 0.1 per octave; a pitch dropped on it (a sequencer) makes the cutoff follow the notes, its amount on the modulation port being the keyboard tracking\n- Q from 0.7 to 20: the resonance\n- From the Faust libraries: ve.diodeLadder (vaeffects.lib)",
+   "description": "- Virtual analog model of the diode ladder (EMS, Roland TB-303), after a saturation of the input\n- Q from 0.707 to 20: the resonance; the cutoff stays at -3 dB whatever the resonance (the peak of the resonance below it, at 0.68 of the cutoff for Q = 20)\n- Cutoff in Hz; an envelope or an LFO dropped on it moves it in octaves\n- Pitch: moves the cutoff, 0.1 per octave; a pitch dropped on it (a sequencer) makes the cutoff follow the notes, its amount on the modulation port being the keyboard tracking\n- The function of the library corrected: the feedback through its second stage, its feedback independent of the frequency\n- From the Faust libraries: ve.diodeLadder (vaeffects.lib), corrected",
    "inlets": [
     "audio"
    ],

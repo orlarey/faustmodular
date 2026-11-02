@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.22.0",
+ "version": "3.23.1",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -70,7 +70,7 @@
   "faust-modules/faustlib/CubicDistortion.dsp": "61f3f56c597a9eff248cf9d2aa3fcb6cd7d07edd",
   "faust-modules/faustlib/DattorroReverb.dsp": "807e68e7191b00eecacd08bb4d571b887a07d1be",
   "faust-modules/faustlib/DCBlocker.dsp": "c8bb56e8490d1e3a213e5bc75dc2b4cc091fb99a",
-  "faust-modules/faustlib/DiodeLadder.dsp": "1ca69d89d3d2e61240b5faf9a9239dd6ddb32674",
+  "faust-modules/faustlib/DiodeLadder.dsp": "5b14492941d13db32e1e0bc7b04f1f7df078d935",
   "faust-modules/faustlib/DjembeModel.dsp": "fd5ff1d0c9ff29feaec6c15cb150f170e37f6f04",
   "faust-modules/faustlib/ElectricGuitarModel.dsp": "c661ed98da750d904646ff0312a8ef41fae173ec",
   "faust-modules/faustlib/EllipticFilter.dsp": "912ea933ac3aaf247a563ac8a7de38c37b0b4b74",
@@ -218,6 +218,10 @@
   "1b13c81537432b36a04262235065a83fd139b997": {
    "path": "faust-modules/modular/VCA.dsp",
    "until": "3.7.0"
+  },
+  "1ca69d89d3d2e61240b5faf9a9239dd6ddb32674": {
+   "path": "faust-modules/faustlib/DiodeLadder.dsp",
+   "until": "3.23.1"
   },
   "216401d5da4426ac1691a9a016fd2a9689cecd51": {
    "path": "faust-modules/modular/SampleHold.dsp",

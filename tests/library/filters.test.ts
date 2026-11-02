@@ -213,12 +213,45 @@ describe("filters: frequency responses", () => {
         expect(gainDb(bs, 20)).toBeCloseTo(0, 1);
     }, 300_000);
 
-    it("Diode Ladder (small signal, its input saturates): a low pass whose resonance rises with Q", async () => {
-        const [low] = await impulse("Diode Ladder", { Cutoff: fc, Q: 0.7 }, 1e-4);
-        const [high] = await impulse("Diode Ladder", { Cutoff: fc, Q: 15 }, 1e-4);
-        expect(gainDb(low, 10 * fc) - gainDb(low, 20)).toBeLessThan(-80);
-        const peak = peakFrequency(high, 200, 3000);
-        expect(gainDb(high, peak) - gainDb(high, 20)).toBeGreaterThan(5);
+    it("Diode Ladder (small signal, its input saturates): -3 dB at the cutoff whatever the resonance, from 50 Hz to 15 kHz", async () => {
+        // the -3 dB frequency (relative to the gain at 0 Hz): the last one above that level
+        const minus3 = (h: Float32Array) => {
+            const dc = gainDb(h, 0.5);
+            let lo = 23000;
+            while (gainDb(h, lo) - dc < -3) lo /= 1.02;
+            let hi = lo * 1.02;
+            for (let i = 0; i < 30; i++) { const m = Math.sqrt(lo * hi); if (gainDb(h, m) - dc >= -3) lo = m; else hi = m; }
+            return lo;
+        };
+        for (const cutoff of [50, 200, 1000, 5000, 15000]) {
+            for (const q of [0.707, 2, 5, 10, 20]) {
+                const [h] = await impulse("Diode Ladder", { Cutoff: cutoff, Q: q }, 1e-5);
+                expect(cents(minus3(h), cutoff), `${cutoff} Hz, Q = ${q}`).toBeLessThan(5);
+            }
+        }
+        // the resonance: its peak at 0.674 of the cutoff for Q = 20 (the analog ladder), 17.7 dB above 0 Hz
+        const [h] = await impulse("Diode Ladder", { Cutoff: fc, Q: 20 }, 1e-5);
+        const peak = peakFrequency(h, 300, 1500);
+        expect(cents(peak, 0.674 * fc)).toBeLessThan(10);
+        expect(gainDb(h, peak) - gainDb(h, 0.5)).toBeCloseTo(17.7, 0);
+    }, 300_000);
+
+    it("Diode Ladder: stable at every cutoff with the most resonance, a cutoff swept at audio rate", async () => {
+        const noise = Float32Array.from({ length: SR }, (_, n) => 0.5 * Math.sin(n * 12.9898) * Math.sin(n * 0.07));
+        for (const cutoff of [20, 1000, 20000]) {
+            const [y] = await render("Diode Ladder", { Cutoff: cutoff, Q: 20 }, noise);
+            expect(y.every((v) => Number.isFinite(v) && Math.abs(v) < 100), `${cutoff} Hz`).toBe(true);
+        }
+        // the cutoff modulated: the module with its Cutoff moved by a 50 Hz sine over 8 octaves
+        const code = fs.readFileSync(path.join(root, "public", modulePath(byName("Diode Ladder"))), "utf8")
+            .replace(/cutoff = hslider\([^;]*;/, "cutoff = 20 * pow(2, 4 + 4 * os.osc(50));");
+        const g = new fw.FaustMonoDspGenerator();
+        await g.compile(await getCompiler(), "m", code, TEST_OPTIONS);
+        const processor = (await g.createOfflineProcessor(SR, 1024))!;
+        const q = listWidgets(JSON.parse(g.factory!.json).ui).find((w) => w.label == "Q")!;
+        processor.setParamValue(q.address, 20);
+        const [y] = processor.render([noise], noise.length);
+        expect(y.every((v) => Number.isFinite(v) && Math.abs(v) < 100)).toBe(true);
     }, 120_000);
 
     it("Notch: the cutoff removed, -3 dB at half the width on each side", async () => {
