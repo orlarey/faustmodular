@@ -15,7 +15,7 @@ import { CompileFaust, IfDSP, Utilitary } from "../Utilitary";
 import { AccelerometerHandler } from "../Accelerometer";
 import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
-import { DEPTH_METADATA } from "../model/Modulation";
+import { DEPTH_METADATA, DRIVEN_METADATA, depthKey, listWidgets, widgetTarget } from "../model/Modulation";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
 
 interface DSPCallback { (): void; }
@@ -291,8 +291,24 @@ export class ModuleClass {
         elements.forEach((widget) => container.appendChild(widget));     // none expected
         // bargraphs, oscilloscope or spectrum (Displays.ts)
         this.displays?.dispose();
+        // the buttons and checkboxes a modulation may drive: their key (Modulation.depthKey), and the
+        // hidden bargraphs that report the value they are driven to ([driven:<key>])
+        var ui = JSON.parse(this.moduleFaust.getDSP().getJSON()).ui;
+        var widgets = listWidgets(ui);
+        var switches = new Map<string, FaustInterfaceControler>();
+        for (var c of this.moduleControles) {
+            if (c.itemParam.type != "button" && c.itemParam.type != "checkbox") continue;
+            try { switches.set(depthKey({ target: widgetTarget(widgets, c.itemParam.address) } as any), c); } catch { /* ambiguous */ }
+        }
+        var driven = new Map<string, FaustInterfaceControler>();
+        for (var w of widgets) {
+            var key = w.meta[DRIVEN_METADATA];
+            if (key !== undefined && switches.has(key)) driven.set(w.address, switches.get(key)!);
+        }
         this.displays = new ModuleDisplays(container, this.moduleFaust.getDSP() as any, Utilitary.audioContext, {
             place: (address) => bars.get(address),
+            // a button or a checkbox driven by a modulation: lit while the signal holds it at 1
+            output: (address, value) => driven.get(address)?.faustInterfaceView.setLit(value >= 0.5),
             // the values of the interface (those of the DSP of an AudioWorklet node lag behind)
             param: (address) => {
                 var controler = this.moduleControles.find((c) => c.itemParam.address == address);
@@ -360,6 +376,7 @@ export class ModuleClass {
             val = valueAt(faustControler.range ?? sliderRange(faustControler.itemParam), parseFloat(input.value)).toFixed(parseFloat(faustControler.precision));
         } else if (faustControler.faustInterfaceView.checkbox) {
             val = faustControler.faustInterfaceView.checkbox.checked ? "1" : "0";
+            faustControler.faustInterfaceView.setLit(val == "1");
         } else if (faustControler.faustInterfaceView.button) {
             var input: HTMLInputElement = faustControler.faustInterfaceView.button;
             if (faustControler.value == undefined || faustControler.value == "0") {
@@ -367,6 +384,7 @@ export class ModuleClass {
             } else {
                 faustControler.value = val = "0"
             }
+            faustControler.faustInterfaceView.setLit(val == "1");      // lit while held down
         }
         var text: string = faustControler.itemParam.address;
         faustControler.value = val!;

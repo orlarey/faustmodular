@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.18.0 (2026-11-02)
+
+- **Checkboxes are buttons with a LED**, as on hardware synthesizers: a button without LED is momentary
+  (`button`), a button with a LED latches (`checkbox`). Same form as the buttons (centered, half the width of
+  the module); a click toggles the LED; the checkbox, hidden in the button, keeps the state (saved, undone).
+- **Lit buttons**: a button is lit while it is held down, and while a modulation holds it at 1 (a gate
+  driven by a sequencer or a clock lights in rhythm). The LED of a driven checkbox follows the signal.
+  A driven button or checkbox keeps its light at full brightness, its label dimmed.
+- To know the value a modulation gives a widget, the "drive" circuit adds a hidden bargraph
+  (`[driven:<target>][hidden:1]`) that reports it to the interface; bargraphs marked `[hidden:1]` are not
+  shown.
+
 ## 3.17.1 (2026-11-02)
 
 - **Buttons**: centered on their own row, half the width of the module (at least 96 px), with the same visible

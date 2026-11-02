@@ -926,27 +926,72 @@ li.modularFamily.selected {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-/* Checkboxes: the label and the box on a row, as the label and the value of a slider */
-.control-group.control-checkbox {
-	display: block;
-	margin: 8px 0 12px;
+/* A button lit: held down, or driven to 1 by a modulation */
+.control-group.control-button.lit input[type="button"] {
+	background: rgba(122, 240, 192, 0.85);
+	color: var(--fp-value-bg);
+	border-color: var(--fp-accent);
+	box-shadow: 0 0 8px rgba(122, 240, 192, 0.35);
 }
-.control-group.control-checkbox label {
-	display: flex;
+/* Checkboxes: a button with a LED that keeps the state (lit: checked, or driven to 1) */
+.control-group.control-checkbox .pill {
+	display: inline-flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: center;
+	gap: 7px;
+	width: 50%;
+	min-width: 96px;
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: 3px 14px;
+	font: 12px var(--fp-sans);
+	color: var(--fp-pill-text);
+	background: var(--fp-pill-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
 	cursor: pointer;
+	user-select: none;
+}
+.control-group.control-checkbox .pill:hover {
+	background: var(--fp-pill-bg-hover);
+}
+.control-group.control-checkbox .pill input[type="checkbox"] {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+	margin: 0;
+	pointer-events: none;
+}
+.control-group.control-checkbox .pill:has(input:focus-visible) {
+	outline: 1px solid var(--fp-accent);
 }
 .control-group.control-checkbox .label {
-	color: var(--fp-text-quiet);
-	font-size: 11px;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
-.control-group.control-checkbox input[type="checkbox"] {
-	width: 16px;
-	height: 16px;
-	margin: 0;
-	accent-color: var(--fp-accent);
-	cursor: pointer;
+.control-group.control-checkbox .led {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.18);
+	transition: background 60ms, box-shadow 60ms;
+}
+.control-group.control-checkbox.lit .led {
+	background: var(--fp-accent);
+	box-shadow: 0 0 6px var(--fp-accent);
+}
+/* a button or a checkbox driven by a modulation: no effect by hand, its label dimmed, its light full (the
+   value the signal drives it to) */
+.widget.modulated-drive.control-button input[type="button"],
+.widget.modulated-drive.control-button .pill {
+	opacity: 1;
+	pointer-events: none;
+	color: rgba(216, 251, 233, 0.45);
+}
+/* driven and lit: the dark label of a lit button */
+.widget.modulated-drive.control-button.lit input[type="button"] {
+	color: rgba(13, 23, 31, 0.75);
 }

@@ -305,7 +305,10 @@ export function setControlerValue(controler: FaustInterfaceControler, value: num
     var view = controler.faustInterfaceView;
     if (view?.slider && controler.range) view.slider.value = String(positionOf(controler.range, value));
     if (view?.output) view.output.textContent = text + " " + (controler.unit ?? "");
-    if (view?.checkbox) view.checkbox.checked = value >= 0.5;
+    if (view?.checkbox) {
+        view.checkbox.checked = value >= 0.5;
+        view.setLit(value >= 0.5);
+    }
     view?.syncChoice();
     apply(controler.itemParam.address, Number(text));
 }
@@ -485,24 +488,36 @@ export class FaustInterfaceView {
         this.fChoice.radios?.forEach((r, i) => { r.checked = i == index; });
     }
 
-    // A checkbox and its label, on a row as the label and the value of a slider; checked from its value
-    // (saved, or its init).
+    // A checkbox: a button as the others, with a LED that keeps its state (the convention of hardware
+    // synthesizers: a button without LED is momentary, with a LED it latches). The checkbox, hidden in
+    // it, is the state; checked from its value (saved, or its init).
     addFaustCheckBox(itemParam: Iitem): HTMLElement {
         var group = document.createElement("div");
-        group.className = "control-group control-checkbox";
-        var label: HTMLLabelElement = document.createElement("label");
-        var text = document.createElement("span");
-        text.className = "label";
-        text.textContent = itemParam.label;
-        this.label = text;
+        group.className = "control-group control-button control-checkbox";
+        var pill: HTMLLabelElement = document.createElement("label");
+        pill.className = "pill";
         var checkbox: HTMLInputElement = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = parseFloat(itemParam.init) >= 0.5;
         this.checkbox = checkbox;
-        label.append(text, checkbox);
-        group.appendChild(label);
+        var led = document.createElement("span");
+        led.className = "led";
+        var text = document.createElement("span");
+        text.className = "label";
+        text.textContent = itemParam.label;
+        this.label = text;
+        pill.append(checkbox, led, text);
+        // a click toggles the checkbox, and must not start a drag of the module
+        ["mousedown", "touchstart", "pointerdown"].forEach((type) => pill.addEventListener(type, (e) => e.stopPropagation()));
+        group.appendChild(pill);
         this.group = group;
+        this.setLit(checkbox.checked);
         return group;
+    }
+
+    // Lit: a checkbox checked (its LED), a button held down; or the value a modulation drives them to.
+    setLit(on: boolean): void {
+        this.group?.classList.toggle("lit", on);
     }
 
     // A button, centered on its own row, as wide as half the module (Theme.css).

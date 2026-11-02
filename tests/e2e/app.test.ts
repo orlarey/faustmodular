@@ -1314,7 +1314,7 @@ process = vgroup("Demo", hgroup("[0]Oscillator", os.osc(hslider("[0]Freq[unit:Hz
 });
 
 describe("buttons and checkboxes", () => {
-    it("centers a button at half the width (at least 96 px), spaced as the sliders; a checkbox has its label, sets the DSP and is undone", async () => {
+    it("centers a button at half the width (at least 96 px), spaced as the sliders, lit while held; a checkbox is a button with a LED", async () => {
         const { page, errors } = await openApp();
         const code = `import("stdfaust.lib");
 process = vgroup("Wahoo", os.sawtooth(hslider("[0]freq", 112, 20, 1000, 1)) * hslider("[1]gain", 0.25, 0, 1, 0.01) * en.ar(0.01, 0.3, button("[2]gate"))
@@ -1332,7 +1332,7 @@ process = vgroup("Wahoo", os.sawtooth(hslider("[0]freq", 112, 20, 1000, 1)) * hs
             // the visible gaps: a slider ends with its thumb (radius 8), a widget begins with its text or button
             const ws = Array.from(document.querySelectorAll(`${c} .widget`));
             const edges = ws.map((w) => {
-                const b = w.querySelector("input[type=button]"), r = w.querySelector("input[type=range]"), l = w.querySelector(".label");
+                const b = w.querySelector("input[type=button]") ?? w.querySelector(".pill"), r = w.querySelector("input[type=range]"), l = w.querySelector(".label");
                 if (b) { const x = b.getBoundingClientRect(); return [x.top, x.bottom]; }
                 const top = l!.getBoundingClientRect().top;
                 if (r) { const x = r.getBoundingClientRect(); return [top, x.top + x.height / 2 + 8]; }
@@ -1349,12 +1349,26 @@ process = vgroup("Wahoo", os.sawtooth(hslider("[0]freq", 112, 20, 1000, 1)) * hs
         expect(Math.abs(layout.widthError)).toBeLessThan(1);
         const sliderGap = layout.gaps[0];                       // freq → gain
         for (const gap of layout.gaps) expect(Math.abs(gap - sliderGap)).toBeLessThan(2);
-        // the checkbox: labelled, unchecked, sets the DSP, saved and undone
+        // the button lit while held down
+        const gate = page.locator(`${container} input[type=button]`);
+        const lit = (sel: string) => page.evaluate((x) => document.querySelector(x)!.classList.contains("lit"), sel);
+        const gb = (await gate.boundingBox())!;
+        await page.mouse.move(gb.x + gb.width / 2, gb.y + gb.height / 2);
+        await page.mouse.down();
+        expect(await lit(`${container} .control-button:not(.control-checkbox)`)).toBe(true);
+        await page.mouse.up();
+        expect(await lit(`${container} .control-button:not(.control-checkbox)`)).toBe(false);
+        // the checkbox: a button with a LED, labelled, off; a click sets the DSP and lights it, saved and undone
         expect(await page.locator(`${container} .control-checkbox .label`).textContent()).toBe("mute");
         const box = page.locator(`${container} input[type=checkbox]`);
         expect(await box.isChecked()).toBe(false);
+        expect(await lit(`${container} .control-checkbox`)).toBe(false);
+        const pill = (await page.locator(`${container} .control-checkbox .pill`).boundingBox())!;
+        const content = (await page.locator(`${container} .content`).boundingBox())!;
+        expect(Math.abs((pill.x + pill.width / 2) - (content.x + content.width / 2))).toBeLessThan(1);     // centered as the button
         await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
-        await box.click();
+        await page.locator(`${container} .control-checkbox .pill`).click();
+        expect(await lit(`${container} .control-checkbox`)).toBe(true);
         const mute = () => page.evaluate((m) => {
             const module = (globalThis as any).faustPlayground.scene.getModuleById(m);
             return module.moduleControles.find((c: any) => c.itemParam.label == "mute").value;
@@ -1365,6 +1379,45 @@ process = vgroup("Wahoo", os.sawtooth(hslider("[0]freq", 112, 20, 1000, 1)) * hs
         await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
         await page.waitForFunction((sel) => !(document.querySelector(sel) as HTMLInputElement).checked, `${container} input[type=checkbox]`);
         expect(await mute()).toBe("0");
+        expect(await lit(`${container} .control-checkbox`)).toBe(false);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
+describe("driven buttons", () => {
+    it("lights the Gate of an ADSR as a clock drives it", async () => {
+        const { page, errors } = await openApp();
+        const adsr = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (f: string, x: number) => {
+                const n = scene.getModules().length;
+                app.uploadUrl(app, null, x, 80, location.origin + "/faust-modules/modular/" + f);
+                while (scene.getModules().length == n) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[n].moduleId as string;
+            };
+            const clock = await add("Clock.dsp", 100), adsr = await add("ADSR.dsp", 420);
+            const gate = scene.widgetsOf(scene.getModuleById(adsr)).find((w: any) => w.label == "Gate").address;
+            await scene.modulate({ module: clock, port: 0 }, adsr, gate, "drive");
+            // a module is computed when its sound is used (here, heard)
+            scene.patch.connect({ module: adsr, port: 0 }, { module: "output", port: 0 });
+            await scene.audioGraph.getNode(clock).context.resume();
+            return adsr;
+        });
+        const container = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, adsr);
+        // 120 BPM, width 0.5: on 250 ms, off 250 ms; sampled every 25 ms for 1.5 s
+        const states = await page.evaluate(async (c) => {
+            const out: boolean[] = [];
+            for (let i = 0; i < 60; i++) {
+                out.push(document.querySelector(`${c} .control-button`)!.classList.contains("lit"));
+                await new Promise((r) => setTimeout(r, 25));
+            }
+            return out;
+        }, container);
+        const changes = states.slice(1).filter((s, i) => s != states[i]).length;
+        expect(states.filter(Boolean).length).toBeGreaterThan(15);
+        expect(states.filter((s) => !s).length).toBeGreaterThan(15);
+        expect(changes).toBeGreaterThanOrEqual(4);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

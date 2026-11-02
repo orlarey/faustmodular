@@ -100,6 +100,8 @@ m              borné à [min, max] ; pas de profondeur
 
 Le signal remplace le widget, qui reste affiché, grisé. Pour un bouton : une porte ou un déclencheur (horloge → *Clock* d'un séquenceur, porte → *Gate* d'une ADSR).
 
+Le circuit ajoute un bargraphe caché, `[driven:<cible>][hidden:1]`, qui rapporte à l'interface la valeur donnée au widget : un bouton piloté s'allume tant que le signal le tient à 1, la LED d'une case à cocher pilotée suit le signal. Comme toute valeur de bargraphe, elle n'arrive que si le module est calculé, c'est-à-dire si sa sortie sert (vers les haut-parleurs, un afficheur…).
+
 ## Modes hérités
 
 Les patchs enregistrés avant la version 2.8.0 peuvent porter, sur des curseurs, **× doser** (`w·m`, sans profondeur ni bornes) et **⇐ piloter**. Ils se chargent et sonnent comme avant (`supportedModes`), mais ne sont plus proposés.

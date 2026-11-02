@@ -67,7 +67,12 @@ function findSlider(ui: UIItem[], label: string): UIItem | undefined {
     return undefined;
 }
 
+// The bargraphs shown: not those marked [hidden:1] (the values a "drive" modulation gives to a widget).
 export function bargraphsOf(ui: UIItem[]): UIItem[] {
+    return allBargraphs(ui).filter((i) => !(i.meta ?? []).some((m) => "hidden" in m && m.hidden != "0"));
+}
+
+function allBargraphs(ui: UIItem[]): UIItem[] {
     const found: UIItem[] = [];
     const walk = (items: UIItem[]) => items.forEach((i) => {
         if (i.items) walk(i.items);
@@ -87,6 +92,8 @@ export function barFraction(value: number, min: number, max: number): number {
 // interface, set at once), and how to set one (saved with the module, undone).
 export interface DisplayHost {
     place?(address: string): HTMLElement | undefined;
+    // the value of a hidden bargraph (the value a modulation drives a widget to)
+    output?(address: string, value: number): void;
     param?(address: string): number | undefined;
     setParam?(address: string, value: number): void;
 }
@@ -130,8 +137,12 @@ export class ModuleDisplays {
             if (address) this.fAddress.set(name, address);
         }
         if (this.fKind) this.addCanvas(context);
-        if (this.fBars.length > 0) {
-            fNode.setOutputParamHandler?.((path, value) => { this.fValues.set(path, value) });
+        const hidden = allBargraphs(json.ui ?? []).length > this.fBars.length;
+        if (this.fBars.length > 0 || (hidden && fHost.output)) {
+            fNode.setOutputParamHandler?.((path, value) => {
+                this.fValues.set(path, value);
+                fHost.output?.(path, value);
+            });
         }
         if (this.fBars.length > 0 || this.fKind) this.fFrame = requestAnimationFrame(() => this.draw());
     }

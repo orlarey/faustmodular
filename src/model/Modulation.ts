@@ -29,7 +29,8 @@
       a sine oscillator, the deviation is D·g·fc and the index of classic (Chowning) FM is
       I = D·g·fc/fm; the mean frequency stays fc;
     - "scale" (×): w·m;
-    - "drive" (⇐): clip(m); the widget stays in the interface but has no effect.
+    - "drive" (⇐): clip(m); the widget stays in the interface but has no effect; a hidden bargraph
+      ([driven:<target>]) reports the value to the interface (a button lit while it is held at 1).
 */
 
 export type ModulationMode = "modulate" | "add" | "linear" | "scale" | "drive";
@@ -58,6 +59,9 @@ export class ModulationError extends Error { }
 
 // Metadata key marking the depth sliders added by the modulations (to be shown apart in the interface).
 export const DEPTH_METADATA = "modulation";
+// Metadata key of the hidden bargraph a "drive" modulation adds: the value the signal gives the widget,
+// shown by the widget (a button lit while the signal holds it at 1).
+export const DRIVEN_METADATA = "driven";
 // Depth of a new ± modulation (and of a double click on its port): half the way to the bounds.
 export const DEFAULT_DEPTH = 0.5;
 // Amount of a new + modulation: the pitch is followed exactly.
@@ -238,8 +242,11 @@ export function circuit(spec: ModulationSpec): string {
         }
         case "scale":
             return "*";
-        case "drive":
-            return `(ro.cross(2) : attach : ${clip})`;
+        case "drive": {
+            // the value given to the widget, reported to the interface by a hidden bargraph
+            const shown = `hbargraph("[${DRIVEN_METADATA}:${depthKey(spec)}][hidden:1]driven ${depthKey(spec)}", ${float(spec.min)}, ${float(spec.max)})`;
+            return `(ro.cross(2) : attach : ${clip} <: attach(_, ${shown}))`;
+        }
     }
 }
 
