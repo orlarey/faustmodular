@@ -288,7 +288,7 @@ export class Scene {
                 t.modulations.forEach((m) => this.patch.addModulation(t.id, m.widget, m.spec));
             }
             if (state.code != t.code) {
-                var factory = await this.compileModuleCode(existing, t.name, t.code, undefined, false);
+                var factory = await this.compileModuleCode(existing, t.name, t.code);
                 if (factory) await existing.replaceDSP(factory, { name: t.name, code: t.code });
             } else if (!sameModulations) {
                 await this.recompileModulations(existing);
@@ -353,12 +353,10 @@ export class Scene {
         this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker-mute.png)"
     }
     unmuteScene(): void {
-        console.log("timeIn");
         window.setTimeout(() => { this.delayedUnmuteScene() }, 500)
     }
 
     delayedUnmuteScene() {//because of probable Firefox bug with audioContext.resume() when resume to close from suspend
-        console.log("timeout")
         Utilitary.audioContext.resume();
         this.isMute = false;
         this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker.png)"
@@ -759,9 +757,9 @@ export class Scene {
         return factories.get(shaKey) ?? null;
     }
 
-    private async compile(name: string, code: string, x: number, y: number, mute: boolean = true, onError?: (error: string) => void): Promise<FaustDspFactory | null> {
+    private async compile(name: string, code: string, x: number, y: number, onError?: (error: string) => void): Promise<FaustDspFactory | null> {
         var result: FaustDspFactory | null = null;
-        await this.compileFaust({ name, sourceCode: code, x, y, mute, onError, callback: (factory) => { result = factory } });
+        await this.compileFaust({ name, sourceCode: code, x, y, onError, callback: (factory) => { result = factory } });
         return result;
     }
 
@@ -871,7 +869,7 @@ export class Scene {
             var code = modulatedCode(module.moduleFaust.getSource(), state.numInputs, state.modulations.map((m) => m.spec));
             var container = module.moduleView.getModuleContainer();
             container.classList.add("compiling");
-            var factory = await this.compile(state.name, code, state.x, state.y, false);
+            var factory = await this.compile(state.name, code, state.x, state.y);
             container.classList.remove("compiling");
             if (!factory || !this.patch.getModule(id)) return false;
             var inputs = JSON.parse(factory.json).inputs;
@@ -900,9 +898,9 @@ export class Scene {
     // Compiles the new code of an edited module with its modulations: the modulations of widgets that
     // no longer exist are removed (and reported), the others follow the new code.
     // Errors are passed to onError if given (shown as messages otherwise).
-    async compileModuleCode(module: ModuleClass, name: string, code: string, onError?: (error: string) => void, mute: boolean = true): Promise<FaustDspFactory | null> {
+    async compileModuleCode(module: ModuleClass, name: string, code: string, onError?: (error: string) => void): Promise<FaustDspFactory | null> {
         var state = module.moduleId !== undefined ? this.patch.getModule(module.moduleId) : undefined;
-        var base = await this.compile(name, code, module.moduleView.x, module.moduleView.y, mute, onError);
+        var base = await this.compile(name, code, module.moduleView.x, module.moduleView.y, onError);
         if (!base || !state || state.modulations.length == 0) return base;
         var json = JSON.parse(base.json);
         var widgets = listWidgets(json.ui);
@@ -921,7 +919,7 @@ export class Scene {
             new Message(Utilitary.messageResource.modulationsRemoved.replace("{widgets}", dropped.join(", ")));
         }
         if (state.modulations.length == 0) return base;
-        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y, mute, onError);
+        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y, onError);
         if (factory && JSON.parse(factory.json).inputs != json.inputs + state.modulations.length) {
             var error = Utilitary.messageResource.modulationFailed.replace("{reason}", "unexpected number of inputs");
             if (onError) onError(error); else new Message(error);
@@ -944,7 +942,7 @@ export class Scene {
             var error: string | null = null;
             var container = module.moduleView.getModuleContainer();
             container.classList.add("compiling");
-            var factory = await this.compileModuleCode(module, name, code, (e) => { error = e }, false);
+            var factory = await this.compileModuleCode(module, name, code, (e) => { error = e });
             container.classList.remove("compiling");
             if (!factory) {
                 error = error ?? Utilitary.messageResource.errorCreateDSP;

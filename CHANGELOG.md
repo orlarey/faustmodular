@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.11.1 (2026-11-02)
+
+- **Adding a module no longer cuts the sound.** Inherited from FaustPlayground, each compilation suspended
+  the AudioContext and resumed it 500 ms after the end of the compilation (a workaround for an old Firefox
+  bug), so adding a module from the library, a file or a drop, or recompiling a module, silenced the whole
+  scene for the compilation time plus half a second. With AudioWorklet nodes the compilation (main thread)
+  does not block the audio (AudioWorklet thread): the context is no longer suspended. A compilation no
+  longer unmutes a scene muted by the user either.
+- Test: a probe after a constant module checks that adding a module and a modulation leaves the context
+  running, and that not a sample is lost or changed.
+
 ## 3.11.0 (2026-11-02)
 
 - **SineVCO**, the simplest oscillator of the modular library: a frequency in Hz (log scale) and a gain.

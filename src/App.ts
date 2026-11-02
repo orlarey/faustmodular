@@ -84,12 +84,9 @@ export class App {
 
     // Compiles compileFaust.sourceCode and passes the factory to compileFaust.callback.
     // Does not use `this`: it is passed around as a plain function (scene, modules).
+    // The scene keeps playing: the compilation runs on the main thread, the audio in the AudioWorklet
+    // thread (FaustPlayground suspended the AudioContext, and resumed it 500 ms after the compilation).
     async compileFaust(compileFaust: CompileFaust): Promise<void> {
-
-        var currentScene: Scene = Utilitary.currentScene;
-
-        var mute = compileFaust.mute !== false;
-        if (currentScene && mute) { currentScene.muteScene() };
 
         // Libraries are now included and loaded from the EMCC locale FS inluded in libfaust
         // var libpath = "libraries";
@@ -106,8 +103,6 @@ export class App {
             if (compileFaust.onError) compileFaust.onError(String(error));
             else new Message(String(error))
         }
-
-        if (currentScene && mute) { currentScene.unmuteScene() };
     }
 
     //create Module, set the source faust code to its moduleFaust, set the faust interface , add the input output connection nodes

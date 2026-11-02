@@ -1073,6 +1073,53 @@ describe("modular library", () => {
         await page.close();
     }, 120_000);
 
+    it("adding a module or a modulation does not interrupt the sound of the others", async () => {
+        const { page, errors } = await openApp();
+        const result = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const code = 'process = vgroup("Level", 0.5);';
+            await app.compileFaust({ name: "Level", sourceCode: code, x: 100, y: 100, callback: (f: any) => app.createModule(f, "Level", code, 100, 100) });
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            const level = scene.getModules()[0].moduleId;
+            scene.patch.connect({ module: level, port: 0 }, { module: "output", port: 0 });
+            const node = scene.audioGraph.getNode(level);
+            const ctx = node.context as AudioContext;
+            await ctx.resume();
+            // a probe after the constant module: the samples that are not 0.5, and the frames it saw
+            const probe = `registerProcessor("probe", class extends AudioWorkletProcessor {
+                constructor() { super(); this.bad = 0; this.frames = 0; this.port.onmessage = () => { this.port.postMessage({ bad: this.bad, frames: this.frames }); this.bad = 0; this.frames = 0; }; }
+                process(inputs) { const x = inputs[0][0]; if (x) { for (const v of x) if (Math.abs(v - 0.5) > 1e-6) this.bad++; this.frames += x.length; } return true; }
+            });`;
+            await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([probe], { type: "application/javascript" })));
+            const tap = new AudioWorkletNode(ctx, "probe");
+            const sink = ctx.createGain();
+            sink.gain.value = 0;
+            node.connect(tap).connect(sink).connect(ctx.destination);
+            const read = () => new Promise<{ bad: number; frames: number }>((r) => { tap.port.onmessage = (e) => r(e.data); tap.port.postMessage(0); });
+            const states: string[] = [];
+            ctx.addEventListener("statechange", () => states.push(ctx.state));
+            await new Promise((r) => setTimeout(r, 300));
+            await read();
+            const start = performance.now();
+            // a module from the library, then a modulation (which recompiles the modulated module)
+            const before = scene.getModules().length;
+            app.uploadUrl(app, null, 400, 100, location.origin + "/faust-modules/modular/SineVCO.dsp");
+            while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+            const vco = scene.getModules()[before].moduleId;
+            const gain = scene.widgetsOf(scene.getModuleById(vco)).find((w: any) => w.label == "Gain").address;
+            await scene.modulate({ module: level, port: 0 }, vco, gain, "modulate");
+            await new Promise((r) => setTimeout(r, 700));
+            const seen = await read();
+            return { ...seen, expected: ((performance.now() - start) / 1000) * ctx.sampleRate, states, modulated: scene.patch.getModule(vco).modulations.length };
+        });
+        expect(result.modulated).toBe(1);
+        expect(result.states).toEqual([]);                        // the context is never suspended
+        expect(result.bad).toBe(0);                               // not a sample lost or changed
+        expect(result.frames).toBeGreaterThan(0.9 * result.expected);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("plays a sequenced voice: Clock, Sequencer, Quantizer, VCO, VCF, VCA and ADSR, in tune", async () => {
         const { page, errors } = await openApp();
         const add = (file: string, x: number, y: number) => page.evaluate(async ([f, xx, yy]) => {
