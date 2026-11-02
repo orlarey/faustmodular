@@ -424,13 +424,15 @@ export class Scene {
 
     // Called once a module has a new DSP (recompilation). Returns the connections removed
     // because their ports no longer exist.
-    updateModuleDSP(module: ModuleClass): Connection[] {
+    // `replaced` receives nothing: it is called when the previous DSP of the module, crossfaded with the
+    // new one (AudioGraph), can be destroyed.
+    updateModuleDSP(module: ModuleClass, replaced?: () => void): Connection[] {
         var dsp = module.moduleFaust.getDSP();
         // the DSP is compiled from the effective code: its first inputs are the audio inputs
         var modulations = this.patch.getModule(module.moduleId)!.modulations.length;
         var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs() - modulations, dsp.getNumOutputs());
         this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
-        this.audioGraph.setNode(module.moduleId, dsp);
+        this.audioGraph.setNode(module.moduleId, dsp, replaced);
         return removed;
     }
 

@@ -1,6 +1,6 @@
 // AudioGraph against real Web Audio (Chromium, OfflineAudioContext) and real faustwasm nodes.
 import { describe, expect, it } from "vitest";
-import { AudioGraph } from "../../src/audio/AudioGraph";
+import { AudioGraph, CROSSFADE, CROSSFADE_DELAY } from "../../src/audio/AudioGraph";
 import { Patch } from "../../src/model/Patch";
 import { faustNode } from "./faust";
 
@@ -14,8 +14,8 @@ interface Setup {
 }
 
 // Patch whose output module is the destination of an offline context of `channels` channels.
-function setup(channels: number): Setup {
-    const context = new OfflineAudioContext(channels, LENGTH, 48000);
+function setup(channels: number, length = LENGTH): Setup {
+    const context = new OfflineAudioContext(channels, length, 48000);
     context.destination.channelInterpretation = "discrete";
     const patch = new Patch();
     const graph = new AudioGraph(context, patch);
@@ -125,5 +125,78 @@ describe("AudioGraph", () => {
         s.graph.setNode("osc", node);                       // its new DSP: 1 input
         expect(s.graph.getWireCount()).toEqual({ wires: 2, delayed: 0 });
         expect(at(await render(s), 200)).toEqual([0.5]);
+    });
+
+    describe("crossfade when the DSP of a module is replaced", () => {
+        const SR = 48000;
+        const t0 = Math.round(CROSSFADE_DELAY * SR), t1 = Math.round((CROSSFADE_DELAY + CROSSFADE) * SR);
+        // the largest step between two successive samples
+        const maxStep = (x: Float32Array) => { let m = 0; for (let i = 1; i < x.length; i++) m = Math.max(m, Math.abs(x[i] - x[i - 1])); return m; };
+        const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+        it("goes linearly from the old node to the new one, without a step, then retires the old one", async () => {
+            const s = setup(1, 9600);
+            await s.add("A", "process = 1;");
+            s.patch.connectBus("A", "output");
+            const { node } = await faustNode(s.context, "process = 3;");
+            let retired = 0;
+            s.graph.setNode("A", node, () => retired++);
+            expect(s.graph.getNode("A")).toBe(node);
+            expect(retired).toBe(0);                        // still playing, being faded out
+            const [x] = await render(s);
+            expect(x[t0 - 10]).toBeCloseTo(1, 5);
+            expect(x[(t0 + t1) / 2]).toBeCloseTo(2, 2);     // half way: 1/2 + 3/2
+            expect(x[t1 + 10]).toBeCloseTo(3, 5);
+            expect(maxStep(x)).toBeLessThan(1.1 * 2 / (t1 - t0));    // the slope of the ramp, no step
+            await wait((CROSSFADE_DELAY + CROSSFADE) * 1000 + 150);
+            expect(retired).toBe(1);
+        });
+
+        it("feeds the new node from the same inputs, the wires unchanged", async () => {
+            const s = setup(1, 9600);
+            await s.add("src", "process = 1;");
+            await s.add("A", "process = *(2);");
+            s.patch.connect(port("src", 0), port("A", 0));
+            s.patch.connect(port("A", 0), port("output", 0));
+            const wires = s.graph.getWireCount();
+            const { node } = await faustNode(s.context, "process = *(4);");
+            s.graph.setNode("A", node, () => {});
+            expect(s.graph.getWireCount()).toEqual(wires);
+            const [x] = await render(s);
+            expect(x[t0 - 10]).toBeCloseTo(2, 5);
+            expect(x[t1 + 10]).toBeCloseTo(4, 5);
+            expect(maxStep(x)).toBeLessThan(1.1 * 2 / (t1 - t0));
+        });
+
+        it("a second replacement during a crossfade ends on the last node, the others retired", async () => {
+            const s = setup(1, 9600);
+            await s.add("A", "process = 1;");
+            s.patch.connectBus("A", "output");
+            const second = await faustNode(s.context, "process = 3;");
+            const third = await faustNode(s.context, "process = 5;");
+            let retired = 0;
+            s.graph.setNode("A", second.node, () => retired++);
+            s.graph.setNode("A", third.node, () => retired++);
+            const [x] = await render(s);
+            expect(x[t0 - 10]).toBeCloseTo(1, 5);
+            expect(x[t1 + 10]).toBeCloseTo(5, 5);
+            expect(maxStep(x)).toBeLessThan(1.1 * 4 / (t1 - t0));
+            await wait((CROSSFADE_DELAY + CROSSFADE) * 1000 + 150);
+            expect(retired).toBe(2);
+        });
+
+        it("retires the old node at once when the module is removed, or without a callback (no crossfade)", async () => {
+            const s = setup(1);
+            await s.add("A", "process = 1;");
+            s.patch.connectBus("A", "output");
+            let retired = 0;
+            s.graph.setNode("A", (await faustNode(s.context, "process = 3;")).node, () => retired++);
+            s.patch.removeModule("A");
+            expect(retired).toBe(1);
+            await s.add("B", "process = 1;");
+            s.patch.connectBus("B", "output");
+            s.graph.setNode("B", (await faustNode(s.context, "process = 7;")).node);
+            expect(at(await render(s), 10)).toEqual([7]);
+        });
     });
 });

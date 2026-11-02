@@ -1120,6 +1120,52 @@ describe("modular library", () => {
         await page.close();
     }, 120_000);
 
+    it("recompiling a module (a modulation added) loses no sample, neither at the swap nor downstream", async () => {
+        const { page, errors } = await openApp();
+        const result = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const create = async (name: string, code: string, x: number) => {
+                const before = scene.getModules().length;
+                await app.compileFaust({ name, sourceCode: code, x, y: 100, callback: (f: any) => app.createModule(f, name, code, x, 100) });
+                while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[before].moduleId as string;
+            };
+            // a constant 0.5 set by a slider, modulated by 0: the same value before and after
+            const level = await create("Level", 'process = vgroup("Level", hslider("g", 0.5, 0, 1, 0.01));', 100);
+            const zero = await create("Zero", 'process = vgroup("Zero", 0);', 400);
+            scene.patch.connect({ module: level, port: 0 }, { module: "output", port: 0 });
+            const ctx = scene.audioGraph.getNode(level).context as AudioContext;
+            await ctx.resume();
+            const probe = `registerProcessor("probe2", class extends AudioWorkletProcessor {
+                constructor() { super(); this.bad = 0; this.frames = 0; this.port.onmessage = () => { this.port.postMessage({ bad: this.bad, frames: this.frames }); this.bad = 0; this.frames = 0; }; }
+                process(inputs) { const x = inputs[0][0]; if (x) { for (const v of x) if (Math.abs(v - 0.5) > 1e-6) this.bad++; this.frames += x.length; } else this.bad += 128; return true; }
+            });`;
+            await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([probe], { type: "application/javascript" })));
+            const tap = new AudioWorkletNode(ctx, "probe2");
+            const sink = ctx.createGain();
+            sink.gain.value = 0;
+            tap.connect(sink).connect(ctx.destination);
+            // the probe listens after the splitter of the module: what the other modules receive
+            const listener = await create("Listen", 'process = vgroup("Listen", _);', 700);
+            scene.patch.connect({ module: level, port: 0 }, { module: listener, port: 0 });
+            scene.audioGraph.getNode(listener).connect(tap);
+            await new Promise((r) => setTimeout(r, 400));
+            const read = () => new Promise<{ bad: number; frames: number }>((r) => { tap.port.onmessage = (e) => r(e.data); tap.port.postMessage(0); });
+            await read();
+            const old = scene.audioGraph.getNode(level);
+            const g = scene.widgetsOf(scene.getModuleById(level)).find((w: any) => w.label == "g").address;
+            await scene.modulate({ module: zero, port: 0 }, level, g, "modulate");
+            const replaced = scene.audioGraph.getNode(level) !== old;
+            await new Promise((r) => setTimeout(r, 500));
+            return { replaced, ...(await read()) };
+        });
+        expect(result.replaced).toBe(true);
+        expect(result.frames).toBeGreaterThan(0);
+        expect(result.bad).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("plays a sequenced voice: Clock, Sequencer, Quantizer, VCO, VCF, VCA and ADSR, in tune", async () => {
         const { page, errors } = await openApp();
         const add = (file: string, x: number, y: number) => page.evaluate(async ([f, xx, yy]) => {

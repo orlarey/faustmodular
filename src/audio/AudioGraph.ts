@@ -4,7 +4,7 @@
     Each module gets a processing node (Faust DSP, microphone source or destination)
     framed by two native nodes:
 
-        ChannelMergerNode(numInputs) --> node --> ChannelSplitterNode(numOutputs)
+        ChannelMergerNode(numInputs) --> node --> fader (GainNode) --> ChannelSplitterNode(numOutputs)
 
     so that a connection from output i of A to input j of B is the single mono link
     splitterA[i] -> mergerB[j]. Several links reaching the same merger input are summed
@@ -16,6 +16,14 @@
     faustwasm skips the computation of a DSP that has inputs: an oscillator with an unconnected V/oct
     input, a clock with an unconnected reset input stayed silent.
 
+    Replacing the DSP of a module (new code, a modulation added or removed) crossfades, as Faust Live
+    does: the new node is fed by the same merger and feeds the same splitter through its own fader;
+    after CROSSFADE_DELAY (the parameters recalled on the new DSP reach its processor), the old fader
+    goes linearly from its value to 0 and the new one from 0 to 1 in CROSSFADE seconds; then the old
+    node is disconnected and handed back to be destroyed. The wires, from splitter to merger, do not
+    change: the other modules do not notice. A linear crossfade keeps the level of two correlated
+    signals (the same module before and after an edit).
+
     The graph is kept in sync by reconciliation: after any change, every connection of
     the patch whose two ends have a node is wired, with or without delay as required,
     and every other wire is removed.
@@ -23,12 +31,27 @@
 
 import { Connection, ConnectionId, ModuleId, Patch, PatchEvent, totalInputs } from "../model/Patch";
 
+// Crossfade between the old and the new DSP of a module (s), and the delay before it starts (s).
+export const CROSSFADE = 0.05;
+export const CROSSFADE_DELAY = 0.02;
+
+// A node being faded out, until it is retired (disconnected, then handed back to be destroyed).
+interface Fading {
+    node: AudioNode;
+    fader: GainNode;
+    merger?: ChannelMergerNode;
+    timer: ReturnType<typeof setTimeout>;
+    retire: () => void;
+}
+
 interface ModulePorts {
     node: AudioNode;
     numInputs: number;
     numOutputs: number;
     merger?: ChannelMergerNode;       // feeds the inputs of `node`
+    fader?: GainNode;                 // between `node` and the splitter, 1 out of a crossfade
     splitter?: ChannelSplitterNode;   // fed by the outputs of `node`
+    fading: Fading[];                 // previous nodes, being faded out
 }
 
 interface Wire {
@@ -62,8 +85,18 @@ export class AudioGraph {
 
     // Sets (or replaces, or with null removes) the processing node of a module.
     // Its ports are sized from the module arity in the patch.
-    setNode(id: ModuleId, node: AudioNode | null): void {
+    // With `replaced`, the new node of a module crossfades with the old one, which is then handed to
+    // `replaced` (to be destroyed); without crossfade (no previous node, ports to rebuild), at once.
+    setNode(id: ModuleId, node: AudioNode | null, replaced?: () => void): void {
+        const ports = this.fPorts.get(id);
+        const module = this.fPatch.getModule(id);
+        if (node && replaced && ports && module && ports.fader && ports.node !== node
+            && ports.numInputs == totalInputs(module) && ports.numOutputs == module.numOutputs) {
+            this.crossfade(ports, node, replaced);
+            return;
+        }
         this.releasePorts(id);
+        replaced?.();
         if (node) {
             const module = this.fPatch.getModule(id);
             if (!module) {
@@ -107,10 +140,7 @@ export class AudioGraph {
                 // until the module gets its new DSP (Scene), the merger may have more or fewer
                 // channels than the node: Web Audio then drops or zero-fills them ("discrete")
                 const ports = this.fPorts.get(event.module.id);
-                if (ports && (ports.numInputs != totalInputs(event.module) || ports.numOutputs != event.module.numOutputs)) {
-                    this.releasePorts(event.module.id);
-                    this.fPorts.set(event.module.id, this.buildPorts(ports.node, totalInputs(event.module), event.module.numOutputs));
-                }
+                if (ports) this.resizePorts(ports, totalInputs(event.module), event.module.numOutputs);
                 break;
             }
             case "moduleAdded":
@@ -121,7 +151,7 @@ export class AudioGraph {
     }
 
     private buildPorts(node: AudioNode, numInputs: number, numOutputs: number): ModulePorts {
-        const ports: ModulePorts = { node, numInputs, numOutputs };
+        const ports: ModulePorts = { node, numInputs, numOutputs, fading: [] };
         // the node may not have the ports yet: a module without audio input gets its first input with
         // a modulation, before its new DSP replaces the node (setNode)
         if (numInputs > 0) {
@@ -131,9 +161,88 @@ export class AudioGraph {
         }
         if (numOutputs > 0) {
             ports.splitter = this.fContext.createChannelSplitter(numOutputs);
-            if (node.numberOfOutputs > 0) node.connect(ports.splitter);
+            ports.fader = this.fader(1);
+            ports.fader.connect(ports.splitter);
+            if (node.numberOfOutputs > 0) node.connect(ports.fader);
         }
         return ports;
+    }
+
+    // Rebuilds only the side whose number of channels changed: a modulation added (one more input)
+    // leaves the splitter, and so the wires to the other modules, untouched. Rebuilding both sides
+    // rewired the downstream modules, and Web Audio could render a quantum between the removal of a
+    // wire and its replacement: a quantum of silence downstream.
+    private resizePorts(ports: ModulePorts, numInputs: number, numOutputs: number): void {
+        if (ports.numInputs != numInputs) {
+            if (ports.merger) {
+                const merger = ports.merger;
+                merger.disconnect();
+                if (this.fSilence) safely(() => this.fSilence!.disconnect(merger));
+                ports.merger = undefined;
+            }
+            if (numInputs > 0) {
+                ports.merger = this.fContext.createChannelMerger(numInputs);
+                this.silence()?.connect(ports.merger, 0, 0);
+                if (ports.node.numberOfInputs > 0) ports.merger.connect(ports.node);
+            }
+            ports.fading.forEach((f) => f.merger = undefined);      // they lost their inputs (fading out)
+            ports.numInputs = numInputs;
+        }
+        if (ports.numOutputs != numOutputs) {
+            const faders = [ports.fader, ...ports.fading.map((f) => f.fader)].filter((f): f is GainNode => !!f);
+            faders.forEach((f) => f.disconnect());
+            ports.splitter = undefined;
+            if (numOutputs > 0) {
+                ports.splitter = this.fContext.createChannelSplitter(numOutputs);
+                if (!ports.fader) {
+                    ports.fader = this.fader(1);
+                    if (ports.node.numberOfOutputs > 0) ports.node.connect(ports.fader);
+                }
+                [ports.fader, ...ports.fading.map((f) => f.fader)].forEach((f) => f.connect(ports.splitter!));
+            }
+            ports.numOutputs = numOutputs;
+        }
+    }
+
+    // A gain passing all the channels of the node as they are.
+    private fader(gain: number): GainNode {
+        const fader = this.fContext.createGain();
+        fader.channelInterpretation = "discrete";
+        fader.gain.value = gain;
+        return fader;
+    }
+
+    private crossfade(ports: ModulePorts, node: AudioNode, retire: () => void): void {
+        const t0 = this.fContext.currentTime + CROSSFADE_DELAY;
+        const t1 = t0 + CROSSFADE;
+        const ramp = (fader: GainNode, from: number, to: number) => {
+            fader.gain.cancelScheduledValues(0);
+            fader.gain.setValueAtTime(from, t0);
+            fader.gain.linearRampToValueAtTime(to, t1);
+        };
+        const old = ports.fader!;
+        const fader = this.fader(0);
+        fader.connect(ports.splitter!);
+        if (node.numberOfOutputs > 0) node.connect(fader);
+        if (ports.merger && node.numberOfInputs > 0) ports.merger.connect(node);
+        ramp(old, old.gain.value, 0);      // a node still fading in fades out from where it is
+        ramp(fader, 0, 1);
+        const fading: Fading = { node: ports.node, fader: old, merger: ports.merger, retire, timer: 0 as any };
+        fading.timer = setTimeout(() => {
+            ports.fading = ports.fading.filter((f) => f !== fading);
+            this.retire(fading);
+        }, (CROSSFADE_DELAY + CROSSFADE) * 1000 + 50);
+        ports.fading.push(fading);
+        ports.node = node;
+        ports.fader = fader;
+    }
+
+    private retire(fading: Fading): void {
+        clearTimeout(fading.timer);
+        if (fading.merger && fading.node.numberOfInputs > 0) safely(() => fading.merger!.disconnect(fading.node));
+        if (fading.node.numberOfOutputs > 0) safely(() => fading.node.disconnect(fading.fader));
+        fading.fader.disconnect();
+        fading.retire();
     }
 
     // Detaches the merger/splitter of a module; its wires become stale and are removed by reconcile().
@@ -146,9 +255,13 @@ export class AudioGraph {
             const merger = ports.merger;
             if (this.fSilence) safely(() => this.fSilence!.disconnect(merger));
         }
-        if (ports.splitter && ports.node.numberOfOutputs > 0) {
-            safely(() => ports.node.disconnect(ports.splitter!));
+        if (ports.fader) {
+            if (ports.node.numberOfOutputs > 0) safely(() => ports.node.disconnect(ports.fader!));
+            ports.fader.disconnect();
         }
+        // a crossfade cut short: the old nodes go at once
+        ports.fading.forEach((fading) => this.retire(fading));
+        ports.fading = [];
     }
 
     private reconcile(): void {

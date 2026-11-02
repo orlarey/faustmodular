@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.12.0 (2026-11-02)
+
+- **Crossfade when the DSP of a module is replaced**, as in Faust Live: new code, a modulation added or
+  removed. The new node is fed by the same inputs and feeds the same outputs through its own gain; after
+  20 ms (the parameters recalled on the new DSP reach its processor), the old one fades out and the new one
+  fades in, linearly, in 50 ms; the old DSP is then disconnected and destroyed. The wires do not change: the
+  other modules do not notice. A second replacement during a crossfade fades from where it is.
+- **Fix: a modulation added to a module could cut its sound downstream for one render quantum** (128
+  samples, about one time in six). The audio graph rebuilt both the inputs and the outputs of the module,
+  rewiring the modules downstream, and Web Audio could render between the removal of a wire and its
+  replacement. Only the side that changes is now rebuilt.
+- Tests: the crossfade rendered by Web Audio (a linear ramp without a step, the inputs kept, a second
+  replacement, the old node retired); end to end, a probe downstream of a module that gets a modulation
+  sees every sample (30 runs out of 30, against about one failure in six before the fix).
+
 ## 3.11.1 (2026-11-02)
 
 - **Adding a module no longer cuts the sound.** Inherited from FaustPlayground, each compilation suspended

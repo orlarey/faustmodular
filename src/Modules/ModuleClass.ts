@@ -172,8 +172,8 @@ export class ModuleClass {
         this.createFaustInterface();
         this.recallInterfaceParams();
 
-        var removed = Utilitary.currentScene.updateModuleDSP(this);
-        this.deleteDSP(toDelete);
+        // the previous DSP is destroyed after the crossfade with the new one (AudioGraph)
+        var removed = Utilitary.currentScene.updateModuleDSP(this, () => this.deleteDSP(toDelete));
         if (removed.length > 0) {
             var dsp = this.moduleFaust.getDSP();
             new Message(Utilitary.messageResource.connectionsRemovedByArity
