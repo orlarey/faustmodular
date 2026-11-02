@@ -91,7 +91,10 @@ export class ModuleDisplays {
     private fRollCarry = 0;                             // samples of the next column already counted
     private fLastFrame = 0;
 
-    constructor(private fContainer: HTMLElement, private fNode: OutputNode, context: BaseAudioContext) {
+    // `place`: where the bar of a bargraph goes (its place among the widgets of its group), at the end
+    // of the container otherwise
+    constructor(private fContainer: HTMLElement, private fNode: OutputNode, context: BaseAudioContext,
+        private fPlace?: (address: string) => HTMLElement | undefined) {
         const json = JSON.parse(fNode.getJSON());
         for (const item of bargraphsOf(json.ui ?? [])) this.addBar(item);
         this.fKind = declaredDisplay(json);
@@ -127,7 +130,7 @@ export class ModuleDisplays {
         fill.className = "bar-fill";
         track.appendChild(fill);
         group.append(info, track);
-        this.fContainer.appendChild(group);
+        (this.fPlace?.(item.address) ?? this.fContainer).appendChild(group);
         this.fElements.push(group);
         this.fBars.push({ item, fill, value, unit });
     }

@@ -6,6 +6,7 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { sliderRange, valueAt } from "../model/SliderScale";
 import { ModuleDisplays } from "./Displays";
+import { LayoutNode, uiLayout } from "../model/UILayout";
 import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView } from "./FaustInterface";
 import { Message } from "../Messages";
 import { ModuleFaust } from "./ModuleFaust";
@@ -229,8 +230,10 @@ export class ModuleClass {
         this.moduleControles = moduleFaustInterface.parseFaustJsonUI(JSON.parse(this.moduleFaust.fDSP.getJSON()).ui, this);
     }
 
-    // Create FaustInterfaceControler, set its callback and add its AccelerometerSlider
+    // Create FaustInterfaceControler, set its callback and add its AccelerometerSlider. The widgets are
+    // laid out in the groups of the code, shown as sections (model/UILayout.ts).
     createFaustInterface() {
+        var elements = new Map<string, HTMLElement>();
         for (var i = 0; i < this.moduleControles.length; i++) {
             var faustInterfaceControler = this.moduleControles[i];
             faustInterfaceControler.setParams();
@@ -246,15 +249,49 @@ export class ModuleClass {
                     faustInterfaceControler.faustInterfaceView.label.textContent = Utilitary.messageResource.modulationDepth;
                 }
             }
-            this.moduleView.getInterfaceContainer().appendChild(element);
+            elements.set(faustInterfaceControler.itemParam.address, element);
             faustInterfaceControler.interfaceCallback = this.interfaceSliderCallback.bind(this);
             faustInterfaceControler.updateFaustCodeCallback = this.updateCodeFaust.bind(this);
             faustInterfaceControler.setEventListener();
             faustInterfaceControler.createAccelerometer();
         }
+        // the sections and the widgets, in the order of the code; a place for each bargraph
+        var container = this.moduleView.getInterfaceContainer();
+        var bars = new Map<string, HTMLElement>();
+        var build = (nodes: LayoutNode[], parent: HTMLElement) => {
+            for (var node of nodes) {
+                if (node.kind == "group") {
+                    var section = document.createElement("div");
+                    section.className = "ui-group ui-" + node.type + (node.label ? " ui-section ui-level-" + Math.min(node.level, 3) : "");
+                    if (node.label) {
+                        var heading = document.createElement("div");
+                        heading.className = "ui-group-label";
+                        heading.textContent = node.label;
+                        if (node.tooltip) heading.title = node.tooltip;
+                        section.appendChild(heading);
+                    }
+                    build(node.children, section);
+                    parent.appendChild(section);
+                } else if (node.item.type == "hbargraph" || node.item.type == "vbargraph") {
+                    var place = document.createElement("div");
+                    place.className = "display-place";
+                    bars.set(node.item.address!, place);
+                    parent.appendChild(place);
+                } else {
+                    var widget = elements.get(node.item.address!);
+                    if (!widget) continue;
+                    elements.delete(node.item.address!);
+                    if (node.hidden) widget.classList.add("ui-hidden");
+                    if (node.tooltip) widget.title = node.tooltip;
+                    parent.appendChild(widget);
+                }
+            }
+        };
+        build(uiLayout(JSON.parse(this.moduleFaust.getDSP().getJSON()).ui, this.moduleFaust.getName()), container);
+        elements.forEach((widget) => container.appendChild(widget));     // none expected
         // bargraphs, oscilloscope or spectrum (Displays.ts)
         this.displays?.dispose();
-        this.displays = new ModuleDisplays(this.moduleView.getInterfaceContainer(), this.moduleFaust.getDSP() as any, Utilitary.audioContext);
+        this.displays = new ModuleDisplays(container, this.moduleFaust.getDSP() as any, Utilitary.audioContext, (address) => bars.get(address));
     }
 
     // Delete all FaustInterfaceControler

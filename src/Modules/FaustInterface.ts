@@ -2,7 +2,7 @@ import { AccelerometerHandler, AccelerometerSlider, Axis } from "../Acceleromete
 import { Utilitary } from "../Utilitary";
 import { ModuleClass } from "./ModuleClass";
 import { choicesOf } from "../model/WidgetStyle";
-import { positionOf, sliderRange, sliderSteps, SliderRange } from "../model/SliderScale";
+import { positionOf, sliderRange, sliderSteps, SliderRange, valueAt } from "../model/SliderScale";
 
 /*				FAUSTINTERFACE.JS
 
@@ -109,7 +109,7 @@ export class FaustInterfaceControler {
 
         if (item.type === "vgroup" || item.type === "hgroup" || item.type === "tgroup") {
             this.parse_items(item.items, module);
-        } else if (item.type === "vslider" || item.type === "hslider") {
+        } else if (item.type === "vslider" || item.type === "hslider" || item.type === "nentry") {
             var itemElement = <Iitem>item;
 
             var controler: FaustInterfaceControler = new FaustInterfaceControler(
@@ -181,7 +181,7 @@ export class FaustInterfaceControler {
     // create and allocate right faustInterfaceView
     createFaustInterfaceElement(): HTMLElement | undefined {
         if (this.faustInterfaceView && this.faustInterfaceView.type) {
-            if (this.faustInterfaceView.type === "vslider" || this.faustInterfaceView.type === "hslider") {
+            if (this.faustInterfaceView.type === "vslider" || this.faustInterfaceView.type === "hslider" || this.faustInterfaceView.type === "nentry") {
                 return this.faustInterfaceView.addFaustModuleSlider(this.itemParam, parseFloat(this.precision), this.unit, this.range)
             } else if (this.faustInterfaceView.type === "button") {
                 return this.faustInterfaceView.addFaustButton(this.itemParam);
@@ -194,7 +194,7 @@ export class FaustInterfaceControler {
     // Set eventListner of the faustInterfaceView
     setEventListener() {
         if (this.faustInterfaceView && this.faustInterfaceView.type) {
-            if (this.faustInterfaceView.type === "vslider" || this.faustInterfaceView.type === "hslider") {
+            if (this.faustInterfaceView.type === "vslider" || this.faustInterfaceView.type === "hslider" || this.faustInterfaceView.type === "nentry") {
                 this.faustInterfaceView.slider.addEventListener("input", (event) => {
                     this.interfaceCallback(this);
                     event.stopPropagation();
@@ -318,6 +318,8 @@ export class FaustInterfaceView {
     // a menu or radio buttons in place of the slider ([style:menu{...}], [style:radio{...}]); the
     // slider, hidden, stays the state of the widget (saving, undo, modulation, accelerometer)
     private fChoice: { select?: HTMLSelectElement; radios?: HTMLInputElement[]; values: number[] } | null = null;
+    // a number entry (nentry) in place of the slider, which stays the state of the widget as for a choice
+    private fEntry: { input: HTMLInputElement; precision: number } | null = null;
     private fItemParam: Iitem | null = null;
     private fRange: SliderRange | null = null;
 
@@ -368,7 +370,46 @@ export class FaustInterfaceView {
         this.fItemParam = itemParam;
         var choices = choicesOf(itemParam.meta);
         if (choices) this.addChoices(choices, group, slider, val);
+        else if (itemParam.type == "nentry") this.addEntry(group, slider, val, precision);
+        // a vslider is shown as an hslider: the modules are laid out as a column of widgets
         return group;
+    }
+
+    // A number entry: typed values, kept in the range of the widget, set through the hidden slider.
+    private addEntry(group: HTMLElement, slider: HTMLInputElement, value: HTMLElement, precision: number): void {
+        group.classList.add("control-entry");
+        slider.classList.add("choice-slider");
+        value.classList.add("choice-value");
+        var input = document.createElement("input");
+        input.type = "number";
+        input.className = "entry";
+        input.min = this.fItemParam!.min;
+        input.max = this.fItemParam!.max;
+        input.step = this.fItemParam!.step;
+        var range = this.fRange ?? sliderRange(this.fItemParam!);
+        input.addEventListener("change", () => {
+            var v = Number(input.value);
+            if (isNaN(v)) { this.syncChoice(); return; }
+            v = Math.min(range.max, Math.max(range.min, v));
+            slider.value = String(this.position(v));
+            slider.dispatchEvent(new Event("input"));
+            input.blur();
+        });
+        ["mousedown", "touchstart", "pointerdown"].forEach((type) => input.addEventListener(type, (e) => e.stopPropagation()));
+        var unit = value.getAttribute("units");
+        var box = document.createElement("div");
+        box.className = "entry-box";
+        box.appendChild(input);
+        if (unit) {
+            var u = document.createElement("span");
+            u.className = "entry-unit";
+            u.textContent = unit;
+            box.appendChild(u);
+        }
+        group.appendChild(box);
+        this.fEntry = { input, precision };
+        slider.addEventListener("input", () => this.syncChoice());
+        this.syncChoice();
     }
 
     // The value of a choice as a position of the slider.
@@ -425,6 +466,10 @@ export class FaustInterfaceView {
 
     // Shows the choice of the slider's value (the nearest one).
     syncChoice(): void {
+        if (this.fEntry && this.slider) {
+            var range = this.fRange ?? sliderRange(this.fItemParam!);
+            this.fEntry.input.value = valueAt(range, Number(this.slider.value)).toFixed(this.fEntry.precision);
+        }
         if (!this.fChoice || !this.slider) return;
         var position = Number(this.slider.value);
         var values = this.fChoice.values;

@@ -824,3 +824,65 @@ li.modularFamily.selected {
 	vector-effect: non-scaling-stroke;
 	pointer-events: none;
 }
+
+/* The groups of the code as sections (model/UILayout.ts): a label above their widgets */
+.ui-hidden {
+	display: none !important;
+}
+.ui-section {
+	margin: 12px 0 4px;
+}
+.ui-section:first-child {
+	margin-top: 0;
+}
+.ui-group-label {
+	margin-bottom: 6px;
+	padding-bottom: 3px;
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+	color: var(--fp-title);
+	font: 600 10px var(--fp-sans);
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	opacity: 0.85;
+}
+/* a section inside a section: lighter, and set in by a line */
+.ui-section .ui-section {
+	margin-top: 8px;
+	padding-left: 8px;
+	border-left: 1px solid var(--fp-accent-border-soft);
+}
+.ui-section .ui-section > .ui-group-label {
+	border-bottom: none;
+	padding-bottom: 0;
+	color: var(--fp-text-quiet);
+	letter-spacing: 0.06em;
+}
+
+/* nentry: a number field; the slider, hidden, stays the state of the widget */
+.control-entry input.choice-slider, .control-entry .choice-value {
+	display: none;
+}
+.control-entry .entry-box {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 4px;
+}
+.control-entry input.entry {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 3px 6px;
+	color: var(--fp-value);
+	background: var(--fp-value-bg);
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 6px;
+	font: 12px var(--fp-mono);
+}
+.control-entry input.entry:focus {
+	border-color: var(--fp-accent);
+	outline: none;
+}
+.control-entry .entry-unit {
+	color: var(--fp-text-quiet);
+	font: 11px var(--fp-mono);
+}

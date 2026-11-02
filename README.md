@@ -42,6 +42,14 @@ channels.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 
+## Interface of a module
+
+The widgets are laid out in the groups of the code: each `vgroup`, `hgroup` or `tgroup` is a section with
+its label above its widgets (a section inside a section is set in), except the group named after the module
+and the groups without label. Sliders (`hslider`, `vslider`) are horizontal, number entries (`nentry`) are
+number fields, bargraphs stay in their group; `[tooltip:...]` gives the tooltip of a widget or a section, and
+`[hidden:1]` hides a widget (it keeps its value). See `src/model/UILayout.ts`.
+
 ## Modular library
 
 The *Modular* library (Library menu) holds modules organized by function, as on ModularGrid, with common

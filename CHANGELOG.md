@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.16.0 (2026-11-02)
+
+- **The groups of the code as sections in the interface of a module**: each `vgroup`, `hgroup` or `tgroup` is
+  shown with its label above its widgets, a section inside a section set in by a line. No label for the root
+  group (the module is wrapped in a group named after it), for a group named as the module (case ignored:
+  the library modules repeat it), for the groups Faust generates without label (`0x00`), nor for a group
+  whose widgets are all hidden. The layout is computed apart (`src/model/UILayout.ts`, tested); a later step
+  will lay out `hgroup` as rows and `tgroup` as tabs.
+- **Fix: number entries (`nentry`) were not shown at all**: they are number fields now, the value typed kept
+  in the range of the widget; a hidden slider stays their state, as for menus (saving, undo, modulation).
+- `vslider` is shown horizontal, as `hslider`: the modules are a column of widgets.
+- `[tooltip:...]` is the tooltip of a widget or a section; `[hidden:1]` hides a widget, which keeps its value.
+- Bargraphs stay in their group, at their place among the widgets.
+
 ## 3.15.0 (2026-11-02)
 
 - **Alignment guides**, as in Faust DAW (for its clips, on the time axis), in two dimensions: while modules

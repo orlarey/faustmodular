@@ -1238,6 +1238,81 @@ describe("context menu and clipboard", () => {
     }, 120_000);
 });
 
+describe("interface of a module", () => {
+    const CODE = `import("stdfaust.lib");
+process = vgroup("Demo", hgroup("[0]Oscillator", os.osc(hslider("[0]Freq[unit:Hz][tooltip:frequency of the sine]", 440, 20, 2000, 1)) * vslider("[1]Level", 0.5, 0, 1, 0.01))
+  * vgroup("[1]Envelope", nentry("[0]Voices", 4, 1, 16, 1) / 16 + vgroup("[1]Advanced", hslider("Curve", 0, -1, 1, 0.01) + hslider("Secret[hidden:1]", 0, 0, 1, 0.01)))
+  <: attach(_, abs : vgroup("[2]Meters", hbargraph("Meter", 0, 1))));`;
+
+    it("shows the groups as sections, number entries, vertical sliders horizontal, tooltips; hides [hidden:1]; bargraphs in their group", async () => {
+        const { page, errors } = await openApp();
+        const id = await page.evaluate(async (code) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            await app.compileFaust({ name: "Demo", sourceCode: code, x: 200, y: 80, callback: (f: any) => app.createModule(f, "Demo", code, 200, 80) });
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId as string;
+        }, CODE);
+        const container = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, id);
+        // the sections and their levels; "Demo" (the module) is not one
+        expect(await page.locator(`${container} .ui-group-label`).allTextContents()).toEqual(["Oscillator", "Envelope", "Advanced", "Meters"]);
+        expect(await page.locator(`${container} .ui-level-2 > .ui-group-label`).allTextContents()).toEqual(["Advanced"]);
+        // widgets inside their sections, in order
+        const inside = (section: string) => page.evaluate(([c, s]) => Array.from(document.querySelectorAll(`${c} .ui-section`))
+            .find((e) => e.querySelector(":scope > .ui-group-label")!.textContent == s)!
+            .querySelectorAll(".widget:not(.ui-hidden) .label").length, [container, section]);
+        expect(await inside("Oscillator")).toBe(2);
+        expect(await inside("Envelope")).toBe(2);                     // Voices, Curve (Secret hidden)
+        expect(await page.locator(`${container} .ui-section:has(> .ui-group-label:text-is("Meters")) .display-place .bar-track`).count()).toBe(1);
+        expect(await page.locator(`${container} .widget.ui-hidden`).count()).toBe(1);
+        expect(await page.locator(`${container} .widget[title="frequency of the sine"]`).count()).toBe(1);
+        // the vslider (Level) is shown horizontal, as an hslider
+        const level = await page.locator(`${container} .widget:has(.label:text-is("Level")) input[type="range"]`).boundingBox();
+        expect(level!.width).toBeGreaterThan(level!.height * 5);
+
+        // the number entry: a value typed, kept in range, set in the DSP, undone
+        const entry = page.locator(`${container} input.entry`);
+        expect(await entry.inputValue()).toBe("4");
+        const flush = () => page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        await flush();
+        await entry.fill("7");
+        await entry.press("Enter");
+        await page.waitForFunction(async (m) => {
+            const dsp = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP();
+            return dsp.getParamValue(dsp.getParams().find((p: string) => p.endsWith("/Voices"))) == 7;
+        }, id);
+        await flush();
+        await entry.fill("99");
+        await entry.press("Enter");
+        expect(await entry.inputValue()).toBe("16");
+        await page.waitForFunction(async (m) => {
+            const dsp = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP();
+            return dsp.getParamValue(dsp.getParams().find((p: string) => p.endsWith("/Voices"))) == 16;
+        }, id);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await page.waitForFunction((sel) => (document.querySelector(sel) as HTMLInputElement).value == "7", `${container} input.entry`);
+        // the value of an AudioWorklet node is updated when the audio thread reports it
+        await page.waitForFunction(async (m) => {
+            const dsp = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP();
+            return dsp.getParamValue(dsp.getParams().find((p: string) => p.endsWith("/Voices"))) == 7;
+        }, id);
+
+        // a widget in a section is modulated as any other: its port at its height
+        const curve = await page.evaluate(async (m) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const source = s.patch.getModules().find((x: any) => x.kind == "input").id;
+            const address = s.widgetsOf(s.getModuleById(m)).find((w: any) => w.label == "Curve").address;
+            await s.modulate({ module: source, port: 0 }, m, address, "modulate");
+            return address;
+        }, id);
+        await page.waitForSelector(`${container} .modulation-port`);
+        const [port, widget] = [await page.locator(`${container} .modulation-port`).boundingBox(), await page.locator(`${container} [data-widget="${curve}"]`).boundingBox()];
+        expect(Math.abs((port!.y + port!.height / 2) - (widget!.y + widget!.height / 2))).toBeLessThan(2);
+        expect(await page.locator(`${container} .ui-group-label`).allTextContents()).toEqual(["Oscillator", "Envelope", "Advanced", "Meters"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("alignment guides", () => {
     const create = (page: Page, name: string, code: string, x: number, y: number) => page.evaluate(async ([n, c, xx, yy]) => {
         const { app, scene } = (globalThis as any).faustPlayground;
