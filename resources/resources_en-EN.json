@@ -133,6 +133,8 @@
   "family_Random and pitch": "Random and pitch",
   "family_Effects": "Effects",
   "family_Measure": "Measure",
+  "portInput": "input",
+  "portOutput": "output",
   "portInlets": "Inputs",
   "portOutlets": "Outputs"
 }

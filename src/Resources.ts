@@ -51,6 +51,8 @@ export class Resources {
     titleModules: string;
     titleDescription: string;
     portInlets: string;
+    portInput: string;
+    portOutput: string;
     portOutlets: string;
     [key: `family_${string}`]: string;
     zoomOut: string;

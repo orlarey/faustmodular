@@ -133,6 +133,8 @@
   "family_Random and pitch": "Hasard et hauteur",
   "family_Effects": "Effets",
   "family_Measure": "Mesure",
+  "portInput": "entrée",
+  "portOutput": "sortie",
   "portInlets": "Entrées",
   "portOutlets": "Sorties"
 }

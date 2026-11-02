@@ -241,6 +241,23 @@ input[type="range"]::-moz-range-thumb,
 	box-shadow: 0 0 0 3px var(--fp-accent), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
+/* Names of the ports, declared by the module (declare inlets / outlets), on the row of their port */
+.port-label {
+	position: absolute;
+	max-width: calc(50% - 22px);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--fp-text-quiet);
+	font: 10px var(--fp-sans);
+	letter-spacing: 0.04em;
+	pointer-events: none;
+	user-select: none;
+}
+.port-label-out {
+	text-align: right;
+}
+
 /* Cables */
 .cable {
 	stroke: var(--fp-cable);

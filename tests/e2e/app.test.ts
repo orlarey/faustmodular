@@ -988,6 +988,39 @@ describe("modular library", () => {
         await page.close();
     }, 120_000);
 
+    it("writes the declared names of the ports next to them, not a name that is only the port number", async () => {
+        const { page, errors } = await openApp();
+        const labels = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (f: string, x: number) => {
+                const before = scene.getModules().length;
+                app.uploadUrl(app, null, x, 100, location.origin + "/faust-modules/modular/" + f);
+                while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[before];
+            };
+            const names = (m: any) => Array.from(m.moduleView.getModuleContainer().querySelectorAll(".port-label"))
+                .map((l: any) => `${l.classList.contains("port-label-in") ? "in" : "out"}:${l.textContent}`);
+            const vco = await add("VCO.dsp", 100);
+            const vcf = await add("VCF.dsp", 400);
+            const mixer = await add("Mixer.dsp", 700);
+            // each label on the row of its port
+            const port = vco.moduleView.getPort("out", 2).getBoundingClientRect();
+            const label = vco.moduleView.getModuleContainer().querySelectorAll(".port-label")[2].getBoundingClientRect();
+            return {
+                vco: names(vco), vcf: names(vcf), mixer: names(mixer),
+                row: Math.abs((port.top + port.bottom) / 2 - (label.top + label.bottom) / 2),
+                title: vco.moduleView.getPort("out", 2).title,
+            };
+        });
+        expect(labels.vco).toEqual(["out:sine", "out:triangle", "out:saw", "out:square"]);
+        expect(labels.vcf).toEqual(["in:audio", "out:audio"]);
+        expect(labels.mixer).toEqual(["out:mix"]);           // inputs "1; 2; 3; 4": the numbers of the ports
+        expect(labels.row).toBeLessThan(1);
+        expect(labels.title).toMatch(/3 : saw$/);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("plays a sequenced voice: Clock, Sequencer, Quantizer, VCO, VCF, VCA and ADSR, in tune", async () => {
         const { page, errors } = await openApp();
         const add = (file: string, x: number, y: number) => page.evaluate(async ([f, xx, yy]) => {

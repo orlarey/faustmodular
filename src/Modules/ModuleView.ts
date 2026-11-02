@@ -11,7 +11,7 @@
     DIV --> fEditImg (pencil in the title bar: edit the code in faustcode)
     ===================*/
 
-import { HTMLInterfaceContainer } from "../Utilitary";
+import { HTMLInterfaceContainer, Utilitary } from "../Utilitary";
 
 interface HTMLinterfaceElement extends HTMLElement {
     label: string;
@@ -26,6 +26,7 @@ export class ModuleView {
     fTitle: HTMLElement;
     fInputPorts: HTMLElement[] = [];
     fOutputPorts: HTMLElement[] = [];
+    fPortLabels: HTMLElement[] = [];
     contentModule: HTMLElement;
     miniButton: HTMLDivElement;
     maxButton: HTMLDivElement;
@@ -129,6 +130,7 @@ export class ModuleView {
         var centered = this.fName == "input" || this.fName == "output";
         this.fInputPorts = this.createPorts(moduleId, "in", numInputs, zone, centered);
         this.fOutputPorts = this.createPorts(moduleId, "out", numOutputs, zone, centered);
+        this.showPortLabels();
         if (centered) {
             this.fModuleContainer.style.height = zone > ModuleView.PHYSICAL_HEIGHT ? zone + "px" : "";
         } else {
@@ -141,7 +143,8 @@ export class ModuleView {
     static PHYSICAL_HEIGHT = 88;
 
     clearPorts(): void {
-        this.fInputPorts.concat(this.fOutputPorts).forEach((port) => port.remove());
+        this.fInputPorts.concat(this.fOutputPorts, this.fPortLabels).forEach((element) => element.remove());
+        this.fPortLabels = [];
         this.fInputPorts = [];
         this.fOutputPorts = [];
     }
@@ -171,11 +174,39 @@ export class ModuleView {
         this.fPortNames = { in: inlets, out: outlets };
         this.fInputPorts?.forEach((port, i) => { port.title = this.portTitle("in", i) });
         this.fOutputPorts?.forEach((port, i) => { port.title = this.portTitle("out", i) });
+        this.showPortLabels();
     }
 
     private portTitle(dir: "in" | "out", i: number): string {
         var name = this.fPortNames[dir][i];
-        return (dir == "in" ? "input " : "output ") + (i + 1) + (name ? " : " + name : "");
+        var kind = dir == "in" ? Utilitary.messageResource?.portInput ?? "input" : Utilitary.messageResource?.portOutput ?? "output";
+        return kind + " " + (i + 1) + (name ? " : " + name : "");
+    }
+
+    // The declared names written inside the module, on the row of their port: inputs from the left
+    // edge, outputs from the right edge (a name that is only the number of its port is not repeated),
+    // each on at most half the width (ellipsis beyond, the full
+    // name in the tooltip of the port). They let the pointer through (dragging the module).
+    private showPortLabels(): void {
+        this.fPortLabels.forEach((label) => label.remove());
+        this.fPortLabels = [];
+        if (this.fName == "input" || this.fName == "output") return;
+        (["in", "out"] as const).forEach((dir) => {
+            var ports = dir == "in" ? this.fInputPorts : this.fOutputPorts;
+            var size = ModuleView.portLayout(ports.length).size;
+            ports.forEach((port, i) => {
+                var name = this.fPortNames[dir][i];
+                if (!name || name == String(i + 1)) return;        // nothing more than the number of the port
+                var label = document.createElement("div");
+                label.className = "port-label port-label-" + dir;
+                label.textContent = name;
+                label.style.bottom = port.style.bottom;
+                label.style.height = label.style.lineHeight = size + "px";
+                label.style[dir == "in" ? "left" : "right"] = (size / 2 + 4) + "px";
+                this.fModuleContainer.appendChild(label);
+                this.fPortLabels.push(label);
+            });
+        });
     }
 
     private createPorts(moduleId: string, dir: "in" | "out", count: number, zone: number, centered: boolean): HTMLElement[] {

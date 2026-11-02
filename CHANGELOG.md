@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.10.0 (2026-11-02)
+
+- **Port names on the scene**: the names a module declares (`declare inlets "audio";`,
+  `declare outlets "sine; triangle; saw; square";`) are written inside the module, on the row of their port:
+  inputs from the left edge, outputs from the right edge, each on at most half the width (ellipsis beyond,
+  the full name in the tooltip). A name that is only the number of its port (the inputs "1; 2; 3; 4" of the
+  Mixer) is not repeated. The labels let the pointer through, and stay when the module is minimized.
+- The tooltips of the ports are translated ("entrée 3 : saw").
+
 ## 3.9.0 (2026-11-01)
 
 - **The modular library is driven by widget modulation**: a port for the signal a module transforms, a
