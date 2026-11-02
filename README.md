@@ -63,7 +63,8 @@ SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
 The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
 modulations, level and dynamics, spatialization and multichannel, modulation sources), *Faust libraries*
-(reverbs, dynamics, filters and EQ, effects, oscillators and noises, physical models, analysis), then *My modules*; the
+(reverbs, dynamics, filters, equalizers and crossovers, pedals, effects, oscillators and noises, physical models,
+analysis), then *My modules*; the
 modules of the family chosen; the description of the module pointed at. Double click or drag a module to add
 it. The catalog (`public/faust-modules/library-catalog.json`) is built by `npm run library-index`: the modular
 modules from their declarations, the FaustPlayground ones from the table of `scripts/library-families.mjs`
@@ -76,6 +77,15 @@ from `scripts/faust-library-modules.mjs`. A MIDI instrument gets a *Pitch* slide
 place of its `freq`: a sequencer plays it as it plays the VCO. Its tuning is that of the model: some are in
 tune only with other settings (the flute overblows, the brass needs its lips tension) or at 48 kHz (the
 guitar model is about 17 cents low at 44.1 kHz).
+
+The filters, equalizers and pedals of `filters.lib` and `vaeffects.lib` (22: SVF, resonant, Butterworth,
+elliptic, Moog and diode ladders, Korg 35, Oberheim, Sallen-Key, notch, DC blocker; shelves, peak EQ,
+Linkwitz-Riley crossovers 2, 3 and 4 ways, spectral tilt; Klon Centaur, Fulltone OCD, MXR Phase 90, auto wah)
+take their settings as arguments: their modules give them an interface made for music, written in
+`scripts/faust-filter-modules.mjs`. *Cutoff* in Hz on a log scale (modulated in octaves), a *Pitch* slider
+(0.1 per octave) on the filters for the keyboard tracking, *Q* on a log scale, gains in dB, the responses and
+the orders in menus, no smoothing. Their frequency responses are measured offline against the theory
+(`tests/library/filters.test.ts`).
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.23.0 (2026-11-02)
+
+- **22 filters, equalizers and pedals of the Faust libraries** (`filters.lib`, `vaeffects.lib`) as modules, in
+  three families of the group *Faust libraries*:
+  - *Filters*: SVF (nine responses: low pass, band pass, high pass, notch, peak, all pass, bell, low and high
+    shelves), Resonant, Butterworth (orders 1, 2, 4, 8), Elliptic (3rd and 6th order), Moog Ladder, Diode
+    Ladder, Korg 35, Oberheim, Sallen-Key, Notch, DC Blocker;
+  - *Equalizers and crossovers*: Low Shelf, High Shelf, Peak EQ (constant Q), Linkwitz-Riley crossovers 2, 3
+    and 4 ways (outputs named low, mid, high), Spectral Tilt (in dB per octave);
+  - *Pedals*: Klon Centaur, Fulltone OCD, MXR Phase 90, Auto Wah.
+  The demos of these libraries join them (Moog VCF, TF2 Filter; Parametric EQ, Filter Bank; Crybaby, Wah4):
+  the family *Filters and EQ* is replaced by the three.
+- **An interface made for music**: *Cutoff* in Hz on a log scale (an LFO or an envelope moves it in octaves);
+  a *Pitch* slider on each filter (0.1 per octave) for the keyboard tracking, as on the VCF; *Q* on a log
+  scale; gains in dB; the responses and orders in menus; no smoothing (a modulation passes as is). The
+  filters of `vaeffects.lib` take a normalized frequency: the cutoff is converted, `log10(fc/20)/3`.
+- **Frequency responses measured offline** (impulse responses, `tests/library/filters.test.ts`): -3.01 dB at
+  the cutoff (SVF, Butterworth at every order, |H|² = 1/(1+Ω^2N) within 0.05 dB), Q at the cutoff of the
+  resonant low pass, -0.2 dB at the edge of the elliptic passband, -12.04 dB at the cutoff of the Moog ladder
+  without feedback (the conversion to the normalized frequency), -6.02 dB at each crossover of the
+  Linkwitz-Riley bands and their sum flat within 0.01 dB, the slope of the spectral tilt within 0.1 dB per
+  octave, the cutoff following the pitch (the same impulse response).
+- Measured on the way, in the libraries: the Moog ladder at Q = 20 resonates at 942 Hz for a cutoff of 1000 Hz;
+  the diode ladder amplifies a small signal by 43 dB (the saturation of its input) and its cutoff lies well
+  below the frequency asked (-30 dB at fc relative to its passband, a resonance at 590 Hz for 1000 Hz); the
+  high pass of the Korg 35 falls by 6 dB per octave only far below its cutoff.
+
 ## 3.22.0 (2026-11-02)
 
 - **52 modules taken from the Faust libraries**, in a group *Faust libraries* of the library: the functions of

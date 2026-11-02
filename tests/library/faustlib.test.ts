@@ -1,5 +1,5 @@
 // The modules taken from the Faust libraries (public/faust-modules/faustlib, scripts/faust-library-modules.mjs):
-// up to date with their generator; a MIDI instrument has a Pitch slider (0.1 per octave from C4) in place of
+// up to date with their generator (the filters, equalizers and pedals too: filters.test.ts); a MIDI instrument has a Pitch slider (0.1 per octave from C4) in place of
 // its freq widget, and plays as the instrument set at that frequency. Their compilation is checked with the
 // other modules of the library (modules.test.ts).
 import fs from "fs";
@@ -11,7 +11,7 @@ import { allowedModes, listWidgets } from "../../src/model/Modulation";
 // @ts-ignore: Node.js scripts
 import { FAUST_LIBRARY_MODULES } from "../../scripts/faust-library-modules.mjs";
 // @ts-ignore
-import { moduleCode, modulePath } from "../../scripts/build-faust-library-modules.mjs";
+import { LIBRARY_MODULES, moduleCode, modulePath } from "../../scripts/build-faust-library-modules.mjs";
 
 const root = path.resolve(__dirname, "../..");
 const SR = 48000;
@@ -58,8 +58,8 @@ const code = (m: any) => fs.readFileSync(path.join(root, "public", modulePath(m)
 describe("modules of the Faust libraries", () => {
     it("are up to date with their generator (npm run faustlib-modules), each in the index", () => {
         const index = JSON.parse(fs.readFileSync(path.join(root, "public/faust-modules/index.json"), "utf8"));
-        expect(index.faustlib).toEqual(FAUST_LIBRARY_MODULES.map(modulePath));
-        for (const m of FAUST_LIBRARY_MODULES) expect(code(m), m.file).toBe(moduleCode(m));
+        expect(index.faustlib).toEqual(LIBRARY_MODULES.map(modulePath));
+        for (const m of LIBRARY_MODULES) expect(code(m), m.file).toBe(moduleCode(m));
     });
 
     it("a MIDI instrument: a Pitch slider (+ add) in place of freq, a gate button", async () => {

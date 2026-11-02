@@ -6,7 +6,9 @@
 export const FAUST_LIBRARY_FAMILIES = [
     "Lib reverbs",
     "Lib dynamics",
-    "Lib filters and EQ",
+    "Lib filters",
+    "Lib equalizers",
+    "Lib pedals",
     "Lib effects",
     "Lib oscillators",
     "Lib physical models",
@@ -150,7 +152,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib filters",
         "name": "Moog VCF",
         "file": "MoogVCF",
         "expr": "dm.moog_vcf_demo",
@@ -161,7 +163,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib equalizers",
         "name": "Parametric EQ",
         "file": "ParametricEQ",
         "expr": "dm.parametric_eq_demo",
@@ -172,7 +174,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib equalizers",
         "name": "Filter Bank",
         "file": "FilterBank",
         "expr": "dm.filterbank_demo",
@@ -183,7 +185,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib filters",
         "name": "TF2 Filter",
         "file": "TF2Filter",
         "expr": "dm.tf2_tpt_demo",
@@ -194,7 +196,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib pedals",
         "name": "Crybaby",
         "file": "Crybaby",
         "expr": "dm.crybaby_demo",
@@ -205,7 +207,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib filters and EQ",
+        "family": "Lib pedals",
         "name": "Wah4",
         "file": "Wah4",
         "expr": "dm.wah4_demo",

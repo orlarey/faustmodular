@@ -12,7 +12,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FAUSTPLAYGROUND_FAMILIES } from "./library-families.mjs";
-import { FAUST_LIBRARY_FAMILIES, FAUST_LIBRARY_MODULES } from "./faust-library-modules.mjs";
+import { FAUST_LIBRARY_FAMILIES } from "./faust-library-modules.mjs";
+import { LIBRARY_MODULES } from "./build-faust-library-modules.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "public/faust-modules/library-index.json");
@@ -112,7 +113,7 @@ export function libraryCatalog() {
     const entry = (p) => catalogEntry(p, readFileSync(path.join(root, "public", p), "utf8"));
     const modular = paths.map(entry);
     const others = FAUSTPLAYGROUND_FAMILIES.flatMap(([family, modules]) => modules.map((p) => ({ ...entry(p), family })));
-    const faustlib = FAUST_LIBRARY_MODULES.map((m) => ({ ...entry(`faust-modules/faustlib/${m.file}.dsp`), family: m.family }));
+    const faustlib = LIBRARY_MODULES.map((m) => ({ ...entry(`faust-modules/faustlib/${m.file}.dsp`), family: m.family }));
     return {
         format: "faustmodular-library-catalog",
         groups: [

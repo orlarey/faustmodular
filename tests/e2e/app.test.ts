@@ -1572,7 +1572,7 @@ describe("library", () => {
             "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
-            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters and EQ", "Lib effects", "Lib oscillators", "Lib physical models", "Lib analysis",
+            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib effects", "Lib oscillators", "Lib physical models", "Lib analysis",
             "My modules",
         ]);
         // a family: its modules; a module pointed at: its description
@@ -1662,6 +1662,43 @@ describe("modules of the Faust libraries", () => {
         expect(Math.abs(1200 * Math.log2(played / byHand))).toBeLessThan(1);
         // and near G4 (392 Hz): within the tuning of the model at this sample rate
         expect(Math.abs(1200 * Math.log2(played / (261.6256 * 2 ** (7 / 12))))).toBeLessThan(25);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
+describe("filters, equalizers and pedals of the Faust libraries", () => {
+    it("in their families; a crossover added from the library has its outputs named; the filters their settings", async () => {
+        const { page, errors } = await openApp();
+        await page.locator("#libraryButtonMenu").click();
+        const familyNames = async (family: string) => {
+            await page.locator(`li.libraryFamily[data-family="${family}"]`).click();
+            return page.locator("#libraryModules a").allTextContents();
+        };
+        expect(await familyNames("Lib filters")).toEqual(expect.arrayContaining(["SVF Filter", "Butterworth Filter", "Moog Ladder", "Diode Ladder", "Korg 35", "Moog VCF"]));
+        expect(await familyNames("Lib pedals")).toEqual(expect.arrayContaining(["Klon Centaur", "Fulltone OCD", "MXR Phase 90", "Auto Wah", "Crybaby"]));
+        expect(await familyNames("Lib equalizers")).toEqual(expect.arrayContaining(["Low Shelf", "Peak EQ", "Crossover 3", "Spectral Tilt", "Parametric EQ"]));
+        await page.locator("#libraryModules a", { hasText: "Crossover 3" }).dblclick();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1);
+        const result = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const crossover = scene.getModules()[0];
+            const names = Array.from(crossover.moduleView.getModuleContainer().querySelectorAll(".port-label-out")).map((l: any) => l.textContent);
+            app.uploadUrl(app, null, 400, 80, location.origin + "/faust-modules/faustlib/SVFFilter.dsp");
+            while (scene.getModules().length == 1) await new Promise((r) => setTimeout(r, 20));
+            const svf = scene.getModules()[1];
+            return {
+                names,
+                outputs: crossover.moduleView.fOutputPorts.length,
+                svf: scene.widgetsOf(svf).map((w: any) => w.label),
+                modes: Object.fromEntries(scene.widgetsOf(svf).filter((w: any) => ["Cutoff", "Pitch", "Q"].includes(w.label))
+                    .map((w: any) => [w.label, scene.allowedModesOf(svf.moduleId, w.address)[0]])),
+            };
+        });
+        expect(result.outputs).toBe(3);
+        expect(result.names).toEqual(["low", "mid", "high"]);
+        expect(result.svf).toEqual(["Mode", "Cutoff", "Pitch", "Q", "Gain"]);
+        expect(result.modes).toEqual({ Cutoff: "modulate", Pitch: "add", Q: "modulate" });
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
