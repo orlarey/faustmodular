@@ -80,7 +80,7 @@ Autre curseur,± moduler,linéaire autour du curseur (D = 0.5 par défaut),ADSR 
 Bouton,⇐ piloter,le signal remplace le bouton,horloge → Clock du séquenceur ; porte → Gate de l'ADSR
 ```
 
-Le ± n'additionne pas : son excursion dépend de la position du curseur, ce qui fausserait une hauteur. Le mode « + additionner » (`Documentation/widget-modulation/PLAN.md`, version 3.9.0) donne aux curseurs de hauteur la sémantique du bouton et de l'entrée 1 V/oct d'un oscillateur ; sa quantité A est le suivi de clavier d'un filtre.
+Le ± n'additionne pas : son excursion dépend de la position du curseur, ce qui fausserait une hauteur. Le mode « + additionner » (`Documentation/widget-modulation/MODULATION.md`) donne aux curseurs de hauteur la sémantique du bouton et de l'entrée 1 V/oct d'un oscillateur ; sa quantité A est le suivi de clavier d'un filtre.
 
 Un widget a une seule modulation, mais une modulation accepte plusieurs sources, qui s'additionnent : un câble relâché sur son port ajoute une source (le séquenceur et un LFO de vibrato sur la hauteur).
 

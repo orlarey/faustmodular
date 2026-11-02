@@ -1,5 +1,10 @@
 # Modulation de widgets — principe, mesures, difficultés, plan
 
+> **Référence de l'état actuel : `MODULATION.md`** (le choix du mode selon le widget et ses
+> métadonnées, les formules, les ports, l'écriture des modules). Ce document-ci est l'histoire de la
+> conception : le plan d'origine, les mesures, puis une section par évolution. Les formules de la
+> section 2.1 sont celles d'origine ; elles ont changé depuis (2.7.0, 2.8.0, 3.9.0, 3.11.0).
+
 Extension de FaustPlayground 2.0.0 : connecter une **sortie audio** à un **widget** (slider, bouton,
 case à cocher) d'un module, pour moduler ce paramètre au taux audio.
 
@@ -47,6 +52,9 @@ Règles de correspondance et d'ordre :
 ## 2. Conception proposée
 
 ### 2.1 Types de modulation (contenu de la palette)
+
+*Historique : le ± est relatif à la position du slider depuis 2.7.0, la palette a disparu en 2.8.0–2.9.0,
+les modes + (3.9.0) et ~ (3.11.0) se sont ajoutés. Les formules en vigueur sont dans `MODULATION.md`.*
 
 Ce choix suit la pratique des synthés modulaires. En Eurorack comme dans VCV Rack, un paramètre
 vaut bouton + profondeur × CV : un atténuverteur dose la modulation, et les niveaux sont

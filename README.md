@@ -20,6 +20,9 @@ channels.
 - Release on the body of another module instead to connect all the channels at once: output
   `k mod n` goes to input `k mod m` (Faust's `<:` and `:>` when one number of channels divides the other).
 - Click on a cable to delete it. Dashed cables close a cycle and are delayed by 128 samples.
+- Release on a widget to modulate it by the signal: the mode (± modulate, + add, ~ linear FM, ⇐ drive)
+  follows from the widget and its metadata, and the depth is set by a vertical drag on the modulation port
+  (see `Documentation/widget-modulation/MODULATION.md`).
 - Shift-click modules, or drag a rectangle on the empty stage, to select several modules and move them
   together.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %

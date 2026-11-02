@@ -1,6 +1,6 @@
 /*				MODULATION.TS
     Widget modulation: an audio signal connected to a widget (slider, button, checkbox) of a module.
-    See Documentation/widget-modulation/PLAN.md.
+    See Documentation/widget-modulation/MODULATION.md (reference) and PLAN.md (history).
 
     It relies on Faust's widget modulation, ["target" : circuit -> expression]: every widget matching
     "target" (a label, or a path suffix "group/label") is replaced by circuit(widget, m), where m is a
