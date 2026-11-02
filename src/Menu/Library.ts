@@ -30,26 +30,6 @@ import { Utilitary } from "../Utilitary";
 import { LibraryView } from "./LibraryView";
 import type { Documents } from "../documents/Documents";
 
-interface IImageNode extends HTMLImageElement {
-    state: string;
-    section: string;
-    folder: HTMLUListElement;
-}
-interface jsonObjectLibrary {
-    instrument: string;
-    effet: string;
-    exemple: string;
-    instrumentSupprStructure: string;
-    effetSupprStructure: string;
-    exempleSupprStructure: string;
-    instruments: string[];
-    effets: string[];
-    exemples: string[];
-    multicanal?: string[];
-    modulation?: string[];
-    affichage?: string[];
-}
-
 interface CatalogModule {
     path: string;
     name: string;
@@ -61,6 +41,14 @@ interface CatalogModule {
     outlets: string[];
 }
 
+interface Catalog {
+    groups: Array<{ name: string; families: string[] }>;
+    modules: CatalogModule[];
+}
+
+// The family of the user modules, after those of the catalog.
+const USER_FAMILY = "My modules";
+
 export class Library {
     libraryView: LibraryView;
     isLibraryTouch: boolean;
@@ -71,8 +59,9 @@ export class Library {
 
     setDocuments(documents: Documents) {
         this.documents = documents;
-        document.addEventListener("librarychange", () => this.fillUserModules());
-        this.fillUserModules();
+        // the count of My modules, and their list when shown
+        document.addEventListener("librarychange", () => this.renderFamilies());
+        this.renderFamilies();
     }
 
     // "My modules": double click or drag adds the latest version; rename and delete in place.
@@ -142,21 +131,20 @@ export class Library {
         input.addEventListener("blur", () => finish(true));
     }
 
-    // The modular library (Documentation/MODULAR-LIBRARY.md): families of functions, their modules,
-    // and the description of the module pointed at. Which library is shown is remembered.
-    private fCatalog: { families: string[]; modules: CatalogModule[] } | null = null;
+    // The library in one view: the families of the catalog (public/faust-modules/library-catalog.json,
+    // built by `npm run library-index`), grouped (modular, FaustPlayground) and then My modules; the modules
+    // of the family chosen; the description of the module pointed at. The family chosen is remembered.
+    private fCatalog: Catalog | null = null;
     private fFamily: string | null = null;
 
-    fillModular() {
-        Utilitary.getXHR("faust-modules/modular-catalog.json", (json: string) => {
+    fillLibrary() {
+        Utilitary.getXHR("faust-modules/library-catalog.json", (json: string) => {
             this.fCatalog = JSON.parse(json);
-            this.fFamily = this.remembered("family") ?? this.fCatalog!.families[0];
+            var families = this.fCatalog!.groups.flatMap((g) => g.families);
+            var remembered = this.remembered("family");
+            this.fFamily = remembered && (families.indexOf(remembered) >= 0 || remembered == USER_FAMILY) ? remembered : families[0];
             this.renderFamilies();
         }, (errorMessage: string) => { Utilitary.errorCallBack(errorMessage) });
-        this.libraryView.librarySwitch.querySelectorAll<HTMLElement>(".librarySwitchButton").forEach((b) => {
-            b.addEventListener("click", () => this.showLibrary(b.dataset.library as "modular" | "classic"));
-        });
-        this.showLibrary(this.remembered("library") == "classic" ? "classic" : "modular");
     }
 
     private remembered(key: string): string | null {
@@ -167,37 +155,65 @@ export class Library {
         try { localStorage.setItem("faustmodular:library:" + key, value); } catch { /* not kept */ }
     }
 
-    showLibrary(kind: "modular" | "classic") {
-        this.libraryView.modularPanel.style.display = kind == "modular" ? "" : "none";
-        this.libraryView.classicPanel.style.display = kind == "classic" ? "" : "none";
-        this.libraryView.librarySwitch.querySelectorAll<HTMLElement>(".librarySwitchButton").forEach((b) => b.classList.toggle("selected", b.dataset.library == kind));
-        this.libraryView.libraryContent?.classList.toggle("modular", kind == "modular");
-        this.remember("library", kind);
+    // Chooses a family (My modules included).
+    selectFamily(family: string) {
+        this.fFamily = family;
+        this.remember("family", family);
+        this.renderFamilies();
+    }
+
+    private familyLabel(family: string): string {
+        return family == USER_FAMILY ? Utilitary.messageResource.titleUserModules : (Utilitary.messageResource as any)["family_" + family] ?? family;
     }
 
     private renderFamilies() {
-        var catalog = this.fCatalog!;
-        var list = this.libraryView.modularFamilies;
+        var catalog = this.fCatalog;
+        if (!catalog) return;
+        var t = Utilitary.messageResource;
+        var list = this.libraryView.families;
         list.replaceChildren();
-        for (var family of catalog.families) {
-            var count = catalog.modules.filter((m) => m.family == family).length;
-            if (count == 0) continue;
+        var item = (family: string, count: number) => {
             var li = document.createElement("li");
-            li.className = "modularFamily" + (family == this.fFamily ? " selected" : "");
+            li.className = "libraryFamily" + (family == this.fFamily ? " selected" : "");
             li.dataset.family = family;
-            li.textContent = (Utilitary.messageResource as any)["family_" + family] ?? family;
+            li.textContent = this.familyLabel(family);
             var badge = document.createElement("span");
-            badge.className = "modularCount";
+            badge.className = "libraryCount";
             badge.textContent = String(count);
             li.appendChild(badge);
-            li.addEventListener("click", ((f: string) => () => { this.fFamily = f; this.remember("family", f); this.renderFamilies(); })(family));
+            li.addEventListener("click", () => this.selectFamily(family));
             list.appendChild(li);
+        };
+        var heading = (text: string) => {
+            var li = document.createElement("li");
+            li.className = "libraryGroup";
+            li.textContent = text;
+            list.appendChild(li);
+        };
+        var groupLabels: Record<string, string> = { Modular: t.libraryModular, FaustPlayground: t.libraryClassic };
+        for (var group of catalog.groups) {
+            heading(groupLabels[group.name] ?? group.name);
+            for (var family of group.families) {
+                var count = catalog.modules.filter((m) => m.family == family).length;
+                if (count > 0) item(family, count);
+            }
         }
+        item(USER_FAMILY, this.documents?.store.listModules().length ?? 0);
+        list.lastElementChild!.classList.add("userFamily");
         this.renderModules();
     }
 
     private renderModules() {
-        var list = this.libraryView.modularModules;
+        var view = this.libraryView;
+        var user = this.fFamily == USER_FAMILY;
+        view.modules.style.display = user ? "none" : "";
+        view.userLibrarySelect.style.display = user ? "" : "none";
+        if (user) {
+            this.fillUserModules();
+            this.describeUserModules();
+            return;
+        }
+        var list = view.modules;
         list.replaceChildren();
         var modules = this.fCatalog!.modules.filter((m) => m.family == this.fFamily);
         for (var module of modules) {
@@ -216,80 +232,50 @@ export class Library {
             li.appendChild(a);
             list.appendChild(li);
         }
+        list.scrollTop = 0;
         if (modules[0]) this.describe(modules[0]);
     }
 
     private describe(module: CatalogModule) {
         var t = Utilitary.messageResource;
-        var box = this.libraryView.modularDescription;
+        var box = this.libraryView.description;
         box.replaceChildren();
         var title = document.createElement("div");
-        title.className = "modularName";
+        title.className = "libraryName";
         title.textContent = module.name;
-        var functions = document.createElement("div");
-        functions.className = "modularFunctions";
-        functions.textContent = module.functions.join(" \u00b7 ");
-        box.append(title, functions);
+        box.appendChild(title);
+        if (module.functions.length > 0) {
+            var functions = document.createElement("div");
+            functions.className = "libraryFunctions";
+            functions.textContent = module.functions.join(" \u00b7 ");
+            box.appendChild(functions);
+        }
         var ports = (label: string, names: string[]) => {
             if (names.length == 0) return;
             var line = document.createElement("div");
-            line.className = "modularPorts";
+            line.className = "libraryPorts";
             line.textContent = label + " : " + names.join(", ");
             box.appendChild(line);
         };
         ports(t.portInlets, module.inlets);
         ports(t.portOutlets, module.outlets);
         var text = document.createElement("div");
-        text.className = "modularText";
+        text.className = "libraryText";
         text.textContent = module.description;
         box.appendChild(text);
     }
 
-    //get json with library infos
-    fillLibrary() {
-        this.fillModular();
-        var url: string = "faust-modules/index.json"
-        Utilitary.getXHR(url, (json: string) => { this.fillLibraryCallBack(json) }, (errorMessage: string) => { Utilitary.errorCallBack(errorMessage) });
-    }
-
-    //dispatch library info to each submenu
-    fillLibraryCallBack(json: string) {
-        var jsonObject: jsonObjectLibrary = JSON.parse(json);
-        jsonObject.effet = "effetLibrarySelect";
-        jsonObject.effetSupprStructure = "faust-modules/effects/";
-        jsonObject.instrument = "instrumentLibrarySelect";
-        jsonObject.instrumentSupprStructure = "faust-modules/generators/";
-        jsonObject.exemple = "exempleLibrarySelect";
-        jsonObject.exempleSupprStructure = "faust-modules/combined/";
-        this.fillSubMenu(jsonObject.instruments, jsonObject.instrument, jsonObject.instrumentSupprStructure);
-        this.fillSubMenu(jsonObject.effets, jsonObject.effet, jsonObject.effetSupprStructure);
-        this.fillSubMenu(jsonObject.exemples, jsonObject.exemple, jsonObject.exempleSupprStructure);
-        this.fillSubMenu(jsonObject.multicanal ?? [], "multichannelLibrarySelect", "faust-modules/multichannel/");
-        this.fillSubMenu(jsonObject.modulation ?? [], "modulationLibrarySelect", "faust-modules/modulation/");
-        this.fillSubMenu(jsonObject.affichage ?? [], "displayLibrarySelect", "faust-modules/display/");
-    }
-
-    //fill submenu and attach events
-    fillSubMenu(options: string[], subMenuId: string, stringStructureRemoved: string) {
-        var subMenu: HTMLUListElement = <HTMLUListElement>document.getElementById(subMenuId);
-
-        for (var i = 0; i < options.length; i++) {
-
-            var li: HTMLLIElement = document.createElement("li");
-            var a: HTMLAnchorElement = document.createElement("a");
-            li.appendChild(a);
-            a.href = options[i];
-            a.draggable = true;
-            a.title = Utilitary.messageResource.hoverLibraryElement;
-            a.addEventListener("click", (e) => { e.preventDefault() });
-
-            var dblckickHandler = this.dispatchEventLibrary.bind(this, a.href)
-            a.ondblclick = dblckickHandler;
-            a.ontouchstart = (e) => { this.dbleTouchMenu(e) }
-
-            a.text = this.cleanNameElement(options[i], stringStructureRemoved);
-            subMenu.appendChild(li)
-        }
+    // My modules: what they are, in place of a description.
+    private describeUserModules() {
+        var box = this.libraryView.description;
+        box.replaceChildren();
+        var title = document.createElement("div");
+        title.className = "libraryName";
+        title.textContent = Utilitary.messageResource.titleUserModules;
+        var text = document.createElement("div");
+        text.className = "libraryText";
+        text.textContent = Utilitary.messageResource.userModulesDescription;
+        box.append(title, text);
     }
 
     //custom doube touch event handler
@@ -312,19 +298,8 @@ export class Library {
         var event: CustomEvent = new CustomEvent("dbltouchlib", { 'detail': url })
         document.dispatchEvent(event);
     }
-    // init scroll to show scroll from perfectScroll.js
+    // scrollbars (perfect-scrollbar) shown at once
     initScroll() {
-        this.libraryView.effetLibrarySelect.scrollTop += 1;
-        this.libraryView.exempleLibrarySelect.scrollTop += 1;
-        this.libraryView.intrumentLibrarySelect.scrollTop += 1;
-        this.libraryView.multichannelLibrarySelect.scrollTop += 1;
-        this.libraryView.modulationLibrarySelect.scrollTop += 1;
-        this.libraryView.userLibrarySelect.scrollTop += 1;
-        this.libraryView.displayLibrarySelect.scrollTop += 1;
-    }
-
-    //remove .dsp extention and uri from element to get title
-    cleanNameElement(elementComplete: string, stringStructureRemoved: string): string {
-        return elementComplete.replace(stringStructureRemoved, "").replace(".dsp", "");
+        for (var list of [this.libraryView.families, this.libraryView.modules, this.libraryView.userLibrarySelect]) list.scrollTop += 1;
     }
 }

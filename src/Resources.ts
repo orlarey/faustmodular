@@ -77,6 +77,7 @@ export class Resources {
     menuSelectAll: string;
     moduleUpdateFailed: string;
     titleUserModules: string;
+    userModulesDescription: string;
     userModulesEmpty: string;
     userModuleRename: string;
     userModuleDelete: string;

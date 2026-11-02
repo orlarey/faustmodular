@@ -196,6 +196,8 @@ describe("documents", () => {
         await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
         expect(await versions()).toEqual([]);
         await page.locator("#libraryButtonMenu").click();
+        // My modules: a family of the library, after those of the catalog
+        await page.locator('li.libraryFamily[data-family="My modules"]').click();
         expect(await page.locator("#userLibrarySelect li.userModulesEmpty").count()).toBe(1);
 
         // edited as faustcode does: a new user module, named after it

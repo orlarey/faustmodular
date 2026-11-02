@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 // @ts-ignore: a Node.js script
-import { currentHashes, modularCatalog } from "../../scripts/build-library-index.mjs";
+import { currentHashes, libraryCatalog, libraryPaths } from "../../scripts/build-library-index.mjs";
 import { sha1 } from "../../src/documents/Sha1";
 
 const root = path.resolve(__dirname, "../..");
@@ -29,14 +29,25 @@ describe("library index", () => {
         }
     });
 
-    it("has an up to date catalog of the modular library, each module in a family, with its functions and ports", () => {
-        const catalog = JSON.parse(readFileSync(path.join(root, "public/faust-modules/modular-catalog.json"), "utf8"));
-        expect(catalog).toEqual(modularCatalog());
-        for (const m of catalog.modules) {
-            expect(m.family, m.path).not.toBeNull();
+    it("has an up to date catalog of the library: every module in one family of its groups", () => {
+        const catalog = JSON.parse(readFileSync(path.join(root, "public/faust-modules/library-catalog.json"), "utf8"));
+        expect(catalog).toEqual(libraryCatalog());
+        expect(catalog.groups.map((g: any) => g.name)).toEqual(["Modular", "FaustPlayground"]);
+        const families = new Set(catalog.groups.flatMap((g: any) => g.families));
+        expect(families.size).toBe(catalog.groups.reduce((n: number, g: any) => n + g.families.length, 0));      // no family twice
+        // every module of the library (index.json) once, in a family of the catalog
+        const paths = catalog.modules.map((m: any) => m.path);
+        expect(new Set(paths).size).toBe(paths.length);
+        expect([...paths].sort()).toEqual([...libraryPaths()].sort());
+        for (const m of catalog.modules) expect(families.has(m.family), `${m.path}: ${m.family}`).toBe(true);
+        // the modular library: functions and descriptions declared
+        for (const m of catalog.modules.filter((x: any) => x.path.includes("/modular/"))) {
             expect(m.functions.length, m.path).toBeGreaterThan(0);
             expect(m.description.length, m.path).toBeGreaterThan(0);
         }
+        // a FaustPlayground module in its family
+        expect(catalog.modules.find((m: any) => m.path.endsWith("/SCMajDryHarp.dsp")).family).toBe("Harps");
+        expect(catalog.modules.find((m: any) => m.path.endsWith("/ZitaReverb.dsp")).family).toBe("Echoes and reverbs");
         const vco = catalog.modules.find((m: any) => m.name == "VCO");
         expect(vco).toMatchObject({ family: "Sources", functions: ["Oscillator"], inlets: [], outlets: ["sine", "triangle", "saw", "square"] });
         const vcf = catalog.modules.find((m: any) => m.name == "VCF");

@@ -1488,6 +1488,39 @@ describe("Scope", () => {
     }, 120_000);
 });
 
+describe("library", () => {
+    it("shows the families in one view (modular, FaustPlayground, My modules), their modules and descriptions", async () => {
+        const { page, errors } = await openApp();
+        await page.locator("#libraryButtonMenu").click();
+        const rows = await page.evaluate(() => Array.from(document.querySelectorAll("#libraryFamilies li")).map((l) =>
+            l.classList.contains("libraryGroup") ? "# " + l.textContent : (l as HTMLElement).dataset.family));
+        expect(rows).toEqual([
+            "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
+            "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
+            "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
+            "My modules",
+        ]);
+        // a family: its modules; a module pointed at: its description
+        await page.locator('li.libraryFamily[data-family="Filters"]').click();
+        expect(await page.locator('li.libraryFamily.selected').getAttribute("data-family")).toBe("Filters");
+        const names = await page.locator("#libraryModules a").allTextContents();
+        expect(names).toHaveLength(7);
+        await page.locator("#libraryModules a", { hasText: "Comb" }).hover();
+        expect(await page.locator("#libraryDescription .libraryText").textContent()).toMatch(/comb filter/i);
+        // double click: added to the scene
+        await page.locator("#libraryModules a", { hasText: "Comb" }).dblclick();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1);
+        // the family chosen is remembered
+        await page.reload();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current);
+        await page.locator("#libraryButtonMenu").click();
+        await page.waitForSelector('li.libraryFamily.selected');
+        expect(await page.locator('li.libraryFamily.selected').getAttribute("data-family")).toBe("Filters");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("alignment guides", () => {
     const create = (page: Page, name: string, code: string, x: number, y: number) => page.evaluate(async ([n, c, xx, yy]) => {
         const { app, scene } = (globalThis as any).faustPlayground;

@@ -129,6 +129,8 @@ La bibliothèque actuelle occupe déjà sept colonnes. Une organisation par fonc
 
 Les deux bibliothèques suivent les mêmes règles de préservation (index des empreintes, statut déduit du contenu).
 
+Depuis 3.20.0, une **vue unique** remplace le sélecteur : les familles modulaires, puis celles de FaustPlayground (harpes, vents, barres et bols, bruits et oscillateurs, instruments avec réverbération, filtres, échos et réverbérations, modulations, niveau et dynamique, spatialisation et multicanal, sources de modulation), puis « Mes modules ». Les modules FaustPlayground sont rangés par une table (`scripts/library-families.mjs`), sans toucher à leur code ni à leur empreinte. Le catalogue s'appelle `library-catalog.json`.
+
 # Les tests
 
 Pour chaque module, rendu hors ligne avec le compilateur de l'application (comme `tests/library/modulation-sources.test.ts`) :
@@ -144,12 +146,12 @@ Pour chaque module, rendu hors ligne avec le compilateur de l'application (comme
 Prises le 1er novembre 2026 :
 
 1. **Échelle de hauteur** : 0.1 par octave, 0 = do 4 (261.63 Hz).
-2. **Organisation** : un sélecteur « Modulaire / FaustPlayground » en tête du menu Library ; pour la bibliothèque modulaire, des familles de fonctions, leurs modules et la description du module pointé ; « Mes modules » à côté de l'une ou l'autre.
+2. **Organisation** : des familles de fonctions, leurs modules et la description du module pointé ; d'abord avec un sélecteur « Modulaire / FaustPlayground », puis (3.20.0) une vue unique pour toute la bibliothèque, « Mes modules » compris.
 3. **Premier ensemble** : une voix d'abord, douze modules : VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer, SampleHold.
 4. **Des réglages plutôt que des entrées de contrôle** (3.9.0) : des modules à l'interface complète, pilotés par la modulation de widget ; un mode « + additionner » pour les curseurs de hauteur.
 
 ::: note [État, faustmodular 3.11.0]
-Les douze modules sont dans `public/faust-modules/modular/`, avec les modules d'affichage dans la famille « Mesure ». Le catalogue (`modular-catalog.json`) est produit par `npm run library-index` à partir des déclarations des modules : `declare function "..."` (et `function2`), `declare summary "..."`, `declare inlets "..."` et `declare outlets "..."` (les noms des ports, écrits à côté d'eux sur la scène depuis 3.10.0 et repris dans leur infobulle ; `inputs` et `outputs` sont des mots réservés de Faust) et le commentaire `DESCRIPTION`. Les libellés des menus ne contiennent pas de tiret : le JSON d'un DSP compilé délimite ces libellés par des tirets. Faust ordonne les widgets en comparant leurs préfixes `[n]` comme des chaînes : au-delà de dix, ils s'écrivent sur deux chiffres (`[01]`, …, `[10]`).
+Les douze modules sont dans `public/faust-modules/modular/`, avec les modules d'affichage dans la famille « Mesure ». Le catalogue (`modular-catalog.json`, `library-catalog.json` depuis 3.20.0) est produit par `npm run library-index` à partir des déclarations des modules : `declare function "..."` (et `function2`), `declare summary "..."`, `declare inlets "..."` et `declare outlets "..."` (les noms des ports, écrits à côté d'eux sur la scène depuis 3.10.0 et repris dans leur infobulle ; `inputs` et `outputs` sont des mots réservés de Faust) et le commentaire `DESCRIPTION`. Les libellés des menus ne contiennent pas de tiret : le JSON d'un DSP compilé délimite ces libellés par des tirets. Faust ordonne les widgets en comparant leurs préfixes `[n]` comme des chaînes : au-delà de dix, ils s'écrivent sur deux chiffres (`[01]`, …, `[10]`).
 
 Depuis 3.9.0, les ports ne portent que les signaux transformés :
 

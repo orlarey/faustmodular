@@ -55,7 +55,15 @@ number fields, bargraphs stay in their group; `[tooltip:...]` gives the tooltip 
 The *Modular* library (Library menu) holds modules organized by function, as on ModularGrid, with common
 conventions: audio and bipolar CV in [-1, 1], unipolar CV in [0, 1], pitch 0.1 per octave from C4,
 gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer,
-SampleHold (see `Documentation/MODULAR-LIBRARY.md`). The former library stays under *FaustPlayground*.
+SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
+
+The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
+harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
+modulations, level and dynamics, spatialization and multichannel, modulation sources), then *My modules*; the
+modules of the family chosen; the description of the module pointed at. Double click or drag a module to add
+it. The catalog (`public/faust-modules/library-catalog.json`) is built by `npm run library-index`: the modular
+modules from their declarations, the FaustPlayground ones from the table of `scripts/library-families.mjs`
+(their code, and so their hash, unchanged).
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

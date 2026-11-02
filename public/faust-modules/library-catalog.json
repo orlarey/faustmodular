@@ -1,0 +1,1328 @@
+{
+ "format": "faustmodular-library-catalog",
+ "groups": [
+  {
+   "name": "Modular",
+   "families": [
+    "Sources",
+    "Timbre",
+    "Level",
+    "Control",
+    "Time",
+    "Random and pitch",
+    "Effects",
+    "Measure"
+   ]
+  },
+  {
+   "name": "FaustPlayground",
+   "families": [
+    "Harps",
+    "Winds",
+    "Bars and bowls",
+    "Noises and oscillators",
+    "Instruments with reverb",
+    "Filters",
+    "Echoes and reverbs",
+    "Modulations",
+    "Level and dynamics",
+    "Spatialization and multichannel",
+    "Modulation sources"
+   ]
+  }
+ ],
+ "modules": [
+  {
+   "path": "faust-modules/modular/VCO.dsp",
+   "name": "VCO",
+   "functions": [
+    "Oscillator"
+   ],
+   "family": "Sources",
+   "summary": "Oscillator: sine, triangle, saw and square, pitch 0.1 per octave",
+   "description": "- Oscillator, four waveforms at once (alias-suppressed), in [-1, 1]\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz); a pitch (a sequencer) dropped on it is added to it\n- Octave and Tune transpose; FM: frequency modulation in octaves (an audio signal dropped on it)\n- Width: the duty cycle of the square (pulse width modulation)",
+   "inlets": [],
+   "outlets": [
+    "sine",
+    "triangle",
+    "saw",
+    "square"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/SineVCO.dsp",
+   "name": "SineVCO",
+   "functions": [
+    "Oscillator"
+   ],
+   "family": "Sources",
+   "summary": "Sine oscillator: a frequency in Hz and a gain; two of them make classic FM",
+   "description": "- Sine oscillator: Freq in Hz, Gain from 0 to 1\n- Freq is modulated linearly ([mod:lin]): f = Freq * (1 + D * m), D being the deviation set on the\nmodulation port (1 by default, from -10 to 10)\n- Classic FM: the output of a SineVCO (the modulator, at fm) dropped on the Freq of another (the\ncarrier, at fc) gives the index I = D * Gain * fc / fm; with the same frequency, the Gain of the\nmodulator is the index. The frequency may go through zero (the phase then turns backwards).",
+   "inlets": [],
+   "outlets": [
+    "sine"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Noise.dsp",
+   "name": "Noise",
+   "functions": [
+    "Noise"
+   ],
+   "family": "Sources",
+   "summary": "White and pink noise",
+   "description": "- Noise source: white noise, and pink (1/f) noise whose peaks stay near 1 (it sounds softer)\n- Level: the level of both outputs",
+   "inlets": [],
+   "outlets": [
+    "white",
+    "pink"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/VCF.dsp",
+   "name": "VCF",
+   "functions": [
+    "Filter"
+   ],
+   "family": "Timbre",
+   "summary": "Filter: low-pass, band-pass or high-pass, cutoff following a pitch",
+   "description": "- State variable filter (12 dB per octave): low pass, band pass or high pass\n- Cutoff in Hz; an envelope or an LFO dropped on it moves it in octaves\n- Pitch: moves the cutoff, 0.1 per octave; a pitch dropped on it (a sequencer) makes the cutoff follow\nthe notes, its amount on the modulation port being the keyboard tracking\n- Resonance: from no resonance to a sharp peak (Q from 0.5 to 25)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/VCA.dsp",
+   "name": "VCA",
+   "functions": [
+    "VCA"
+   ],
+   "family": "Level",
+   "summary": "Amplifier: gain driven by an envelope, linear or exponential",
+   "description": "- Amplifier: the audio input times the gain, in [0, 1]\n- Gain 0 (default): closed until an envelope dropped on it opens it (depth 1: the envelope is the gain)\n- Response: linear, or exponential (60 dB from 0 to 1, a natural loudness curve)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/ADSR.dsp",
+   "name": "ADSR",
+   "functions": [
+    "Envelope Generator"
+   ],
+   "family": "Control",
+   "summary": "Envelope: attack, decay, sustain, release, from a gate",
+   "description": "- Envelope generator in [0, 1], started by the Gate and released when it falls\n- Gate: a button to play by hand; a gate dropped on it (a sequencer, a clock) drives it\n(high above 0.6, low below 0.4)\n- Attack, Decay and Release in seconds; Sustain is a level\n- To shape a level: drop the envelope on the Gain of a VCA",
+   "inlets": [],
+   "outlets": [
+    "envelope"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/LFO.dsp",
+   "name": "LFO",
+   "functions": [
+    "LFO"
+   ],
+   "family": "Control",
+   "summary": "Low frequency oscillator, four shapes, bipolar or unipolar, with reset",
+   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Output in [-1, 1]; Unipolar: in [0, 1] (on a widget, its value is then the minimum of the modulation)\n- Reset: restarts the cycle; a clock dropped on it syncs the LFO",
+   "inlets": [],
+   "outlets": [
+    "LFO"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Mixer.dsp",
+   "name": "Mixer",
+   "functions": [
+    "Mixer"
+   ],
+   "family": "Level",
+   "summary": "Mixer: four inputs, one output",
+   "description": "- Mixes four signals (audio or CV): the sum of each input times its level\n- At level 1 a signal goes through unchanged",
+   "inlets": [
+    "1",
+    "2",
+    "3",
+    "4"
+   ],
+   "outlets": [
+    "mix"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Offset.dsp",
+   "name": "Offset",
+   "functions": [
+    "Attenuator",
+    "Precision Adder"
+   ],
+   "family": "Level",
+   "summary": "Attenuverter and offset; transposes a pitch in semitones",
+   "description": "- Attenuverter, offset and precision adder: out = in * Gain + Offset + Transpose\n- Gain from -1 (inverted) to 1; Offset from -1 to 1\n- Transpose in semitones, for a pitch (0.1 per octave): 12 semitones add 0.1",
+   "inlets": [
+    "in"
+   ],
+   "outlets": [
+    "out"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Clock.dsp",
+   "name": "Clock",
+   "functions": [
+    "Clock Generator"
+   ],
+   "family": "Time",
+   "summary": "Clock: gates at a tempo, quarter, eighth or sixteenth notes, with reset",
+   "description": "- Clock: gates (0 or 1) at Tempo beats per minute\n- Division: a gate per quarter, eighth or sixteenth note\n- Width: how long each gate stays high, as a fraction of its period\n- Reset: restarts the clock (a gate starts at once); a gate dropped on it drives it",
+   "inlets": [],
+   "outlets": [
+    "clock"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Sequencer.dsp",
+   "name": "Sequencer",
+   "functions": [
+    "Sequencer"
+   ],
+   "family": "Time",
+   "summary": "Sequencer: eight steps of pitch and gate, driven by a clock",
+   "description": "- Step sequencer: each rising edge of the Clock moves to the next of the Length steps\n- Clock: a button to step by hand; a clock dropped on it drives the sequencer\n- Each step is a pitch in semitones above C4 (0.1 per octave on the pitch output); -1 is a rest\n- Gate: high while the clock is high, except on rests; the pitch holds during a rest\n- Reset: goes back before the first step (the next clock plays it)",
+   "inlets": [],
+   "outlets": [
+    "pitch",
+    "gate"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/Quantizer.dsp",
+   "name": "Quantizer",
+   "functions": [
+    "Quantizer"
+   ],
+   "family": "Random and pitch",
+   "summary": "Quantizer: a pitch to the nearest note of a scale",
+   "description": "- Moves a pitch (0.1 per octave) to the nearest note of a scale, ties going down\n- Scale: chromatic, major, natural minor, major or minor pentatonic\n- Tonic: the first note of the scale",
+   "inlets": [
+    "pitch"
+   ],
+   "outlets": [
+    "pitch"
+   ]
+  },
+  {
+   "path": "faust-modules/modular/SampleHold.dsp",
+   "name": "SampleHold",
+   "functions": [
+    "Sample and Hold",
+    "Random"
+   ],
+   "family": "Random and pitch",
+   "summary": "Sample and hold of an input or of noise, at each trigger",
+   "description": "- Samples a signal at each rising edge of the Trigger and holds it until the next one\n- Trigger: a button to sample by hand; a clock dropped on it drives it\n- Source: the input, or internal noise (random values in [-1, 1], with a clock: stepped random)",
+   "inlets": [
+    "in"
+   ],
+   "outlets": [
+    "out"
+   ]
+  },
+  {
+   "path": "faust-modules/display/Level.dsp",
+   "name": "Level",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Level meter, inserted anywhere: the signal goes through unchanged",
+   "description": "- Level meter, inserted anywhere: the signal goes through unchanged\n- RMS: mean level over 50 ms, in dB\n- Peak: peak level, held and released over 0.5 s, in dB",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/StereoLevel.dsp",
+   "name": "StereoLevel",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Level meter of two channels, inserted anywhere: the signals go through unchanged",
+   "description": "- Level meter of two channels, inserted anywhere: the signals go through unchanged\n- RMS level over 50 ms of each channel, in dB",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/Value.dsp",
+   "name": "Value",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Shows the value of a signal (a modulation source, a control signal), inserted anywhere: the signal",
+   "description": "- Shows the value of a signal (a modulation source, a control signal), inserted anywhere: the signal\ngoes through unchanged\n- The bar covers [-1, 1]; the number is the value itself",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/display/Scope.dsp",
+   "name": "Scope",
+   "functions": [
+    "Display"
+   ],
+   "family": "Measure",
+   "summary": "Oscilloscope and spectrum analyser, inserted anywhere: the signal goes through unchanged",
+   "description": "- Oscilloscope and spectrum analyser, inserted anywhere: the signal goes through unchanged\n- View: the waveform, or the spectrum\n- Waveform: Time is the duration shown (1 ms to 5 s, in [-1, 1]); short durations are triggered on a\ncrossing of the Threshold (Slope: rising or falling; Trigger auto: the signal is shown even without a\ncrossing, normal: the last image stays), long ones scroll (modulation sources, envelopes)\n- Spectrum: in dB of a sine (0 dB: a sine at full scale), on a logarithmic axis with a line per\nsemitone (Scale: log) or a linear one; the strongest peak is written (frequency, note, level)\n- The corner at the bottom right resizes the display",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/Kisana.dsp",
+   "name": "Kisana",
+   "functions": [],
+   "family": "Harps",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SAtonalSoftHarp.dsp",
+   "name": "Atonal Soft Harp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "Soft Atonal Harp",
+   "description": "- Soft Atonal Harp\n- Swing  = Plucking all the strings one by one\n- Left = Slow rhythm /Low frequencies/ Silence\n- Right = Fast rhythm/ High frequencies\n- Back = Short and dry notes\n- Front = Long and bright notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SBouncyHarp.dsp",
+   "name": "Bouncy Harp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "Do not hesitate to make swift and abrupt gestures.",
+   "description": "Do not hesitate to make swift and abrupt gestures.\n- Head : Silence\n- Swing :  To pluck the strings of the harp.\n- Fishing rod with abrupt stop in Head position : bouncing string effect.\n- Frying Pan and Tennis Racket : to pluck a single bouncing string.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SChromaticSoftHarp.dsp",
+   "name": "Chromatic Soft Harp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "Soft chromatic harp",
+   "description": "- Soft chromatic harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCMajDryHarp.dsp",
+   "name": "CMajDryHarp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "C Major dry harp",
+   "description": "- C Major dry harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance (longer notes)\n- Back = No Resonance (dry notes)\n- Right = Higher frequencies/Fast rhythm\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCMajSoftHarp.dsp",
+   "name": "C Major Soft Harp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "C Major soft harp",
+   "description": "- C Major soft harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SPentatonicDryHarp.dsp",
+   "name": "PentatonicDryHarp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "Pentatonic dry harp",
+   "description": "- Pentatonic dry harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance (longer notes)\n- Back = No Resonance (dry notes)\n- Right = Higher frequencies/Fast rhythm\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SPentatonicSoftHarp.dsp",
+   "name": "Pentatonic Soft Harp",
+   "functions": [],
+   "family": "Harps",
+   "summary": "Reverberated pentatonic soft harp",
+   "description": "- Reverberated pentatonic soft harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SFlute.dsp",
+   "name": "Flute",
+   "functions": [],
+   "family": "Winds",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCMajFlute.dsp",
+   "name": "C Major Flute",
+   "functions": [],
+   "family": "Winds",
+   "summary": "C Major flute",
+   "description": "- C Major flute\n- Rocking = playing all notes from low to high frequencies\n- Left = Silence/Slow rhythm\n- Right = Fast rhythm\n- Front = long notes\n- Back = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SPentatonicFlute.dsp",
+   "name": "Pentatonic Flute",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Pentatonic flute",
+   "description": "- Pentatonic flute\n- Rocking = playing all notes from low to high frequencies\n- Left = Silence/Slow rhythm\n- Right = Fast rhythm\n- Front = long notes\n- Back = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SRandomFlute.dsp",
+   "name": "Random Flute",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Random frequency flute",
+   "description": "- Random frequency flute\n- Left = Slow rhythm/long notes/silence\n- Right = Fast rhythm/short note",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SClarinet.dsp",
+   "name": "Clarinet",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Clarinet responding to vigorous gestures",
+   "description": "- Clarinet responding to vigorous gestures\n- Turn ON clarinet (0=OFF, 1=ON)\n- Head = High frequencies/Silence when hold still\n- Tilt = very soft sound\n- Bottom = Low frequencies\n- Right = Breathy clarinet\n- Fishing rod (vigorous mouvements) :\n==> Downward = to reach lower frequencies\n==> Upward = To 'through' the sound in the air = vanishes, comes back when Tilt\n- Rocking = from full sound to breathy sound\n- Shaking in right position = no.noise impulses",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SBrass.dsp",
+   "name": "Brass",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Brass instrument",
+   "description": "- Brass instrument\n- Turn ON brass (0=OFF, 1=ON)\n- Head = Silence\n- Upward = Higher frequency\n- Downward = Lower frequency",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SBrassMulti.dsp",
+   "name": "Multiple Brass",
+   "functions": [],
+   "family": "Winds",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SPulsaxophone.dsp",
+   "name": "Solo Pulsaxophone",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Pulsing saxophone",
+   "description": "- Pulsing saxophone\n- Head = High frequencies\n- Bottom  = Low frequencies\n- Right = Fast\n- Left = Slow\n- Head to Right, Head to Left = interesting transitions",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SBlowhistleBottle.dsp",
+   "name": "Blowhistle Bottle",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Blow bottles with whistling echo.",
+   "description": "- Blow bottles with whistling echo.\n- Left : silence/dying echo.\n- Front : single blow bottle.\n- Back : maximum whistling echo\n- Bottom : bottle + whistling echo\n- Rocking : changes tone of blow bottle.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCMajBlowBottle.dsp",
+   "name": "C Maj BlowBottle",
+   "functions": [],
+   "family": "Winds",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SPentatonicBlowBottle.dsp",
+   "name": "Pentatonic BlowBottle",
+   "functions": [],
+   "family": "Winds",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SWhistles2.dsp",
+   "name": "Whistles 2",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Triple whistle",
+   "description": "- Triple whistle\n- Head = Silence\n- Rocking/Swing/Fishing Rod = Alternating the different whistles\n- Vary your gestures' speed to increase sound",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SWhistles3.dsp",
+   "name": "Whistles 3",
+   "functions": [],
+   "family": "Winds",
+   "summary": "Triple whistle",
+   "description": "- Triple whistle\n- Head = Silence\n- Rocking/Swing/Fishing Rod = Alternating the different whistles\n- Vary your gestures' speed to increase sound",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/STunedBar.dsp",
+   "name": "Tuned Bars",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Cascading tuned bars",
+   "description": "- Cascading tuned bars\n- Head = Silence\n- Bottom = Chime\n- Left = Low frequencies + slow rhythm\n- Right = High frequencies + fast rhythm\n- Geiger counter = Chime",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/STunedBar3.dsp",
+   "name": "Three Rack Tuned Bars",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Three rack tuned bars",
+   "description": "- Three rack tuned bars\n- Head = Silence/Resonance\n- Tilt = High frequencies\n- Front = High + Medium frequencies\n- Bottom = High + Medium + Low frequencies",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/STunedBar6.dsp",
+   "name": "Tuned Bar",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Six rack tuned bars",
+   "description": "- Six rack tuned bars\n- Head = Silence/Resonance\n- Tilt = High frequencies\n- Front = High + Medium frequencies\n- Bottom = High + Medium + Low frequencies",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SChromaticTunedBars.dsp",
+   "name": "Chromatic Tuned Bars",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Chromatic tuned bars",
+   "description": "- Chromatic tuned bars\n- Left = Low frequencies + slow rhythm/Silence\n- Right = High frequencies + fast rhythm",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCMajTunedBars.dsp",
+   "name": "C Major Tuned Bars",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "C Major tuned bars",
+   "description": "- C Major tuned bars\n- Left = Low frequencies + slow rhythm/Silence\n- Right = High frequencies + fast rhythm",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/STibetanBowl.dsp",
+   "name": "Tibetan Bowl",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Tibetan Bowl",
+   "description": "- Tibetan Bowl\n- Set the frequency manually\n- Fishing rod/Front shaking = Ringing the bowl\n- Right = maximum modulation\n- Rocking = modulating the sound",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/STinkle.dsp",
+   "name": "Tinkle",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Tinkling bowls",
+   "description": "- Tinkling bowls\n- Rocking = Ringing all bowls from low to high frequencies",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SCameleonKeyboard.dsp",
+   "name": "Cameleon Keyboard",
+   "functions": [],
+   "family": "Bars and bowls",
+   "summary": "Multiple envelope keyboard",
+   "description": "- Multiple envelope keyboard\n- Pick an envelope\n- Rocking = striking across the keyboard from low frequencies (Left) to high frequencies (Right)\n- Back + Rotation = long notes\n- Front + Rotation = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SOscillator.dsp",
+   "name": "os.osc",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Simple sine wave oscillator",
+   "description": "- Simple sine wave oscillator\n- Left = low frequencies\n- Right = high frequencies\n- Front = around 300Hz\n- Rocking = from low to high",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SNoise.dsp",
+   "name": "White Noise",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "White no.noise generator",
+   "description": "- White no.noise generator\n- Head = silence\n- Bottom = Maximum volume of the no.noise",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SNoiseS.dsp",
+   "name": "Noises",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "White Noise and Pink Noise generator.",
+   "description": "- White Noise and Pink Noise generator.\n- Head = silence.\n- Fishing rod = Volume variation.\n- Right = silence.\n- Face = pink no.noise.\n- Left = white no.noise.\n- Rocking to switch from one no.noise to another.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SNoiseburst.dsp",
+   "name": "Noiseburst",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SModulation1.dsp",
+   "name": "Modulation 1",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Non Linear Filter Modulators applied to a sinewave",
+   "description": "- Non Linear Filter Modulators applied to a sinewave\n- Head = Silence/Higher Frequencies\n- Bottom = Lower Frequencies\n- Right = No modulation\n- Left = Modulation n°1",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SModulation2.dsp",
+   "name": "Modulation 2",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Non Linear Filter Modulators applied to a sinewave",
+   "description": "- Non Linear Filter Modulators applied to a sinewave\n- Head = Silence/Higher Frequencies\n- Bottom = Lower Frequencies\n- Back = No modulation\n- Front = Modulation n°2",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SModulation3.dsp",
+   "name": "Modulation 3",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Non Linear Filter Modulators applied to a sinewave",
+   "description": "- Non Linear Filter Modulators applied to a sinewave\n- Head = Silence/Higher Frequencies/No modulation\n- Bottom = Lower Frequencies/ Modulation n°3\n- Rocking = Modulating Frequency (low to high)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SModulation4.dsp",
+   "name": "Modulation 2",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Non Linear Filter Modulators applied to a sinewave",
+   "description": "- Non Linear Filter Modulators applied to a sinewave\n- Head = Silence/Higher Frequencies\n- Bottom = Lower Frequencies\n- Right = No modulation\n- Left = Modulation n°4",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SRandomAndHold.dsp",
+   "name": "Random and Hold",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Random frequency generator with hold function",
+   "description": "- Random frequency generator with hold function\n- Head = Hold the last sampled note\n- Swing = Generate random notes\n- Left = Slow rhythm\n- Right = Fast rhythm",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SRandomFrequencyGenerator.dsp",
+   "name": "Random Frequency Generator",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Random Frequency Generator",
+   "description": "- Random Frequency Generator\n- Head = High Frequencies\n- Bottom = Low frequencies\n- Left = Slow rhythm\n- Right = Fast rhythm",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/generators/SBird.dsp",
+   "name": "bird",
+   "functions": [],
+   "family": "Noises and oscillators",
+   "summary": "Bird singing generator.",
+   "description": "- Bird singing generator.\n- Right = maximum speed of whistles.\n- Left = minimum speed/Rare birds, nearly silence.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/AtonalSoftHarp.dsp",
+   "name": "Atonal Soft Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Soft Atonal Harp",
+   "description": "- Soft Atonal Harp\n- Head = High frequencies + Reverberation\n- Bottom = Low frequencies / Silence\n- Swing + Right = Plucking all the strings one by one\n- Left = Slow rhythm / Silence\n- Right = Fast rhythm\n- Front = Short and dry notes\n- Back = Long and bright notes\n- Back + horizontal shaking = vibrato",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/BouncyHarp.dsp",
+   "name": "Bouncy Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Do not hesitate to make swift and abrupt gestures.",
+   "description": "Do not hesitate to make swift and abrupt gestures.\n- Head : Silence/reverb.\n- Swing :  To pluck the strings of the harp.\n- Fishing rod with abrupt stop in Head position : bouncing string effect.\n- Frying Pan and Tennis Racket : to pluck a single bouncing string.\n- LOOPING MODE :\n==> Bottom position/Rotation around Bottom = record loop\n==> Head = listen to loop\n==> Swift mouvements around head = siren/scratched record effect",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/ChromaticSoftHarp.dsp",
+   "name": "Chromatic Soft Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Reverberated soft chromatic harp",
+   "description": "- Reverberated soft chromatic harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/CMajDryHarp.dsp",
+   "name": "CMajDryHarp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Reverberated C Major dry harp",
+   "description": "- Reverberated C Major dry harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance (longer notes)\n- Back = No Resonance (dry notes)\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/CMajSoftHarp.dsp",
+   "name": "C Major Soft Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Reverberated C Major soft harp",
+   "description": "- Reverberated C Major soft harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/PentatonicDryHarp.dsp",
+   "name": "PentatonicDryHarp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Reverberated pentatonic dry harp",
+   "description": "- Reverberated pentatonic dry harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance (longer notes)\n- Back = No Resonance (dry notes)\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/PentatonicSoftHarp.dsp",
+   "name": "Pentatonic Soft Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Reverberated pentatonic soft harp",
+   "description": "- Reverberated pentatonic soft harp\n- Left = Lower frequencies/Silence when still\n- Front = Resonance\n- Back = No resonance\n- Right = Higher frequencies/Fast rhythm\n- Head = Reverberation\n- Rocking = plucking all strings one by one",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/StalactiteHarp.dsp",
+   "name": "Stalactite Harp",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Stalactite harp mimicking the sound of drops of water in a cave",
+   "description": "- Stalactite harp mimicking the sound of drops of water in a cave\n- Head = Reverberation\n- Left = Rare drops\n- Right = Frequent and rapidly falling drops\n- Back = Harp/Silence",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Flute.dsp",
+   "name": "Flute",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/CMajFlute.dsp",
+   "name": "C Major Flute",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "C Major flute",
+   "description": "- C Major flute\n- Rocking = playing all notes from low to high frequencies\n- Left = Silence/Slow rhythm\n- Right = Fast rhythm\n- Head = Reverberation\n- Front = long notes\n- Back = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/PentatonicFlute.dsp",
+   "name": "Pentatonic Flute",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Pentatonic flute",
+   "description": "- Pentatonic flute\n- Rocking = playing all notes from low to high frequencies\n- Left = Silence/Slow rhythm\n- Right = Fast rhythm\n- Head = Reverberation\n- Front = long notes\n- Back = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/RandomFlute.dsp",
+   "name": "Random Flute",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Random frequency flute",
+   "description": "- Random frequency flute\n- Left = Slow rhythm/long notes/silence\n- Right = Fast rhythm/short note\n- Head = Reverberation\n- Back = Echo",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/FlappyFlute.dsp",
+   "name": "Flappy Flute",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Flute turning into a flapping bird",
+   "description": "- Flute turning into a flapping bird\n- Head = Reverberation / High frequencies\n- Tilting and jerking = looking for different sounds around head and back\n- Bottom = Low frequencies\n- Swing (bottom to head) = glissando (nice when followed with Back)\n- Back = Echo\n- Left = Slow rhythm/Silence\n- Right = Flapping bird",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Clarinet.dsp",
+   "name": "Clarinet",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Clarinet responding to vigorous gestures",
+   "description": "- Clarinet responding to vigorous gestures\n- Turn ON the Clarinet\n- Head = High frequencies/Reverberation/Silence when hold still\n- Tilt = very soft sound\n- Bottom = Low frequencies\n- Right = Breathy clarinet\n- Fishing rod (vigorous mouvements) :\n==> Downward = to reach lower frequencies\n==> Upward = To 'through' the sound in the air = vanishes, comes back when Tilt\n- Rocking = from full sound to breathy sound\n- Shaking in right position = no.noise impulses",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Brass.dsp",
+   "name": "Brass",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Brass instrument",
+   "description": "- Brass instrument\n- Head = Reverb/Silence\n- Upward = Higher frequency\n- Downward = Lower frequency",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Meow.dsp",
+   "name": "Meow",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Triple brass mimicking mewing cats",
+   "description": "- Triple brass mimicking mewing cats\n- Left =  silence.\n- Rocking from top Left to Front/Right : one cat mewing\n- Rotation = two cats in turn\n- Back/Front = Tutti",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Pulsaxophone.dsp",
+   "name": "Pulsaxophone",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Pulsing saxophone",
+   "description": "- Pulsing saxophone\n- Head = High frequencies + Reverb\n- Bottom  = Low frequencies\n- Right = Fast\n- Left = Slow\n- Head to Right, Head to Left = interesting transitions",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/BlowhistleBottle.dsp",
+   "name": "Blowhistle Bottles",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Blow bottles with whistling echo.",
+   "description": "- Blow bottles with whistling echo.\n- Left : silence/dying echo.\n- Head : reverberation\n- Front : single blow bottle.\n- Back : maximum whistling echo\n- Bottom : bottle + whistling echo without reverberation\n- Rocking : changes tone of blow bottle.\n- Fishing rod : varying reverberation.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Whistles.dsp",
+   "name": "Whistles",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/TunedBars.dsp",
+   "name": "Tuned Bars",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Cascading tuned bars",
+   "description": "- Cascading tuned bars\n- Head = Reverberation / Silence\n- Bottom = Chime\n- Left = Low frequencies + slow rhythm\n- Right = High frequencies + fast rhythm\n- Reversed Fishing Rod = start at bottom or left or right and go rapidly up to head then down again\n- Left/Bottom/Left = Low pitched chime\n- Right/Bottom/Right = High pitched chime\n- Back/Front/Geiger counter = Chime",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/TibetanBowl.dsp",
+   "name": "Tibetan Bowl",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Tibetan Bowl",
+   "description": "- Tibetan Bowl\n- Set the frequency manually\n- Fishing rod/Front shaking = Ringing the bowl\n- Right = maximum modulation\n- Rocking = modulating the sound\n- Head = Reverb",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/TibetanBowlMulti.dsp",
+   "name": "Tibetan Bowl",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Multiple Tibetan Bowls",
+   "description": "- Multiple Tibetan Bowls\n- Head = Note Still/Reverberation\n- Head + Light circling on the spot/slight rotation = reverberated rolling ball in the bowl\n- Rocking = Ringing all bowls from low to high frequencies\n- Back = Modulation\n- Back + Light circling on the spot/slight rotation = rolling ball in the bowl",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/WoodenKeyboard.dsp",
+   "name": "Wooden Keyboard",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Wooden keyboard",
+   "description": "- Wooden keyboard\n- Head = Echo/Silence\n- Rocking = striking across the keyboard from low frequencies (Left) to high frequencies (Right)\n- Back + Rotation = long notes\n- Front + Rotation = short notes",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Birds.dsp",
+   "name": "bird",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Bird singing generator.",
+   "description": "- Bird singing generator.\n- Head = Reverberation, birds heard from far away.\n- Bottom = Maximum proximity of the birds.\n- Right = maximum speed of whistles.\n- Left = minimum speed, birds rarely heard.",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Modulations.dsp",
+   "name": "Modulations",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Non Linear Filter Modulators applied to a sinewave",
+   "description": "- Non Linear Filter Modulators applied to a sinewave\n- Head = Silence/Revereration/Higher Frequencies\n- Bottom = Modulation n°3 = FM/ Lower Frequencies\n- Rocking = Modulating Frequency (low to high)\n- Front = Modulation n°2\n- Left = Modulation n°0 & n°1\n- Upward = swing from head/bottom/head (a bit like tennis racket) = interesting",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/combined/Seaside.dsp",
+   "name": "Seaside",
+   "functions": [],
+   "family": "Instruments with reverb",
+   "summary": "Pink no.noise filtering which emulates the sound of waves, of the sea",
+   "description": "- Pink no.noise filtering which emulates the sound of waves, of the sea\n- Rocking = waves coming back and forth\n- Head = Slight reverberation",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/LowPassFilter.dsp",
+   "name": "Low Pass Filter",
+   "functions": [],
+   "family": "Filters",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/HighPassFilter.dsp",
+   "name": "High Pass Filter",
+   "functions": [],
+   "family": "Filters",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/BandPassFilter.dsp",
+   "name": "Band Pass Filter",
+   "functions": [],
+   "family": "Filters",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Notch.dsp",
+   "name": "Notch",
+   "functions": [],
+   "family": "Filters",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/PeakEqualizer.dsp",
+   "name": "Peak Equalizer",
+   "functions": [],
+   "family": "Filters",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/CombFilter.dsp",
+   "name": "Comb Filter",
+   "functions": [],
+   "family": "Filters",
+   "summary": "A comb filter creates interferences in a sound",
+   "description": "- A comb filter creates interferences in a sound\n- Rocking = to change the filtering frequency\n- Head = no filter\n- Bottom = maximum filtering",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/WahWah.dsp",
+   "name": "WahWah",
+   "functions": [],
+   "family": "Filters",
+   "summary": "Wahwah effect",
+   "description": "- Wahwah effect\n- Head = no effect\n- Bottom = Maximum wahwah intensity\n- Rocking = varying the Wahwah effect",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Echo.dsp",
+   "name": "Echo",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "Variable de.delay echo",
+   "description": "- Variable de.delay echo\n- Echo Delay = Pick manually which amount of time in seconds must be repeated by the echo\n- Rocking = To vary the intensity of the echo",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Loop.dsp",
+   "name": "Loop",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Freeverb.dsp",
+   "name": "freeverb",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/ZitaReverb.dsp",
+   "name": "EK_Verb2",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "Reverberation",
+   "description": "- Reverberation\n- Head = ON\n- Bottom = OFF",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/InstrReverb.dsp",
+   "name": "InstrReverb",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "Reverberation",
+   "description": "- Reverberation\n- Head = Maximum Reverberation\n- Bottom = No reverberation",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Granulator.dsp",
+   "name": "Granulator",
+   "functions": [],
+   "family": "Echoes and reverbs",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Flanger.dsp",
+   "name": "Flanger",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "Flanger effect",
+   "description": "- Flanger effect\n- Head = No effect\n- Bottom = Maximum Intensity and Amplitude\n- Left = Slow Flanging\n- Right = Maximum Speed",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Phaser.dsp",
+   "name": "Phaser",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "Flanger effect",
+   "description": "- Flanger effect\n- Head = No effect\n- Bottom = Maximum Intensity and Amplitude\n- Left = Slow Flanging\n- Right = Maximum Speed",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/RingModulation.dsp",
+   "name": "Ring Modulation",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "Ring modulation consists in modulating a sound by multiplying it with a sine wave",
+   "description": "- Ring modulation consists in modulating a sound by multiplying it with a sine wave\n- Head = no modulation\n- Downward = modulation, varying the modulating frequency",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/RandomRingModulation.dsp",
+   "name": "Random Ring Modulator",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/VibratoEnvelope.dsp",
+   "name": "Vibrato Envelope",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "Vibrato generator",
+   "description": "- Vibrato generator\n- Head = no vibrato\n- Bottom = Maximum virato intensity\n- Rocking = From slow to fast vibrato",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/RandomVibrato.dsp",
+   "name": "Random Vibrato",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Modulations.dsp",
+   "name": "Modulations",
+   "functions": [],
+   "family": "Modulations",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/Volume.dsp",
+   "name": "Volume",
+   "functions": [],
+   "family": "Level and dynamics",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/SLimiter.dsp",
+   "name": "Limiter",
+   "functions": [],
+   "family": "Level and dynamics",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/effects/ASREnvelope.dsp",
+   "name": "ASR Envelope",
+   "functions": [],
+   "family": "Level and dynamics",
+   "summary": "",
+   "description": "",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/Panner.dsp",
+   "name": "Panner",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "Mono to stereo: 1 input, 2 outputs (left, right)",
+   "description": "- Mono to stereo: 1 input, 2 outputs (left, right)\n- Pan = 0: left only, 0.5: center, 1: right only (constant power)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/QuadPanner.dsp",
+   "name": "Quad Panner",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "1 input spatialized on 4 loudspeakers placed in a circle (4 outputs)",
+   "description": "- 1 input spatialized on 4 loudspeakers placed in a circle (4 outputs)\n- Angle: position on the circle (0 to 1 = one turn), Distance: from the center (0) to the circle (1)\n- Rotation: automatic rotation speed, in turns per second",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/OctoSpat.dsp",
+   "name": "Octo Spat",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "1 input spatialized on 8 loudspeakers placed in a circle (8 outputs)",
+   "description": "- 1 input spatialized on 8 loudspeakers placed in a circle (8 outputs)\n- Angle: position on the circle (0 to 1 = one turn), Distance: from the center (0) to the circle (1)\n- Rotation: automatic rotation speed, in turns per second",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/AmbiEncoder3.dsp",
+   "name": "Ambisonic Encoder 3",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "2D ambisonic encoding, order 3: 1 input, 7 outputs (ambisonic components)",
+   "description": "- 2D ambisonic encoding, order 3: 1 input, 7 outputs (ambisonic components)\n- Angle: direction of the source (0 to 1 = one turn), Rotation: automatic rotation in turns per second\n- To be followed by Ambisonic Decoder 3 (7 inputs)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/AmbiDecoder3.dsp",
+   "name": "Ambisonic Decoder 3",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "2D ambisonic decoding, order 3: 7 inputs (ambisonic components), 8 outputs (loudspeakers in a circle)",
+   "description": "- 2D ambisonic decoding, order 3: 7 inputs (ambisonic components), 8 outputs (loudspeakers in a circle)\n- In-phase optimization, for listeners away from the center\n- Follows Ambisonic Encoder 3; on a stereo output, connect the 8 outputs as a bus (they are mixed down)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/StereoWidth.dsp",
+   "name": "Stereo Width",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "Stereo image width: 2 inputs (left, right), 2 outputs",
+   "description": "- Stereo image width: 2 inputs (left, right), 2 outputs\n- Width = 0: mono, 1: unchanged, 2: wide (side signal doubled)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/Mixer4to2.dsp",
+   "name": "Mixer 4 to 2",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "4 inputs mixed to stereo (2 outputs), with a gain and a pan for each input",
+   "description": "- 4 inputs mixed to stereo (2 outputs), with a gain and a pan for each input",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/MultiDelay4.dsp",
+   "name": "Multi Delay 4",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "4 independent echoes: 4 inputs, 4 outputs",
+   "description": "- 4 independent echoes: 4 inputs, 4 outputs\n- The delay of channel k is Time x k (k = 1 to 4), with a common feedback and dry/wet mix",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/multichannel/OscillatorBank8.dsp",
+   "name": "Oscillator Bank 8",
+   "functions": [],
+   "family": "Spatialization and multichannel",
+   "summary": "8 sine oscillators on 8 outputs: the harmonics 1 to 8 of a fundamental",
+   "description": "- 8 sine oscillators on 8 outputs: the harmonics 1 to 8 of a fundamental\n- Output k plays harmonic k with an amplitude 1/k\n- To spread them in space: connect the outputs to the ports of a spatializer or of the output",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/LFO.dsp",
+   "name": "LFO",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "Low frequency oscillator, output in [-1, 1]: a modulation source",
+   "description": "- Low frequency oscillator, output in [-1, 1]: a modulation source\n- Shape: sine, triangle, square or sawtooth (a menu)\n- Unipolar: the output in [0, 1]; on a widget, its value is then the minimum of the modulation\n- Connect the output to a widget of another module: release the cable on the widget",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/QuadLFO.dsp",
+   "name": "Quad LFO",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "4 sine LFOs in quadrature (phases 0, 90, 180 and 270 degrees), outputs in [-1, 1]",
+   "description": "- 4 sine LFOs in quadrature (phases 0, 90, 180 and 270 degrees), outputs in [-1, 1]\n- Unipolar: the outputs in [0, 1]; on a widget, its value is then the minimum of the modulation\n- To modulate 4 parameters with related motions, e.g. the positions of 4 sources in space",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/Random.dsp",
+   "name": "Random",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "Sample and hold of a noise: a new random value in [-1, 1] at each tick of the clock",
+   "description": "- Sample and hold of a noise: a new random value in [-1, 1] at each tick of the clock\n- Rate: ticks per second; Smooth: glides from a value to the next (0 = steps)\n- Unipolar: the values in [0, 1]; on a widget, its value is then the minimum of the modulation",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/Clock.dsp",
+   "name": "Clock",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "Gate signal: 1 during a fraction of each period, 0 otherwise",
+   "description": "- Gate signal: 1 during a fraction of each period, 0 otherwise\n- Tempo in beats per minute, Length: fraction of the period where the gate is on\n- To trigger envelopes (ADSR) or drive buttons (release the cable on the button)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/ADSR.dsp",
+   "name": "ADSR",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "Envelope generator, unipolar output in [0, 1]",
+   "description": "- Envelope generator, unipolar output in [0, 1]\n- Triggered by its input (a gate: on while above 0, e.g. from Clock) or by its Gate button\n- To shape a level: release the cable on a gain slider set to its minimum",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/modulation/EnvelopeFollower.dsp",
+   "name": "Envelope Follower",
+   "functions": [],
+   "family": "Modulation sources",
+   "summary": "Follows the amplitude of its input: unipolar output in [0, 1] for inputs in [-1, 1]",
+   "description": "- Follows the amplitude of its input: unipolar output in [0, 1] for inputs in [-1, 1]\n- Attack and Release: reaction times; Gain: sensitivity\n- To make a parameter follow the loudness of a sound (e.g. a filter cutoff)",
+   "inlets": [],
+   "outlets": []
+  }
+ ]
+}

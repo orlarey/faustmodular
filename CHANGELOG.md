@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.20.0 (2026-11-02)
+
+- **The library in one view**, as the modular library was: the families, grouped (*Modular*, then *FaustPlayground*,
+  then *My modules*), the modules of the family chosen, the description of the module pointed at. The selector
+  Modular / FaustPlayground and the columns of the FaustPlayground library are gone. The FaustPlayground modules
+  are in eleven families: harps (8), winds (13), bars and bowls (8), noises and oscillators (11), instruments with
+  reverb (26), filters (7), echoes and reverbs (6), modulations (7), level and dynamics (3), spatialization and
+  multichannel (9), modulation sources (6). *My modules* is a family, with its renaming and trash in place. The
+  family chosen is remembered.
+- The catalog (`public/faust-modules/library-catalog.json`, was `modular-catalog.json`) holds all the modules; the
+  FaustPlayground ones are put in their families by a table (`scripts/library-families.mjs`), without changing
+  their code: their hash, and so the status of the modules the documents use, stays. A test checks that every
+  module of the library is in one family exactly.
+- The descriptions leave out their lines of punctuation alone (the ":" of the FaustPlayground comments).
+
 ## 3.19.1 (2026-11-02)
 
 - **Random: the same *Unipolar* checkbox** as the LFOs: its values in [0, 1] instead of [-1, 1] (the slider of

@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { FAUSTPLAYGROUND_FAMILIES } from "./library-families.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "public/faust-modules/library-index.json");
@@ -61,10 +62,11 @@ function pastVersions(p, current) {
     return past;
 }
 
-// The catalog of the modular library (Documentation/MODULAR-LIBRARY.md): its modules and the display
-// modules, with their functions (as ModularGrid names them), family, summary and description, read from
-// their declarations (declare function "...", declare function2 "...", declare summary "...") and from
-// their DESCRIPTION comment.
+// The catalog of the library, shown in one view (a family, its modules, the description of a module): the
+// modular library (Documentation/MODULAR-LIBRARY.md) and the displays, with their functions (as ModularGrid
+// names them), family, summary and description, read from their declarations (declare function "...",
+// declare function2 "...", declare summary "...") and from their DESCRIPTION comment; then the
+// FaustPlayground modules, in the families of library-families.mjs.
 export const FAMILIES = [
     ["Sources", ["Oscillator", "Noise", "Drum", "Voice", "Synth", "Resonator", "Sampling"]],
     ["Timbre", ["Filter", "Low Pass Gate", "Waveshaper", "Distortion", "Fuzz", "Ring Modulator", "Equalizer", "Phase Shifter", "Pitch Shifter"]],
@@ -88,7 +90,8 @@ function declared(code, key) {
 export function catalogEntry(p, code) {
     const functions = [declared(code, "function"), declared(code, "function2")].filter(Boolean);
     if (functions.length == 0 && p.includes("/display/")) functions.push("Display");
-    const description = /={3,}\s*DESCRIPTION\s*={3,}([\s\S]*?)\*\//.exec(code)?.[1].trim().split("\n").map((l) => l.trim()).filter(Boolean).join("\n") ?? "";
+    // the lines of the DESCRIPTION comment, without the empty ones nor those of punctuation alone (":")
+    const description = /={3,}\s*DESCRIPTION\s*={3,}([\s\S]*?)\*\//.exec(code)?.[1].trim().split("\n").map((l) => l.trim()).filter((l) => /[\p{L}\p{N}]/u.test(l)).join("\n") ?? "";
     return {
         path: p,
         name: declared(code, "name") ?? path.basename(p, ".dsp"),
@@ -101,13 +104,19 @@ export function catalogEntry(p, code) {
     };
 }
 
-export function modularCatalog() {
+export function libraryCatalog() {
     const index = JSON.parse(readFileSync(path.join(root, "public/faust-modules/index.json"), "utf8"));
     const paths = [...(index.modular ?? []), ...(index.affichage ?? [])];
+    const entry = (p) => catalogEntry(p, readFileSync(path.join(root, "public", p), "utf8"));
+    const modular = paths.map(entry);
+    const others = FAUSTPLAYGROUND_FAMILIES.flatMap(([family, modules]) => modules.map((p) => ({ ...entry(p), family })));
     return {
-        format: "faustmodular-modular-catalog",
-        families: FAMILIES.map(([name]) => name),
-        modules: paths.map((p) => catalogEntry(p, readFileSync(path.join(root, "public", p), "utf8"))),
+        format: "faustmodular-library-catalog",
+        groups: [
+            { name: "Modular", families: FAMILIES.map(([name]) => name) },
+            { name: "FaustPlayground", families: FAUSTPLAYGROUND_FAMILIES.map(([name]) => name) },
+        ],
+        modules: [...modular, ...others],
     };
 }
 
@@ -128,9 +137,9 @@ function build() {
     for (const hash of Object.values(modules)) delete history[hash];     // shipped again
     const sorted = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
     writeFileSync(output, JSON.stringify({ format: "faustmodular-library-index", version, modules: sorted(modules), history: sorted(history) }, null, 1) + "\n");
-    const catalog = modularCatalog();
-    writeFileSync(path.join(root, "public/faust-modules/modular-catalog.json"), JSON.stringify(catalog, null, 1) + "\n");
-    console.log(`modular catalog: ${catalog.modules.length} modules`);
+    const catalog = libraryCatalog();
+    writeFileSync(path.join(root, "public/faust-modules/library-catalog.json"), JSON.stringify(catalog, null, 1) + "\n");
+    console.log(`library catalog: ${catalog.modules.length} modules`);
     console.log(`${output}: ${Object.keys(modules).length} modules, ${Object.keys(history).length} past versions`);
 }
 
