@@ -358,6 +358,8 @@ export class ModuleClass {
             var input: HTMLInputElement = faustControler.faustInterfaceView.slider;
             // linear or logarithmic ([scale:log]) scale: model/SliderScale.ts
             val = valueAt(faustControler.range ?? sliderRange(faustControler.itemParam), parseFloat(input.value)).toFixed(parseFloat(faustControler.precision));
+        } else if (faustControler.faustInterfaceView.checkbox) {
+            val = faustControler.faustInterfaceView.checkbox.checked ? "1" : "0";
         } else if (faustControler.faustInterfaceView.button) {
             var input: HTMLInputElement = faustControler.faustInterfaceView.button;
             if (faustControler.value == undefined || faustControler.value == "0") {
@@ -377,7 +379,8 @@ export class ModuleClass {
 
         // 	Search for DSP then update the value of its parameter.
         this.moduleFaust.fDSP.setParamValue(text, +val!);
-        if (faustControler.faustInterfaceView.slider) Utilitary.currentScene?.markModified();
+        // a slider or a checkbox is a state of the scene (a button, pressed and released, is not)
+        if (faustControler.faustInterfaceView.slider || faustControler.faustInterfaceView.checkbox) Utilitary.currentScene?.markModified();
     }
     interfaceButtonCallback(faustControler: FaustInterfaceControler, val?: number): any {
 

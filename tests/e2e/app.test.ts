@@ -1313,6 +1313,63 @@ process = vgroup("Demo", hgroup("[0]Oscillator", os.osc(hslider("[0]Freq[unit:Hz
     }, 120_000);
 });
 
+describe("buttons and checkboxes", () => {
+    it("centers a button at half the width (at least 96 px), spaced as the sliders; a checkbox has its label, sets the DSP and is undone", async () => {
+        const { page, errors } = await openApp();
+        const code = `import("stdfaust.lib");
+process = vgroup("Wahoo", os.sawtooth(hslider("[0]freq", 112, 20, 1000, 1)) * hslider("[1]gain", 0.25, 0, 1, 0.01) * en.ar(0.01, 0.3, button("[2]gate"))
+  * (1 - checkbox("[3]mute")) * hslider("[4]volume", 0.6, 0, 1, 0.01));`;
+        const id = await page.evaluate(async (c) => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            await app.compileFaust({ name: "Wahoo", sourceCode: c, x: 200, y: 80, callback: (f: any) => app.createModule(f, "Wahoo", c, 200, 80) });
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId as string;
+        }, code);
+        const container = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, id);
+        const layout = await page.evaluate((c) => {
+            const content = document.querySelector(`${c} .content`)!.getBoundingClientRect();
+            const button = document.querySelector(`${c} input[type=button]`)!.getBoundingClientRect();
+            // the visible gaps: a slider ends with its thumb (radius 8), a widget begins with its text or button
+            const ws = Array.from(document.querySelectorAll(`${c} .widget`));
+            const edges = ws.map((w) => {
+                const b = w.querySelector("input[type=button]"), r = w.querySelector("input[type=range]"), l = w.querySelector(".label");
+                if (b) { const x = b.getBoundingClientRect(); return [x.top, x.bottom]; }
+                const top = l!.getBoundingClientRect().top;
+                if (r) { const x = r.getBoundingClientRect(); return [top, x.top + x.height / 2 + 8]; }
+                return [top, w.getBoundingClientRect().bottom];
+            });
+            return {
+                center: (button.left + button.right) / 2 - (content.left + content.right) / 2,
+                // half the width inside the padding (16 + 16), at least 96 px (a narrow module)
+                widthError: button.width - Math.max(96, (content.width - 32) / 2),
+                gaps: edges.slice(1).map((e, i) => e[0] - edges[i][1]),
+            };
+        }, container);
+        expect(Math.abs(layout.center)).toBeLessThan(1);
+        expect(Math.abs(layout.widthError)).toBeLessThan(1);
+        const sliderGap = layout.gaps[0];                       // freq → gain
+        for (const gap of layout.gaps) expect(Math.abs(gap - sliderGap)).toBeLessThan(2);
+        // the checkbox: labelled, unchecked, sets the DSP, saved and undone
+        expect(await page.locator(`${container} .control-checkbox .label`).textContent()).toBe("mute");
+        const box = page.locator(`${container} input[type=checkbox]`);
+        expect(await box.isChecked()).toBe(false);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        await box.click();
+        const mute = () => page.evaluate((m) => {
+            const module = (globalThis as any).faustPlayground.scene.getModuleById(m);
+            return module.moduleControles.find((c: any) => c.itemParam.label == "mute").value;
+        }, id);
+        expect(await mute()).toBe("1");
+        const saved = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.describePatch().modules.find((x: any) => x.id == m).params, id);
+        expect(Object.entries(saved).find(([k]) => k.endsWith("/mute"))![1]).toBe(1);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await page.waitForFunction((sel) => !(document.querySelector(sel) as HTMLInputElement).checked, `${container} input[type=checkbox]`);
+        expect(await mute()).toBe("0");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("Scope", () => {
     it("shows the waveform or the spectrum (calibrated: a sine of 0.5 at 1 kHz reads -6 dB), its widgets per view, resized by its corner", async () => {
         const { page, errors } = await openApp();

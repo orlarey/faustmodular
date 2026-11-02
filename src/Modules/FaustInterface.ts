@@ -138,7 +138,7 @@ export class FaustInterfaceControler {
                 (adress, value) => { this.setDSPValueCallback(adress, value) }
             );
             controler.itemParam = itemElement;
-            controler.value = "0";
+            controler.value = String(itemElement.init ?? "0");      // its saved value, if any
             this.faustControlers.push(controler)
         }
     }
@@ -186,7 +186,7 @@ export class FaustInterfaceControler {
             } else if (this.faustInterfaceView.type === "button") {
                 return this.faustInterfaceView.addFaustButton(this.itemParam);
             } else if (this.faustInterfaceView.type === "checkbox") {
-                return this.faustInterfaceView.addFaustCheckBox(this.itemParam.init);
+                return this.faustInterfaceView.addFaustCheckBox(this.itemParam);
             }
         }
     }
@@ -222,7 +222,11 @@ export class FaustInterfaceControler {
                     this.interfaceCallback(this)
                 })
             } else if (this.faustInterfaceView.type === "checkbox") {
-
+                this.faustInterfaceView.checkbox.addEventListener("change", (e: Event) => {
+                    e.stopPropagation();
+                    this.interfaceCallback(this);
+                });
+                ["mousedown", "touchstart", "pointerdown"].forEach((type) => this.faustInterfaceView.checkbox.addEventListener(type, (e) => e.stopPropagation()));
             }
         }
     }
@@ -301,6 +305,7 @@ export function setControlerValue(controler: FaustInterfaceControler, value: num
     var view = controler.faustInterfaceView;
     if (view?.slider && controler.range) view.slider.value = String(positionOf(controler.range, value));
     if (view?.output) view.output.textContent = text + " " + (controler.unit ?? "");
+    if (view?.checkbox) view.checkbox.checked = value >= 0.5;
     view?.syncChoice();
     apply(controler.itemParam.address, Number(text));
 }
@@ -312,6 +317,7 @@ export class FaustInterfaceView {
     type: string;
     slider: HTMLInputElement;
     button: HTMLInputElement;
+    checkbox: HTMLInputElement;
     output: HTMLElement;
     group: HTMLElement;
     label: HTMLElement;
@@ -479,36 +485,36 @@ export class FaustInterfaceView {
         this.fChoice.radios?.forEach((r, i) => { r.checked = i == index; });
     }
 
-    addFaustCheckBox(ivalue: string): HTMLInputElement {
+    // A checkbox and its label, on a row as the label and the value of a slider; checked from its value
+    // (saved, or its init).
+    addFaustCheckBox(itemParam: Iitem): HTMLElement {
         var group = document.createElement("div");
-
+        group.className = "control-group control-checkbox";
+        var label: HTMLLabelElement = document.createElement("label");
+        var text = document.createElement("span");
+        text.className = "label";
+        text.textContent = itemParam.label;
+        this.label = text;
         var checkbox: HTMLInputElement = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.checked = false;
-
-        checkbox.id = "mycheckbox";
-
-        var label: HTMLLabelElement = document.createElement('label')
-        label.htmlFor = "mycheckbox";
-        label.appendChild(document.createTextNode(" " + ivalue));
-
-        group.appendChild(checkbox);
+        checkbox.checked = parseFloat(itemParam.init) >= 0.5;
+        this.checkbox = checkbox;
+        label.append(text, checkbox);
         group.appendChild(label);
-
-        return checkbox;
+        this.group = group;
+        return group;
     }
 
+    // A button, centered on its own row, as wide as half the module (Theme.css).
     addFaustButton(itemParam: Iitem): HTMLElement {
-
         var group = document.createElement("div");
-
+        group.className = "control-group control-button";
         var button = document.createElement("input");
         button.type = "button";
         this.button = button;
         this.button.value = itemParam.label;
-
         group.appendChild(button);
-
-        return button;
+        this.group = group;
+        return group;
     }
 }

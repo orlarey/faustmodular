@@ -911,3 +911,42 @@ li.modularFamily.selected {
 .widget.display-off {
 	display: none;
 }
+
+/* Buttons: centered on their own row, half the width of the module, spaced as the other widgets */
+.control-group.control-button {
+	display: block;
+	text-align: center;
+	margin: 2px 0 11px;		/* the visible gaps above and below: those between two sliders (~12px) */
+}
+.control-group.control-button input[type="button"] {
+	width: 50%;
+	min-width: 96px;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* Checkboxes: the label and the box on a row, as the label and the value of a slider */
+.control-group.control-checkbox {
+	display: block;
+	margin: 8px 0 12px;
+}
+.control-group.control-checkbox label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+}
+.control-group.control-checkbox .label {
+	color: var(--fp-text-quiet);
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+.control-group.control-checkbox input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: var(--fp-accent);
+	cursor: pointer;
+}

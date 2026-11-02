@@ -331,8 +331,8 @@ export class Scene {
             var controler = module.moduleControles.find((c) => c.itemParam.address == address);
             if (!controler || parseFloat(controler.value) == value) continue;
             var slider = controler.faustInterfaceView.slider;
-            if (slider) {
-                // the value as it is (with a logarithmic scale, the position is not exact)
+            if (slider || controler.faustInterfaceView.checkbox) {
+                // the value as it is (with a logarithmic scale, the position is not exact); a checkbox shown checked or not
                 setControlerValue(controler, value, (a, v) => module.moduleFaust.getDSP().setParamValue(a, v));
             } else {
                 controler.value = String(value);

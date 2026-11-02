@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.17.1 (2026-11-02)
+
+- **Buttons**: centered on their own row, half the width of the module (at least 96 px), with the same visible
+  gaps above and below as between two sliders (about 12 px; they stuck to the next widget). A button driven
+  by a modulation is now greyed out, as the other driven widgets (it was not wrapped, so the style missed it).
+- **Fix: checkboxes did nothing.** Their label was built but not shown, a click was not listened to, and
+  their value was not set in the DSP. A checkbox now shows its label and box on a row, as a slider its label
+  and value; a click sets the DSP; its value is saved with the document, restored when it is opened, and
+  undone.
+
 ## 3.17.0 (2026-11-02)
 
 - **One Scope module, drawn after faustcode's display**, in place of the Scope and Spectrum modules (the
