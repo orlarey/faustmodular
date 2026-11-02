@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FAUSTPLAYGROUND_FAMILIES } from "./library-families.mjs";
+import { FAUST_LIBRARY_FAMILIES, FAUST_LIBRARY_MODULES } from "./faust-library-modules.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "public/faust-modules/library-index.json");
@@ -66,7 +67,8 @@ function pastVersions(p, current) {
 // modular library (Documentation/MODULAR-LIBRARY.md) and the displays, with their functions (as ModularGrid
 // names them), family, summary and description, read from their declarations (declare function "...",
 // declare function2 "...", declare summary "...") and from their DESCRIPTION comment; then the
-// FaustPlayground modules, in the families of library-families.mjs.
+// FaustPlayground modules, in the families of library-families.mjs; then the modules taken from the Faust
+// libraries (faust-library-modules.mjs).
 export const FAMILIES = [
     ["Sources", ["Oscillator", "Noise", "Drum", "Voice", "Synth", "Resonator", "Sampling"]],
     ["Timbre", ["Filter", "Low Pass Gate", "Waveshaper", "Distortion", "Fuzz", "Ring Modulator", "Equalizer", "Phase Shifter", "Pitch Shifter"]],
@@ -110,13 +112,15 @@ export function libraryCatalog() {
     const entry = (p) => catalogEntry(p, readFileSync(path.join(root, "public", p), "utf8"));
     const modular = paths.map(entry);
     const others = FAUSTPLAYGROUND_FAMILIES.flatMap(([family, modules]) => modules.map((p) => ({ ...entry(p), family })));
+    const faustlib = FAUST_LIBRARY_MODULES.map((m) => ({ ...entry(`faust-modules/faustlib/${m.file}.dsp`), family: m.family }));
     return {
         format: "faustmodular-library-catalog",
         groups: [
             { name: "Modular", families: FAMILIES.map(([name]) => name) },
             { name: "FaustPlayground", families: FAUSTPLAYGROUND_FAMILIES.map(([name]) => name) },
+            { name: "Faust libraries", families: FAUST_LIBRARY_FAMILIES },
         ],
-        modules: [...modular, ...others],
+        modules: [...modular, ...others, ...faustlib],
     };
 }
 

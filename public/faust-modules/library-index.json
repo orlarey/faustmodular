@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.21.0",
+ "version": "3.22.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -55,6 +55,58 @@
   "faust-modules/effects/Volume.dsp": "b5e4ea9b5cb061f3eeb88b5db0f1a51a3bcb3394",
   "faust-modules/effects/WahWah.dsp": "71f7e749763809c4627cf80d6318de721ac8e4a5",
   "faust-modules/effects/ZitaReverb.dsp": "25fa8c7d736316ebb4c4c7cda22d188277ac22d0",
+  "faust-modules/faustlib/Blower.dsp": "8e78d3a9271447d6479e530c2b28cbebf05b1b7d",
+  "faust-modules/faustlib/BrassModel.dsp": "003409855473602fc150e91462e567428e6bc040",
+  "faust-modules/faustlib/ChurchBell.dsp": "b9c9068e6fab75253fe3b0d4c0aecfa9a32491c5",
+  "faust-modules/faustlib/ClarinetModel.dsp": "000cc574c4e7889e88fc0c5d622e0f10b753c2f2",
+  "faust-modules/faustlib/ColoredNoise.dsp": "69a2c8ae1fa7add34955823b852f62ba307a7c10",
+  "faust-modules/faustlib/Compressor.dsp": "6992957c76cfe21e1a5d8daa01e00042237705c1",
+  "faust-modules/faustlib/Crybaby.dsp": "3e3f81b13ee267fe7b157fe3230b227961569cf3",
+  "faust-modules/faustlib/CubicDistortion.dsp": "61f3f56c597a9eff248cf9d2aa3fcb6cd7d07edd",
+  "faust-modules/faustlib/DattorroReverb.dsp": "807e68e7191b00eecacd08bb4d571b887a07d1be",
+  "faust-modules/faustlib/DjembeModel.dsp": "fd5ff1d0c9ff29feaec6c15cb150f170e37f6f04",
+  "faust-modules/faustlib/ElectricGuitarModel.dsp": "c661ed98da750d904646ff0312a8ef41fae173ec",
+  "faust-modules/faustlib/EnglishBell.dsp": "1250c35bb5a0b246659a0d420b46abbb1bd3a410",
+  "faust-modules/faustlib/FilterBank.dsp": "7c0eee0af3258f80f1b0f38e6ef3b8f31f823c83",
+  "faust-modules/faustlib/FlangerStereo.dsp": "753e26ef4a3603ab799724b6b551cfebc8f82a7c",
+  "faust-modules/faustlib/FluteModel.dsp": "4050149730f023cb13cffd20537787ce4ed8e5bc",
+  "faust-modules/faustlib/FormantVoice.dsp": "f886ca7cdee02e849ce395c90ea9a17448eca3b8",
+  "faust-modules/faustlib/FreeverbStereo.dsp": "d88ec9b31be20ad4e6e057474e3bad8a5790d571",
+  "faust-modules/faustlib/FrenchBell.dsp": "5d6fc53ee1de68b3fc9b862b8f0e4389fe4e01ee",
+  "faust-modules/faustlib/GermanBell.dsp": "1d1c0e1c472c0dd0d0ce4553df3273cceacedd96",
+  "faust-modules/faustlib/Greyhole.dsp": "f69554cf4417a9c14349ec6be094749318404881",
+  "faust-modules/faustlib/GuitarModel.dsp": "3b924f840ab7267258787e35eb7c903c76199275",
+  "faust-modules/faustlib/InterpolatedInstrument.dsp": "8a6144d30fd89f1b07c8bfb837bb32902790bda8",
+  "faust-modules/faustlib/JPverb.dsp": "b1b1cb81139803c6fa25e57d153f0b368db1ddbd",
+  "faust-modules/faustlib/KarplusStrong.dsp": "9240ad748593d6e107a616a98197329c58775c8b",
+  "faust-modules/faustlib/KBROMReverb.dsp": "e78bde1fa318bda541c7cc06b1e1c221e9c1be34",
+  "faust-modules/faustlib/MarimbaModel.dsp": "105ac2972f6fe5a535c48fb996e3b932d7f4681c",
+  "faust-modules/faustlib/MoogVCF.dsp": "b4856f7ac7bf2b34db81a042915d3893d68c030d",
+  "faust-modules/faustlib/NoiseGate.dsp": "88c0b0361c1c38dd7b7d67cdb2ac6bec1f7ce488",
+  "faust-modules/faustlib/NylonGuitarModel.dsp": "155dee1dbf10d167dabee1f736370c48122fc3b0",
+  "faust-modules/faustlib/OTT.dsp": "edde3be8e86efa199b9a7527d62c0d6392cd1c12",
+  "faust-modules/faustlib/ParametricEQ.dsp": "3d6144ed1caa2fae2d648c8c4062df4511cdf091",
+  "faust-modules/faustlib/PhaserStereo.dsp": "21391b5ad76d3209410ca34f600fe1afb8c9166b",
+  "faust-modules/faustlib/PinkTrombone.dsp": "54aa8a731523fa177f258969e42812ae86419755",
+  "faust-modules/faustlib/ResonatorOscillator.dsp": "0d0d4847458e6d5b5afa4156189c56c14f25d895",
+  "faust-modules/faustlib/ResonatorOscillatorRS.dsp": "7b10a9ae25d5ccffe1bfc18a5106b87e93238b9d",
+  "faust-modules/faustlib/ReverbTank.dsp": "fe65c4812af5b7acb42d12a0f98cec0f22c9f464",
+  "faust-modules/faustlib/RussianBell.dsp": "1c619d1d084376b9b6554ece651ed80ae30f7259",
+  "faust-modules/faustlib/SawtoothOscillator.dsp": "0f2b914ed5574c5d577e5e46113f4c2d2aedb8cf",
+  "faust-modules/faustlib/SpectralLevel.dsp": "edd6f1a406db6dbc6c9859cbb953a4d8297c38fc",
+  "faust-modules/faustlib/SpringReverb.dsp": "3004da10a2d9ff0c2b0a59a8e5b336566db95bb4",
+  "faust-modules/faustlib/StandardBell.dsp": "9200c92ac8e986800cf38433fe9dcb0942e31d3e",
+  "faust-modules/faustlib/TapeStop.dsp": "dd3521887ebeeae9ca9c020c4f522d6e3067faee",
+  "faust-modules/faustlib/TF2Filter.dsp": "c40b7728e827e16efaca3f38eab35989cb6f687d",
+  "faust-modules/faustlib/Transformer.dsp": "67f7e7b557c131f826769af2a2bca22ef33467c6",
+  "faust-modules/faustlib/TwinOscillator.dsp": "a63ddb6ae268d1057be7efe5c49491547f76567e",
+  "faust-modules/faustlib/VelvetNoise.dsp": "4cf2167579fc6903356e067a5fe5ccb4a8d78155",
+  "faust-modules/faustlib/ViolinModel.dsp": "1940a6b62cbe45de77d34350505f56df3c1503de",
+  "faust-modules/faustlib/VirtualAnalogOscillator.dsp": "b5c94a2c91dd2d956542b19d27504796b81d6192",
+  "faust-modules/faustlib/VitalReverb.dsp": "5bd2027b28821b22a0a35d425bd17f6df01a3775",
+  "faust-modules/faustlib/Vocoder.dsp": "4391761010e0021680ca091516d6498e2f53f0a6",
+  "faust-modules/faustlib/Wah4.dsp": "88c74200fc1cf5f0ed3e103ad7a989cf09913b72",
+  "faust-modules/faustlib/ZitaLight.dsp": "5071b7269ac8d2ae75c85cbfae510ce46fcc3f04",
   "faust-modules/generators/Kisana.dsp": "4ddbdc5804a85bd6e14a27205ed42dbb9090dcee",
   "faust-modules/generators/SAtonalSoftHarp.dsp": "af846fb449b138d4f622d2d9dd891848eb3a6511",
   "faust-modules/generators/SBird.dsp": "edcf2f26c1c23723fd06edea908f2033d5386697",
@@ -106,8 +158,8 @@
   "faust-modules/modular/Sequencer.dsp": "9461db8f918f0395f29c006e3570eeb2e3229938",
   "faust-modules/modular/SineVCO.dsp": "8f22aa96883b8e877786d948acb9cc673cd52ce2",
   "faust-modules/modular/VCA.dsp": "6d840822f0354ec8ed0d2be5324b2c601392a78d",
-  "faust-modules/modular/VCF.dsp": "ed1570f646d39b0a863aa94ae932621e1b37b8df",
-  "faust-modules/modular/VCO.dsp": "e15ad58c6fbd4e9833f9e567e3dde9d0c9114a70",
+  "faust-modules/modular/VCF.dsp": "6d1559ec084022db3d1ee3b7e28383d33ff1a767",
+  "faust-modules/modular/VCO.dsp": "e4524488c80129123a586b9ee447bf254e2c8dfc",
   "faust-modules/modulation/ADSR.dsp": "67a93afa4f049052341c01e0aaa8f737489823bb",
   "faust-modules/modulation/Clock.dsp": "7bae6a0a73332d865e3636f4ca48e5cb0a130464",
   "faust-modules/modulation/EnvelopeFollower.dsp": "7c6f83ee9785e030c4505f7a539275fe65ad211c",
@@ -173,6 +225,14 @@
    "path": "faust-modules/modulation/ADSR.dsp",
    "until": "3.6.0"
   },
+  "4434ca454de509dbf456f9bd7a93f776b59a5682": {
+   "path": "faust-modules/faustlib/InterpolatedInstrument.dsp",
+   "until": "3.21.0"
+  },
+  "4858dd4bca1015848febcc26e7621b033e27b314": {
+   "path": "faust-modules/faustlib/ClarinetModel.dsp",
+   "until": "3.21.0"
+  },
   "4881262edfda27061a9af369187c787cf166c324": {
    "path": "faust-modules/combined/TibetanBowlMulti.dsp",
    "until": "3.6.0"
@@ -180,6 +240,10 @@
   "53d931590fc471582c563be46235c37944d70d7a": {
    "path": "faust-modules/generators/SNoiseS.dsp",
    "until": "3.6.0"
+  },
+  "57f5436a5ced9774c67a91639dc1674b41e84938": {
+   "path": "faust-modules/faustlib/FormantVoice.dsp",
+   "until": "3.21.0"
   },
   "5e58eaeb0ad3de8d61574f3d508ecc4641d0146f": {
    "path": "faust-modules/modular/Offset.dsp",
@@ -209,13 +273,33 @@
    "path": "faust-modules/modular/Noise.dsp",
    "until": "3.8.0"
   },
+  "6948b867de346f98c02cd8815aa45a9d94333ff5": {
+   "path": "faust-modules/faustlib/BrassModel.dsp",
+   "until": "3.21.0"
+  },
+  "6a83541ce2d80bd42a0435bfe643a41496f615a1": {
+   "path": "faust-modules/faustlib/KarplusStrong.dsp",
+   "until": "3.21.0"
+  },
   "6bed6a59d2656c9081b60dcd40eebff36e80819d": {
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
   },
+  "6e5437ef9992be7e74805a2eff0448f40143db3f": {
+   "path": "faust-modules/faustlib/GuitarModel.dsp",
+   "until": "3.21.0"
+  },
+  "72a961d594b48a62b2c8e41b4de8561da5feb1f9": {
+   "path": "faust-modules/faustlib/NylonGuitarModel.dsp",
+   "until": "3.21.0"
+  },
   "7402199d5ea89d7e06ae7da2ff98a56ca10c2e79": {
    "path": "faust-modules/modular/Mixer.dsp",
    "until": "3.8.0"
+  },
+  "81e348f0b3ecf0177eaf2e8b766bbbe52579ee3b": {
+   "path": "faust-modules/faustlib/ViolinModel.dsp",
+   "until": "3.21.0"
   },
   "8594bd8d6f2a14b11b36283fb1757bc8eeb77bb4": {
    "path": "faust-modules/display/Value.dsp",
@@ -261,6 +345,10 @@
    "path": "faust-modules/combined/TibetanBowl.dsp",
    "until": "3.6.0"
   },
+  "bd8f1b57205f569ef0f6cecbef9ff2dcf6e63492": {
+   "path": "faust-modules/faustlib/FluteModel.dsp",
+   "until": "3.21.0"
+  },
   "be48b37cd0eaa5dd69742fc7bddad72b829c31f3": {
    "path": "faust-modules/modular/VCF.dsp",
    "until": "3.7.0"
@@ -285,6 +373,10 @@
    "path": "faust-modules/modular/ADSR.dsp",
    "until": "3.8.0"
   },
+  "e15ad58c6fbd4e9833f9e567e3dde9d0c9114a70": {
+   "path": "faust-modules/modular/VCO.dsp",
+   "until": "3.21.0"
+  },
   "e453b6a62693a062ac565d36c326b99630d28f0d": {
    "path": "faust-modules/modulation/Random.dsp",
    "until": "3.19.1"
@@ -297,9 +389,21 @@
    "path": "faust-modules/effects/Modulations.dsp",
    "until": "3.6.0"
   },
+  "ed1570f646d39b0a863aa94ae932621e1b37b8df": {
+   "path": "faust-modules/modular/VCF.dsp",
+   "until": "3.21.0"
+  },
   "ed6fccef688d28f1efffaa9daf2aab1a1f7019b0": {
    "path": "faust-modules/modulation/ADSR.dsp",
    "until": "3.6.0"
+  },
+  "eef49bf9ef799f682ef354d986ead3c2f25ab0aa": {
+   "path": "faust-modules/faustlib/ElectricGuitarModel.dsp",
+   "until": "3.21.0"
+  },
+  "f48dae84809d72840ec096cd7bd9b7f27554d919": {
+   "path": "faust-modules/faustlib/MarimbaModel.dsp",
+   "until": "3.21.0"
   },
   "f7671b028999a4a8eb09229e20be3939f45e0b62": {
    "path": "faust-modules/display/Scope.dsp",

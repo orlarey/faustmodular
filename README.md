@@ -62,11 +62,20 @@ SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
 
 The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
-modulations, level and dynamics, spatialization and multichannel, modulation sources), then *My modules*; the
+modulations, level and dynamics, spatialization and multichannel, modulation sources), *Faust libraries*
+(reverbs, dynamics, filters and EQ, effects, oscillators and noises, physical models, analysis), then *My modules*; the
 modules of the family chosen; the description of the module pointed at. Double click or drag a module to add
 it. The catalog (`public/faust-modules/library-catalog.json`) is built by `npm run library-index`: the modular
 modules from their declarations, the FaustPlayground ones from the table of `scripts/library-families.mjs`
 (their code, and so their hash, unchanged).
+
+The *Faust libraries* modules (52) are the functions of `demos.lib` and `physmodels.lib` that are complete
+processes with their interface (JPverb, Greyhole, Zita, compressor, Moog VCF, vocoder, flute, violin,
+guitars, bells, Pink Trombone…), generated in `public/faust-modules/faustlib/` by `npm run faustlib-modules`
+from `scripts/faust-library-modules.mjs`. A MIDI instrument gets a *Pitch* slider (0.1 per octave from C4) in
+place of its `freq`: a sequencer plays it as it plays the VCO. Its tuning is that of the model: some are in
+tune only with other settings (the flute overblows, the brass needs its lips tension) or at 48 kHz (the
+guitar model is about 17 cents low at 44.1 kHz).
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

@@ -29,6 +29,18 @@
     "Spatialization and multichannel",
     "Modulation sources"
    ]
+  },
+  {
+   "name": "Faust libraries",
+   "families": [
+    "Lib reverbs",
+    "Lib dynamics",
+    "Lib filters and EQ",
+    "Lib effects",
+    "Lib oscillators",
+    "Lib physical models",
+    "Lib analysis"
+   ]
   }
  ],
  "modules": [
@@ -1321,6 +1333,526 @@
    "family": "Modulation sources",
    "summary": "Follows the amplitude of its input: unipolar output in [0, 1] for inputs in [-1, 1]",
    "description": "- Follows the amplitude of its input: unipolar output in [0, 1] for inputs in [-1, 1]\n- Attack and Release: reaction times; Gain: sensitivity\n- To make a parameter follow the loudness of a sound (e.g. a filter cutoff)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/DattorroReverb.dsp",
+   "name": "Dattorro Reverb",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Reverberator based on the Dattorro reverb topology. This implementation does not use modulated delay lengths (excursion).",
+   "description": "- Reverberator based on the Dattorro reverb topology. This implementation does not use modulated delay lengths (excursion).\n- Example GUI for `dattorro_rev` with all parameters exposed and additional dry/wet and output gain control.\n- From the Faust libraries: dm.dattorro_rev_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FreeverbStereo.dsp",
+   "name": "Freeverb Stereo",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Freeverb demo application.",
+   "description": "- Freeverb demo application.\n- From the Faust libraries: dm.freeverb_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Greyhole.dsp",
+   "name": "Greyhole",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "A complex echo-like effect (stereo in/out), inspired by the classic Eventide effect of a similar name. The effect consists of a diffuser (like a mini-reverb, structurally similar to the one used in `jpverb`) connected in a feedback system with a long, modulated delay-line. Excels at producing spacey washes of sound.",
+   "description": "- A complex echo-like effect (stereo in/out), inspired by the classic Eventide effect of a similar name. The effect consists of a diffuser (like a mini-reverb, structurally similar to the one used in `jpverb`) connected in a feedback system with a long, modulated delay-line. Excels at producing spacey washes of sound.\n- Example GUI for `greyhole` with all parameters exposed.\n- From the Faust libraries: dm.greyhole_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/JPverb.dsp",
+   "name": "JPverb",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Example GUI for `jprev` with all parameters exposed.",
+   "description": "- Example GUI for `jprev` with all parameters exposed.\n- From the Faust libraries: dm.jprev_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/KBROMReverb.dsp",
+   "name": "KB ROM Reverb",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Keith Barr reverb effect rom_rev1 demo application.",
+   "description": "- Keith Barr reverb effect rom_rev1 demo application.\n- From the Faust libraries: dm.kb_rom_rev1_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ReverbTank.dsp",
+   "name": "Reverb Tank",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "This is a stereo reverb following the \"ReverbTank\" example in [1], although some parameter ranges and scaling have been adjusted. It is an unofficial version of the Spin Semiconductor® Reverb. Other relevant instructional material can be found in [2-4].",
+   "description": "- This is a stereo reverb following the \"ReverbTank\" example in [1], although some parameter ranges and scaling have been adjusted. It is an unofficial version of the Spin Semiconductor® Reverb. Other relevant instructional material can be found in [2-4].\n- From the Faust libraries: dm.reverbTank_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/SpringReverb.dsp",
+   "name": "Spring Reverb",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Mono spring-inspired reverb demo using `re.springreverb`.",
+   "description": "- Mono spring-inspired reverb demo using `re.springreverb`.\n- From the Faust libraries: dm.springreverb_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/VitalReverb.dsp",
+   "name": "Vital Reverb",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "A port of the reverb from the Vital synthesizer. All input parameters have been normalized to a continuous [0,1] range, making them easy to modulate. The scaling of the parameters happens inside the function.",
+   "description": "- A port of the reverb from the Vital synthesizer. All input parameters have been normalized to a continuous [0,1] range, making them easy to modulate. The scaling of the parameters happens inside the function.\n- Example GUI for `vital_rev` with all parameters exposed.\n- From the Faust libraries: dm.vital_rev_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ZitaLight.dsp",
+   "name": "Zita Light",
+   "functions": [],
+   "family": "Lib reverbs",
+   "summary": "Light version of `dm.zita_rev1` with only 2 UI elements.",
+   "description": "- Light version of `dm.zita_rev1` with only 2 UI elements.\n- From the Faust libraries: dm.zita_light (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Compressor.dsp",
+   "name": "Compressor",
+   "functions": [],
+   "family": "Lib dynamics",
+   "summary": "Compressor demo application.",
+   "description": "- Compressor demo application.\n- From the Faust libraries: dm.compressor_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/NoiseGate.dsp",
+   "name": "Noise Gate",
+   "functions": [],
+   "family": "Lib dynamics",
+   "summary": "Gate demo application.",
+   "description": "- Gate demo application.\n- From the Faust libraries: dm.gate_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/OTT.dsp",
+   "name": "OTT",
+   "functions": [],
+   "family": "Lib dynamics",
+   "summary": "Demo application for `co.xfer_ott`, the model of Xfer Records' OTT, with the plug-in's controls in its own units and at its defaults: Depth, Time, In/Out Gain and Upward/Downward strength, and per band (Low / Mid / High) Threshold, Gain and the two branch bypasses. Continuous controls are smoothed; Bypass switches the whole effect off for A/B comparison.",
+   "description": "- Demo application for `co.xfer_ott`, the model of Xfer Records' OTT, with the plug-in's controls in its own units and at its defaults: Depth, Time, In/Out Gain and Upward/Downward strength, and per band (Low / Mid / High) Threshold, Gain and the two branch bypasses. Continuous controls are smoothed; Bypass switches the whole effect off for A/B comparison.\n- From the Faust libraries: dm.xfer_ott_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/MoogVCF.dsp",
+   "name": "Moog VCF",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "Illustrate and compare all three Moog VCF implementations above.",
+   "description": "- Illustrate and compare all three Moog VCF implementations above.\n- From the Faust libraries: dm.moog_vcf_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ParametricEQ.dsp",
+   "name": "Parametric EQ",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "A parametric equalizer application.",
+   "description": "- A parametric equalizer application.\n- From the Faust libraries: dm.parametric_eq_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FilterBank.dsp",
+   "name": "Filter Bank",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "A bank of band-pass filters splitting the signal into frequency bands, each with its own gain (a graphic equalizer).",
+   "description": "- A bank of band-pass filters splitting the signal into frequency bands, each with its own gain (a graphic equalizer).\n- From the Faust libraries: dm.filterbank_demo (?)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/TF2Filter.dsp",
+   "name": "TF2 Filter",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "A resonator swept by a sinusoid, realized with `fi.tf2_tpt`. Pink noise (or the input) drives a second-order resonator of unity peak gain whose resonance frequency is modulated by up to 4 octaves either way, at rates up to 2 kHz, with Q from 0.1 to 100. The topology-preserving realization stays stable and accurate under this audio-rate modulation, and runs mirrored above SR/4, so the resonance can reach the Nyquist limit. With the pink-noise source, Level is the output RMS in dBFS: pink noise has the same power in every octave, so a constant-Q band passes about the same power at every frequency, and a table of the measured level versus Q normalizes it (within 1.5 dB from 100 Hz to 15 kHz at 44.1 to 192 kHz, 1 dB for Q >= 1). With the input as source, Level is the gain at the resonance peak.",
+   "description": "- A resonator swept by a sinusoid, realized with `fi.tf2_tpt`. Pink noise (or the input) drives a second-order resonator of unity peak gain whose resonance frequency is modulated by up to 4 octaves either way, at rates up to 2 kHz, with Q from 0.1 to 100. The topology-preserving realization stays stable and accurate under this audio-rate modulation, and runs mirrored above SR/4, so the resonance can reach the Nyquist limit. With the pink-noise source, Level is the output RMS in dBFS: pink noise has the same power in every octave, so a constant-Q band passes about the same power at every frequency, and a table of the measured level versus Q normalizes it (within 1.5 dB from 100 Hz to 15 kHz at 44.1 to 192 kHz, 1 dB for Q >= 1). With the input as source, Level is the gain at the resonance peak.\n- From the Faust libraries: dm.tf2_tpt_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Crybaby.dsp",
+   "name": "Crybaby",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "Crybaby effect application.",
+   "description": "- Crybaby effect application.\n- From the Faust libraries: dm.crybaby_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Wah4.dsp",
+   "name": "Wah4",
+   "functions": [],
+   "family": "Lib filters and EQ",
+   "summary": "Wah pedal application.",
+   "description": "- Wah pedal application.\n- From the Faust libraries: dm.wah4_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FlangerStereo.dsp",
+   "name": "Flanger Stereo",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Flanger effect application.",
+   "description": "- Flanger effect application.\n- From the Faust libraries: dm.flanger_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/PhaserStereo.dsp",
+   "name": "Phaser Stereo",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Phaser effect demo application.",
+   "description": "- Phaser effect demo application.\n- From the Faust libraries: dm.phaser2_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/TapeStop.dsp",
+   "name": "Tape Stop",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Stereo tape-stop effect.",
+   "description": "- Stereo tape-stop effect.\n- From the Faust libraries: dm.tapeStop_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/CubicDistortion.dsp",
+   "name": "Cubic Distortion",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Distortion demo application.",
+   "description": "- Distortion demo application.\n- From the Faust libraries: dm.cubicnl_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Transformer.dsp",
+   "name": "Transformer",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Magnetic transformer saturation demo using Jiles-Atherton hysteresis. Stereo processor with Pre-EQ, J-A hysteresis core, and inverse Post-EQ.",
+   "description": "- Magnetic transformer saturation demo using Jiles-Atherton hysteresis. Stereo processor with Pre-EQ, J-A hysteresis core, and inverse Post-EQ.\n- From the Faust libraries: dm.ja_transformer_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Vocoder.dsp",
+   "name": "Vocoder",
+   "functions": [],
+   "family": "Lib effects",
+   "summary": "Use example of the vocoder function where an impulse train is used as excitation. The vocoder output is duplicated on two outputs.",
+   "description": "- Use example of the vocoder function where an impulse train is used as excitation. The vocoder output is duplicated on two outputs.\n- From the Faust libraries: dm.vocoder_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/VirtualAnalogOscillator.dsp",
+   "name": "Virtual Analog Oscillator",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "Virtual analog oscillator demo application.",
+   "description": "- Virtual analog oscillator demo application.\n- From the Faust libraries: dm.virtual_analog_oscillator_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/SawtoothOscillator.dsp",
+   "name": "Sawtooth Oscillator",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "An application demonstrating the different sawtooth oscillators of Faust.",
+   "description": "- An application demonstrating the different sawtooth oscillators of Faust.\n- From the Faust libraries: dm.sawtooth_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/TwinOscillator.dsp",
+   "name": "Twin Oscillator",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "TwinOsc - virtual analog synthesis with a time-varying comb filter. Based on: \"Virtual Analog Synthesis with a Time-Varying Comb Filter\" D. Lowenfels, AES Convention 115, October 2003.",
+   "description": "- TwinOsc - virtual analog synthesis with a time-varying comb filter. Based on: \"Virtual Analog Synthesis with a Time-Varying Comb Filter\" D. Lowenfels, AES Convention 115, October 2003.\n- From the Faust libraries: dm.twin_osc_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ResonatorOscillator.dsp",
+   "name": "Resonator Oscillator",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "Simple application demoing filter based oscillators.",
+   "description": "- Simple application demoing filter based oscillators.\n- Sine oscillator demo based on 2D vector rotation. Synonym for `oscrs_demo`.\n- From the Faust libraries: dm.oscr_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ResonatorOscillatorRS.dsp",
+   "name": "Resonator Oscillator RS",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "Simple application demoing filter based oscillators.",
+   "description": "- Simple application demoing filter based oscillators.\n- From the Faust libraries: dm.oscrs_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ColoredNoise.dsp",
+   "name": "Colored Noise",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "A coloured noise signal generator.",
+   "description": "- A coloured noise signal generator.\n- From the Faust libraries: dm.colored_noise_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/VelvetNoise.dsp",
+   "name": "Velvet Noise",
+   "functions": [],
+   "family": "Lib oscillators",
+   "summary": "Listen to velvet_noise!",
+   "description": "- Listen to velvet_noise!\n- From the Faust libraries: dm.velvet_noise_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FluteModel.dsp",
+   "name": "Flute Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-controllable flute physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-controllable flute physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.flute_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ClarinetModel.dsp",
+   "name": "Clarinet Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI compliant clarinet physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI compliant clarinet physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.clarinet_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/BrassModel.dsp",
+   "name": "Brass Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-controllable brass instrument physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-controllable brass instrument physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.brass_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ViolinModel.dsp",
+   "name": "Violin Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-enabled violin physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-enabled violin physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.violin_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/GuitarModel.dsp",
+   "name": "Guitar Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-enabled steel strings acoustic guitar physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-enabled steel strings acoustic guitar physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.guitar_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/NylonGuitarModel.dsp",
+   "name": "Nylon Guitar Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-enabled nylon strings acoustic guitar physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-enabled nylon strings acoustic guitar physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.nylonGuitar_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ElectricGuitarModel.dsp",
+   "name": "Electric Guitar Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-enabled electric guitar physical model with built-in UI.",
+   "description": "- Ready-to-use MIDI-enabled electric guitar physical model with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.elecGuitar_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/KarplusStrong.dsp",
+   "name": "Karplus-Strong",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use, MIDI-enabled Karplus-Strong string with buil-in UI.",
+   "description": "- Ready-to-use, MIDI-enabled Karplus-Strong string with buil-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.ks_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/MarimbaModel.dsp",
+   "name": "Marimba Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Generic marimba tone bar modal model. This model was generated using `mesh2faust` from a 3D CAD model of a marimba tone bar (`libraries/modalmodels/marimbaBar`). The corresponding CAD model is that of a C2 tone bar (original fundamental frequency: ~65Hz). While `marimbaBarModel` allows to translate the harmonic content of the generated sound by providing a frequency (`freq`), mode transposition has limits and the model will sound less and less like a marimba tone bar as it diverges from C2. To make an accurate model of a marimba, we'd want to have an independent model for each bar... This model contains 5 excitation positions going linearly from the center bottom to the center top of the bar. Obviously, a model with more excitation position could be regenerated using `mesh2faust`.",
+   "description": "- Generic marimba tone bar modal model. This model was generated using `mesh2faust` from a 3D CAD model of a marimba tone bar (`libraries/modalmodels/marimbaBar`). The corresponding CAD model is that of a C2 tone bar (original fundamental frequency: ~65Hz). While `marimbaBarModel` allows to translate the harmonic content of the generated sound by providing a frequency (`freq`), mode transposition has limits and the model will sound less and less like a marimba tone bar as it diverges from C2. To make an accurate model of a marimba, we'd want to have an independent model for each bar... This model contains 5 excitation positions going linearly from the center bottom to the center top of the bar. Obviously, a model with more excitation position could be regenerated using `mesh2faust`.\n- Simple MIDI controllable marimba physical model with built-in UI implementing a single tone bar connected to tube. This model is scalable and can be adapted to any size of bar/tube (see [`marimbaBarModel`](#marimbabarmodel) to know more about the limitations of this type of system).\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.marimba_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/DjembeModel.dsp",
+   "name": "Djembe Model",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Simple MIDI controllable djembe physical model with built-in UI.",
+   "description": "- Simple MIDI controllable djembe physical model with built-in UI.\n- From the Faust libraries: pm.djembe_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/InterpolatedInstrument.dsp",
+   "name": "Interpolated Instrument",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Modular string instrument resonator based on IR measurements made on 3D printed models. The 2D space allowing for the control of the shape and the scale of the model is enabled by interpolating between modes parameters. More information about this technique/project can be found here: <https://ccrma.stanford.edu/~rmichon/3dPrintingModeling/>.",
+   "description": "- Modular string instrument resonator based on IR measurements made on 3D printed models. The 2D space allowing for the control of the shape and the scale of the model is enabled by interpolating between modes parameters. More information about this technique/project can be found here: <https://ccrma.stanford.edu/~rmichon/3dPrintingModeling/>.\n- Ready-to-use MIDI-enabled string instrument with a modular body (see [`modeInterpRes`](#pm.modeinterpres) and <https://ccrma.stanford.edu/~rmichon/3dPrintingModeling/>) with built-in UI.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.modularInterpInstr_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FormantVoice.dsp",
+   "name": "Formant Voice",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Ready-to-use MIDI-controllable source-filter vocal synthesizer.",
+   "description": "- Ready-to-use MIDI-controllable source-filter vocal synthesizer.\n- Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note\n- From the Faust libraries: pm.SFFormantModelBP_ui_MIDI (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/ChurchBell.dsp",
+   "name": "Church Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Generic church bell modal model. Modeled after T. Rossing and R. Perrin, Vibrations of Bells, Applied Acoustics 2, 1987. Model height is 301 mm. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- Generic church bell modal model. Modeled after T. Rossing and R. Perrin, Vibrations of Bells, Applied Acoustics 2, 1987. Model height is 301 mm. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- Church bell physical model based on [`churchBell`](#pmchurchbell) with built-in UI.\n- From the Faust libraries: pm.churchBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/EnglishBell.dsp",
+   "name": "English Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "English church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- English church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- English church bell physical model based on [`englishBell`](#pmenglishbell) with built-in UI.\n- From the Faust libraries: pm.englishBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/FrenchBell.dsp",
+   "name": "French Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "French church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- French church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- French church bell physical model based on [`frenchBell`](#pmfrenchbell) with built-in UI.\n- From the Faust libraries: pm.frenchBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/GermanBell.dsp",
+   "name": "German Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "German church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- German church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 1 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- German church bell physical model based on [`germanBell`](#pmgermanbell) with built-in UI.\n- From the Faust libraries: pm.germanBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/RussianBell.dsp",
+   "name": "Russian Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Russian church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 2 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- Russian church bell modal model. Modeled after D.Bartocha and Baron, Influence of Tin Bronze Melting and Pouring Parameters on Its Properties and Bell' Tone, Archives of Foundry Engineering, 2016. Model height is 2 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- Russian church bell physical model based on [`russianBell`](#pmrussianbell) with built-in UI.\n- From the Faust libraries: pm.russianBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/StandardBell.dsp",
+   "name": "Standard Bell",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Standard church bell modal model. Modeled after T. Rossing and R. Perrin, Vibrations of Bells, Applied Acoustics 2, 1987. Model height is 1.8 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.",
+   "description": "- Standard church bell modal model. Modeled after T. Rossing and R. Perrin, Vibrations of Bells, Applied Acoustics 2, 1987. Model height is 1.8 m. This model contains 7 excitation positions going linearly from the bottom to the top of the bell. Obviously, a model with more excitation position could be regenerated using `mesh2faust`. This function also implements a virtual exciter to drive the model.\n- Standard church bell physical model based on [`standardBell`](#pmstandardbell) with built-in UI.\n- From the Faust libraries: pm.standardBell_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/PinkTrombone.dsp",
+   "name": "Pink Trombone",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "Neil Thapen's Pink Trombone vocal-tract synthesiser (see `pinktrombone.lib`) with its original controls: voicebox (pitch, tenseness, always voice, pitch wobble), tract (tongue index/diameter, nasal) and two independent constrictions (index, diameter, active). As in the original, \"always voice\" is on by default, so the demo speaks on start-up.",
+   "description": "- Neil Thapen's Pink Trombone vocal-tract synthesiser (see `pinktrombone.lib`) with its original controls: voicebox (pitch, tenseness, always voice, pitch wobble), tract (tongue index/diameter, nasal) and two independent constrictions (index, diameter, active). As in the original, \"always voice\" is on by default, so the demo speaks on start-up.\n- From the Faust libraries: dm.pink_trombone_demo (demos.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/Blower.dsp",
+   "name": "Blower",
+   "functions": [],
+   "family": "Lib physical models",
+   "summary": "A virtual blower creating a DC signal with some breath noise in it.",
+   "description": "- A virtual blower creating a DC signal with some breath noise in it.\n- Same as [`blower`](#blower) but with a built-in UI.\n- From the Faust libraries: pm.blower_ui (physmodels.lib)",
+   "inlets": [],
+   "outlets": []
+  },
+  {
+   "path": "faust-modules/faustlib/SpectralLevel.dsp",
+   "name": "Spectral Level",
+   "functions": [],
+   "family": "Lib analysis",
+   "summary": "Spectral level display, 2/3 octave. Synonym for `mth_octave_spectral_level_demo(1.5)`.",
+   "description": "- Spectral level display, 2/3 octave. Synonym for `mth_octave_spectral_level_demo(1.5)`.\n- From the Faust libraries: dm.spectral_level_demo (demos.lib)",
    "inlets": [],
    "outlets": []
   }

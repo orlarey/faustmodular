@@ -26,5 +26,5 @@ with {
 
 mode = hslider("[0]Mode[style:menu{'low pass':0;'band pass':1;'high pass':2}]", 0, 0, 2, 1);
 cutoff = hslider("[1]Cutoff[unit:Hz][scale:log]", 1000, 20, 20000, 1);
-pitch = hslider("[2]Pitch[unit:pitch]", 0, -1, 1, 0.001);
+pitch = hslider("[2]Pitch[unit:pitch]", 0, -1, 1, 0.0001);
 resonance = hslider("[3]Resonance", 0.2, 0, 1, 0.01);

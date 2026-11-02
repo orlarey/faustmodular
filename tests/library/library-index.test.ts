@@ -32,7 +32,7 @@ describe("library index", () => {
     it("has an up to date catalog of the library: every module in one family of its groups", () => {
         const catalog = JSON.parse(readFileSync(path.join(root, "public/faust-modules/library-catalog.json"), "utf8"));
         expect(catalog).toEqual(libraryCatalog());
-        expect(catalog.groups.map((g: any) => g.name)).toEqual(["Modular", "FaustPlayground"]);
+        expect(catalog.groups.map((g: any) => g.name)).toEqual(["Modular", "FaustPlayground", "Faust libraries"]);
         const families = new Set(catalog.groups.flatMap((g: any) => g.families));
         expect(families.size).toBe(catalog.groups.reduce((n: number, g: any) => n + g.families.length, 0));      // no family twice
         // every module of the library (index.json) once, in a family of the catalog

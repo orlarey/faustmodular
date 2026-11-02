@@ -190,7 +190,7 @@ export class Library {
             li.textContent = text;
             list.appendChild(li);
         };
-        var groupLabels: Record<string, string> = { Modular: t.libraryModular, FaustPlayground: t.libraryClassic };
+        var groupLabels: Record<string, string> = { Modular: t.libraryModular, FaustPlayground: t.libraryClassic, "Faust libraries": t.libraryFaust };
         for (var group of catalog.groups) {
             heading(groupLabels[group.name] ?? group.name);
             for (var family of group.families) {

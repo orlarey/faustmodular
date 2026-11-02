@@ -21,7 +21,7 @@ with {
     f = 261.6256 * pow(2, 10 * p) : max(0.1) : min(20000);
 };
 
-pitch = hslider("[0]Pitch[unit:pitch]", 0, -1, 1, 0.001);
+pitch = hslider("[0]Pitch[unit:pitch]", 0, -1, 1, 0.0001);
 octave = hslider("[1]Octave", 0, -4, 4, 1);
 tune = hslider("[2]Tune[unit:st]", 0, -12, 12, 0.01);
 fm = hslider("[3]FM[unit:oct]", 0, -4, 4, 0.01);

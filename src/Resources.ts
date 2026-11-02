@@ -49,6 +49,7 @@ export class Resources {
     redo: string;
     libraryModular: string;
     libraryClassic: string;
+    libraryFaust: string;
     titleFamilies: string;
     titleModules: string;
     titleDescription: string;

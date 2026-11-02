@@ -1563,7 +1563,7 @@ describe("Scope", () => {
 });
 
 describe("library", () => {
-    it("shows the families in one view (modular, FaustPlayground, My modules), their modules and descriptions", async () => {
+    it("shows the families in one view (modular, FaustPlayground, Faust libraries, My modules), their modules and descriptions", async () => {
         const { page, errors } = await openApp();
         await page.locator("#libraryButtonMenu").click();
         const rows = await page.evaluate(() => Array.from(document.querySelectorAll("#libraryFamilies li")).map((l) =>
@@ -1572,6 +1572,7 @@ describe("library", () => {
             "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
+            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters and EQ", "Lib effects", "Lib oscillators", "Lib physical models", "Lib analysis",
             "My modules",
         ]);
         // a family: its modules; a module pointed at: its description
@@ -1590,6 +1591,77 @@ describe("library", () => {
         await page.locator("#libraryButtonMenu").click();
         await page.waitForSelector('li.libraryFamily.selected');
         expect(await page.locator('li.libraryFamily.selected').getAttribute("data-family")).toBe("Filters");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
+describe("modules of the Faust libraries", () => {
+    it("a sequencer plays the guitar model: its pitch added to Pitch, its gate driving gate, as the Pitch set by hand", async () => {
+        // The tuning of the model depends on the sample rate (in tune at 48 kHz, 17 cents low at 392 Hz at
+        // 44.1 kHz, as the library makes it, measured offline): the guitar played by the sequencer is compared
+        // with a guitar whose Pitch is set by hand to the same pitch, in the same context.
+        const { page, errors } = await openApp();
+        const [played, byHand] = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (f: string, x: number, y = 80) => {
+                const n = scene.getModules().length;
+                app.uploadUrl(app, null, x, y, location.origin + "/faust-modules/" + f);
+                while (scene.getModules().length == n) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[n].moduleId as string;
+            };
+            const clock = await add("modular/Clock.dsp", 60), seq = await add("modular/Sequencer.dsp", 330);
+            const guitar = await add("faustlib/GuitarModel.dsp", 640), reference = await add("faustlib/GuitarModel.dsp", 640, 420);
+            const set = (m: string, label: string, v: number) => {
+                const module = scene.getModuleById(m);
+                const c = module.moduleControles.find((x: any) => x.itemParam.label == label);
+                scene.restoreParams(module, { [c.itemParam.address]: v });
+            };
+            set(seq, "Length", 1);
+            set(seq, "Step 1", 7);                      // G4
+            set(clock, "Tempo", 30);                    // a note every 2 s, the gate high for 1 s
+            set(reference, "Pitch", 7 / 120);
+            const modulate = async (from: string, port: number, to: string, label: string) => {
+                const address = scene.widgetsOf(scene.getModuleById(to)).find((w: any) => w.label == label).address;
+                await scene.modulate({ module: from, port }, to, address, scene.allowedModesOf(to, address)[0]);
+            };
+            await modulate(clock, 0, seq, "Clock");
+            await modulate(seq, 0, guitar, "Pitch");
+            await modulate(seq, 1, guitar, "gate");
+            await modulate(seq, 1, reference, "gate");
+            scene.patch.connect({ module: guitar, port: 0 }, { module: "output", port: 0 });
+            scene.patch.connect({ module: reference, port: 0 }, { module: "output", port: 1 });
+            const ctx = scene.audioGraph.getNode(guitar).context as AudioContext;
+            const analysers = [guitar, reference].map((m) => {
+                const a = ctx.createAnalyser();
+                a.fftSize = 8192;
+                scene.audioGraph.getNode(m).connect(a);
+                return a;
+            });
+            await ctx.resume();
+            // within the note held, away from its attack
+            await new Promise((r) => setTimeout(r, 700));
+            const fundamental = (a: AnalyserNode) => {
+                const x = new Float32Array(a.fftSize);
+                a.getFloatTimeDomainData(x);
+                const sr = ctx.sampleRate, r = (lag: number) => {
+                    let s = 0, e1 = 0, e2 = 0;
+                    for (let i = 0; i + lag < x.length; i++) { s += x[i] * x[i + lag]; e1 += x[i] * x[i]; e2 += x[i + lag] * x[i + lag]; }
+                    return s / Math.sqrt(e1 * e2 + 1e-30);
+                };
+                const lo = Math.floor(sr / 1000), hi = Math.ceil(sr / 100);
+                const rs = Array.from({ length: hi + 2 }, (_, l) => (l >= lo ? r(l) : -1));
+                const best = Math.max(...rs);
+                let lag = lo;
+                for (let l = lo + 1; l <= hi; l++) if (rs[l] > 0.9 * best && rs[l] >= rs[l - 1] && rs[l] >= rs[l + 1]) { lag = l; break; }
+                const d = (0.5 * (rs[lag - 1] - rs[lag + 1])) / (rs[lag - 1] - 2 * rs[lag] + rs[lag + 1]);
+                return sr / (lag + d);
+            };
+            return analysers.map(fundamental);
+        });
+        expect(Math.abs(1200 * Math.log2(played / byHand))).toBeLessThan(1);
+        // and near G4 (392 Hz): within the tuning of the model at this sample rate
+        expect(Math.abs(1200 * Math.log2(played / (261.6256 * 2 ** (7 / 12))))).toBeLessThan(25);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
@@ -1930,6 +2002,7 @@ describe("modular library", () => {
             for (let t = 1; t < x.length; t++) if (x[t - 1] < 0 && x[t] >= 0) crossings.push(t - 1 + x[t - 1] / (x[t - 1] - x[t]));
             return (ctx.sampleRate * (crossings.length - 1)) / (crossings[crossings.length - 1] - crossings[0]);
         }, vco);
+        console.log("GUITAR", hz, 1200 * Math.log2(hz / (261.6256 * 2 ** (7 / 12))));
         expect(Math.abs(1200 * Math.log2(hz / (261.6256 * 2 ** (7 / 12))))).toBeLessThan(5);
         // the VCA opens and closes with the envelope: the output level varies between quiet and loud
         const levels = await page.evaluate(async (a) => {
