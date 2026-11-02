@@ -716,6 +716,62 @@ describe("widget modulation (interface)", () => {
         await page.close();
     }, 120_000);
 
+    it("sets the deviation of a ~ port and the amount of a + port by dragging them, back to 1 by double click", async () => {
+        const { page, errors } = await openApp();
+        const half = await addModule(page, "Half", 'process = vgroup("Half", 0.5);', 150);
+        // f·(1 + D·0.5) and p + A·0.5
+        const lin = await addModule(page, "Lin", 'process = vgroup("Lin", hslider("f[mod:lin]", 100, 1, 1000, 1));', 500);
+        const add = await addModule(page, "Add", 'process = vgroup("Add", hslider("p[unit:pitch]", 0.1, -1, 1, 0.001));', 850);
+        const output = (m: string) => page.evaluate(async (m) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(m);
+            await node.context.resume();
+            const analyser = node.context.createAnalyser();
+            node.connect(analyser);
+            await new Promise((r) => setTimeout(r, 500));
+            const buffer = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(buffer);
+            node.disconnect(analyser);
+            return buffer[buffer.length - 1];
+        }, m);
+        const modulate = (to: string, label: string) => page.evaluate(async ([f, o, l]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            const address = s.widgetsOf(s.getModuleById(o)).find((w: any) => w.label == l).address;
+            return s.modulate({ module: f, port: 0 }, o, address, s.allowedModesOf(o, address)[0]);
+        }, [half, to, label]);
+        const drag = async (sel: string, dy: number) => {
+            const p = await centerOf(page, sel);
+            await page.mouse.move(p.x, p.y);
+            await page.mouse.down();
+            await page.mouse.move(p.x, p.y + dy, { steps: 10 });
+            await page.mouse.up();
+        };
+        expect(await modulate(lin, "f")).toBe(true);
+        expect(await modulate(add, "p")).toBe(true);
+        const linSel = `.modulation-port.modulation-linear[data-module="${lin}"]`;
+        const addSel = `.modulation-port.modulation-add[data-module="${add}"]`;
+        await page.waitForSelector(linSel);
+        await page.waitForSelector(addSel);
+        expect(await page.getAttribute(linSel, "data-depth")).toBe("1.000");
+        expect(await page.getAttribute(addSel, "data-depth")).toBe("1.000");
+        expect(await output(lin)).toBeCloseTo(150, 2);
+        expect(await output(add)).toBeCloseTo(0.6, 3);
+        // ~: 0.1 per pixel (a range of ±10), 50 px up: D = 6, 100·(1 + 3) = 400
+        await drag(linSel, -50);
+        expect(await page.getAttribute(linSel, "data-depth")).toBe("6.000");
+        expect(await output(lin)).toBeCloseTo(400, 1);
+        // +: 0.01 per pixel, 40 px down: A = 0.6, 0.1 + 0.3 = 0.4
+        await drag(addSel, 40);
+        expect(await page.getAttribute(addSel, "data-depth")).toBe("0.600");
+        expect(await output(add)).toBeCloseTo(0.4, 3);
+        expect((await state(page)).connections).toHaveLength(2);            // no cable drawn from the ports
+        await page.dblclick(linSel);
+        await page.dblclick(addSel);
+        expect(await page.getAttribute(linSel, "data-depth")).toBe("1.000");
+        expect(await page.getAttribute(addSel, "data-depth")).toBe("1.000");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("sets the depth by dragging the ± port, live, back to 0.5 by double click, and remembers it", async () => {
         const { page, errors } = await openApp();
         // constant source 0.5 modulating a level of 0.5 over [0, 1]: output 0.5 + D·0.5·0.5

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.12.1 (2026-11-02)
+
+- **Fix: the deviation of a ~ port (linear FM) and the amount of a + port (pitch) could not be set.** The
+  vertical drag was only taken on the ports of ± modulations, while the cursor and the tooltip of the
+  ~ and + ports offered it. It is now taken on every port whose mode has a depth (±, +, ~).
+
 ## 3.12.0 (2026-11-02)
 
 - **Crossfade when the DSP of a module is replaced**, as in Faust Live: new code, a modulation added or

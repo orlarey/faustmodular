@@ -346,7 +346,8 @@ export class PatchView {
         state.modulations.forEach((modulation, i) => {
             const mode = modulation.spec.mode;
             const port = document.createElement("div");
-            port.className = `port port-input modulation-port modulation-${mode}`;
+            // has-depth: its depth (±, +, ~) is set by a vertical drag on the port
+            port.className = `port port-input modulation-port modulation-${mode}` + (hasDepth(mode) ? " has-depth" : "");
             port.draggable = false;
             port.dataset.module = id;
             port.dataset.dir = "in";
@@ -459,7 +460,7 @@ export class PatchView {
         if (e.pointerType == "mouse" && e.button != 0) return;
         const target = e.target as HTMLElement;
         const port = target.closest(".port") as HTMLElement | null;
-        if (port && port.dataset.module == module.moduleId && port.classList.contains("modulation-modulate")) {
+        if (port && port.dataset.module == module.moduleId && port.classList.contains("has-depth")) {
             this.startDepthDrag(e, module, port);
         } else if (port && port.dataset.module == module.moduleId) {
             this.startCableDrag(e, module, port);
