@@ -29,6 +29,11 @@ channels.
   settings and modulations, the connections between them, and the cables coming from other modules
   (audio inputs, modulation sources), so that a copy is fed as its original; not the cables going out.
   Ctrl/Cmd-Shift-D leaves out the cables coming from outside. The copies become the selection.
+- Right-click a module for the commands on the selection (the module alone if it is not part of it):
+  copy, cut, paste, duplicate, duplicate without the incoming cables, unplug (remove all its cables),
+  minimize or expand, delete; right-click the empty stage to paste there or select all. Shortcuts:
+  Ctrl/Cmd-C, X, V (at the pointer), D, A, and Delete. Copied modules are a patch file in the clipboard,
+  with the connections between them: they can be pasted in another document or another tab.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),

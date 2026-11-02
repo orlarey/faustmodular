@@ -65,6 +65,16 @@ export class Resources {
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;
     moduleDuplicate: string;
+    menuCopy: string;
+    menuCut: string;
+    menuPaste: string;
+    menuDuplicate: string;
+    menuDuplicateAlone: string;
+    menuUnplug: string;
+    menuMinimize: string;
+    menuExpand: string;
+    menuDelete: string;
+    menuSelectAll: string;
     moduleUpdateFailed: string;
     titleUserModules: string;
     userModulesEmpty: string;

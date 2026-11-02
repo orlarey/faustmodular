@@ -147,6 +147,15 @@ export class PatchView {
         return Array.from(this.fSelection);
     }
 
+    // The module whose container holds this element (a Faust module, or the physical input or output).
+    moduleOf(element: Element | null): ModuleId | undefined {
+        for (let e = element; e; e = e.parentElement) {
+            const id = this.fContainers.get(e as HTMLElement);
+            if (id !== undefined) return id;
+        }
+        return undefined;
+    }
+
     select(ids: Iterable<ModuleId>): void {
         const next = new Set(ids);
         this.fContainers.forEach((id, container) => container.classList.toggle("selected", next.has(id)));

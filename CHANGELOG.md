@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.14.0 (2026-11-02)
+
+- **A context menu on the modules**: a right click acts on the selection (the module alone if it is not
+  part of it): copy, cut, paste, duplicate, duplicate without the incoming cables, **unplug** (remove all the
+  cables of the modules, audio and modulation: their modulations go with their sources), minimize or
+  expand, delete. On the physical input or output, unplug only. On the empty stage: paste there, select all.
+- **Copy, cut and paste**: Ctrl/Cmd-C, X, V, and from the menu. The copied modules keep their code, settings
+  and modulations, with the connections between them (not those to other modules: a modulation whose source
+  was not copied is left out). They are put in the system clipboard as a patch file, so that they can be
+  pasted in another document or another tab; pasted at the pointer (Ctrl/Cmd-V) or where the stage was
+  right-clicked, they become the selection. One undo removes a paste.
+- **Shortcuts**: Ctrl/Cmd-A selects all the modules, Delete (or Backspace) deletes the selection.
+
 ## 3.13.0 (2026-11-02)
 
 - **Duplicate modules**: ⧉ in the title bar of a module (the selection, if the module is part of it), or

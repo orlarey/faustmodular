@@ -21,6 +21,7 @@ import { ModuleClass } from "../Modules/ModuleClass";
 import { setControlerValue } from "../Modules/FaustInterface";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
+import { MenuItem, shortcut, showContextMenu } from "../view/ContextMenu";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
 import { rewrapModuleCode, unwrapModuleCode, userCode, userError } from "../model/ModuleCode";
 import { History } from "./History";
@@ -132,6 +133,7 @@ export class Scene {
         });
         // selection rectangle on the empty stage, undo and redo
         this.patchView.attachStage(this.sceneView.fSceneContainer);
+        this.attachCommands(this.sceneView.fSceneContainer);
         // zoom (Ctrl/Cmd + wheel, pinch) around the pointer; the wheel alone moves the stage
         this.sceneView.fSceneContainer.addEventListener("wheel", (e) => {
             var target = e.target as HTMLElement;
@@ -778,7 +780,7 @@ export class Scene {
     // operations of several steps (a duplication): a history step waits for them, so that they make one
     private fOperations = new Set<Promise<unknown>>();
 
-    /*********************** DUPLICATION ***************************/
+    /*********************** DUPLICATION, CLIPBOARD ***************************/
     // Offset of the copies from the originals (stage px).
     static DUPLICATE_OFFSET = 40;
 
@@ -789,52 +791,259 @@ export class Scene {
     // The outputs to other modules are not: the copy would double their signal. A modulation left
     // without any source is not duplicated. Undone in one step.
     duplicateModules(ids: ModuleId[], withInputs: boolean = true): Promise<ModuleId[]> {
-        var task = this.duplicate(ids, withInputs);
+        return this.operation(async () => {
+            var fragment = await this.fragment(ids, withInputs);
+            return fragment ? this.insertFragment(fragment, Scene.DUPLICATE_OFFSET, Scene.DUPLICATE_OFFSET) : [];
+        });
+    }
+
+    // An operation of several steps (duplication, paste, deletion): a history step waits for it, so
+    // that it makes one.
+    private operation<T>(run: () => Promise<T>): Promise<T> {
+        var task = run();
         this.fOperations.add(task);
         var done = () => { this.fOperations.delete(task); };
         task.then(done, done);
         return task;
     }
 
-    private async duplicate(ids: ModuleId[], withInputs: boolean): Promise<ModuleId[]> {
-        var chosen = new Set(ids.filter((id) => this.patch.getModule(id)?.kind == "faust"));
-        if (chosen.size == 0) return [];
+    // The Faust modules among `ids` as a patch file: their code, settings and modulations, the
+    // connections between them and, with `withInputs`, those coming from other modules (whose ids are
+    // then those of this scene). A modulation left without any source is left out, and the modulation
+    // ports are numbered anew in the connections.
+    private async fragment(ids: ModuleId[], withInputs: boolean): Promise<PatchFileV2 | null> {
         await Promise.all(Array.from(this.fRecompilations.values()));
+        return this.fragmentNow(ids, withInputs);
+    }
+
+    // The same, at once (a copy event must fill the clipboard before it returns).
+    private fragmentNow(ids: ModuleId[], withInputs: boolean): PatchFileV2 | null {
+        var chosen = new Set(ids.filter((id) => this.patch.getModule(id)?.kind == "faust"));
+        if (chosen.size == 0) return null;
         var file = this.describePatch();
-        var connections = file.connections.filter((c) => chosen.has(c.to.module) && (chosen.has(c.from.module) || withInputs));
-        // the modulations kept (at least one source), their ports numbered anew: inputs, inputs + 1...
-        var ports = new Map<string, number>();
+        var incoming = file.connections.filter((c) => chosen.has(c.to.module) && (chosen.has(c.from.module) || withInputs));
+        var ports = new Map<string, number>();          // "module:old port" -> new port
         var modules = file.modules.filter((m) => chosen.has(m.id)).map((m) => {
-            var copy: ModuleFileV2 = { ...m, x: m.x + Scene.DUPLICATE_OFFSET, y: m.y + Scene.DUPLICATE_OFFSET };
+            var copy: ModuleFileV2 = { ...m };
             delete copy.modulations;
+            for (var p = 0; p < m.inputs; p++) ports.set(`${m.id}:${p}`, p);
+            var next = m.inputs;
             var kept = (m.modulations ?? []).filter((_, i) => {
                 var port = m.inputs + i;
-                if (!connections.some((c) => c.to.module == m.id && c.to.port == port)) return false;
-                ports.set(`${m.id}:${port}`, m.inputs + Array.from(ports.keys()).filter((k) => k.startsWith(m.id + ":")).length);
+                if (!incoming.some((c) => c.to.module == m.id && c.to.port == port)) return false;
+                ports.set(`${m.id}:${port}`, next++);
                 return true;
             });
             if (kept.length > 0) copy.modulations = kept;
             return copy;
         });
-        var parsed = parsePatchV2({ ...file, modules, connections: [] });
+        var connections = incoming.map((c) => ({ from: { ...c.from }, to: { module: c.to.module, port: ports.get(`${c.to.module}:${c.to.port}`)! } }));
+        return { ...file, sceneName: "", modules, connections };
+    }
+
+    // Creates the modules of a fragment, moved by (dx, dy), and its connections: between its modules,
+    // and from the modules of this scene its other connections name. Returns the new modules, which
+    // become the selection.
+    private async insertFragment(fragment: PatchFileV2, dx: number, dy: number): Promise<ModuleId[]> {
+        var inside = new Set(fragment.modules.map((m) => m.id));
+        var modules = fragment.modules.filter((m) => m.kind == "faust").map((m) => ({ ...m, x: m.x + dx, y: m.y + dy }));
+        var parsed = parsePatchV2({ ...fragment, modules, connections: [] });
         var warnings: string[] = [];
         var created = await this.recallModules(parsed.patch.getModules().filter((m) => m.kind == "faust"), warnings);
-        for (var c of connections) {
-            var from = chosen.has(c.from.module) ? created.get(c.from.module) : c.from.module;
+        for (var c of fragment.connections) {
+            var from = inside.has(c.from.module) ? created.get(c.from.module) : this.patch.getModule(c.from.module) ? c.from.module : undefined;
             var to = created.get(c.to.module);
-            var input = this.patch.getModule(c.to.module)!.numInputs;
-            var port = c.to.port < input ? c.to.port : ports.get(`${c.to.module}:${c.to.port}`);
-            if (from === undefined || to === undefined || port === undefined) continue;
+            if (from === undefined || to === undefined) continue;
             try {
-                this.patch.connect({ module: from, port: c.from.port }, { module: to, port });
+                this.patch.connect({ module: from, port: c.from.port }, { module: to, port: c.to.port });
             } catch (e) {
-                warnings.push(`connection ${from}:${c.from.port} -> ${to}:${port}: ${(e as Error).message}`);
+                warnings.push(`connection ${from}:${c.from.port} -> ${to}:${c.to.port}: ${(e as Error).message}`);
             }
         }
-        warnings.forEach((w) => console.warn("duplicate:", w));
-        var copies = Array.from(chosen).map((id) => created.get(id)).filter((id): id is ModuleId => id !== undefined);
+        warnings.forEach((w) => console.warn("insert:", w));
+        var copies = modules.map((m) => created.get(m.id)).filter((id): id is ModuleId => id !== undefined);
         this.patchView.select(copies);
         return copies;
+    }
+
+    // The clipboard of the scene: the last modules copied, as a patch file (also put in the system
+    // clipboard, so that they can be pasted in another document, another tab, or saved as a patch).
+    private fClipboard: string | null = null;
+    // The last position of the pointer on the stage (stage coordinates): where a paste puts the modules.
+    private fPointer: { x: number; y: number } | null = null;
+    private fPastes = 0;
+
+    // The selected modules as a patch file, kept as the clipboard: the connections between them only.
+    copyModules(ids: ModuleId[]): string | null {
+        var fragment = this.fragmentNow(ids, false);
+        if (!fragment) return null;
+        this.fClipboard = JSON.stringify(fragment);
+        this.fPastes = 0;
+        return this.fClipboard;
+    }
+
+    cutModules(ids: ModuleId[]): string | null {
+        var text = this.copyModules(ids);
+        if (text) this.deleteModules(ids);
+        return text;
+    }
+
+    /*********************** CONTEXT MENU, SHORTCUTS ***************************/
+    // A right click on a module acts on the selection (the module alone if it is not part of it);
+    // on the empty stage, it pastes there or selects all. The same commands have shortcuts.
+    private attachCommands(stage: HTMLElement): void {
+        var t = () => Utilitary.messageResource;
+        var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]");
+        stage.addEventListener("pointermove", (e) => { this.fPointer = this.toStage(e.clientX, e.clientY); });
+        stage.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            var at = this.toStage(e.clientX, e.clientY);
+            var id = this.patchView.moduleOf(e.target as Element);
+            var paste: MenuItem = { label: t().menuPaste, shortcut: shortcut("mod+V"), action: () => this.pasteFromClipboard(at) };
+            if (id === undefined) {
+                showContextMenu(e.clientX, e.clientY, [
+                    paste,
+                    { label: t().menuSelectAll, shortcut: shortcut("mod+A"), enabled: this.fModuleList.length > 0, action: () => this.selectAll() },
+                ]);
+                return;
+            }
+            if (this.patchView.getSelection().indexOf(id) < 0) this.patchView.select([id]);
+            var selection = this.patchView.getSelection();
+            var faust = selection.some((m) => this.patch.getModule(m)?.kind == "faust");
+            var plugged = this.patch.getConnections().some((c) => selection.indexOf(c.from.module) >= 0 || selection.indexOf(c.to.module) >= 0);
+            var minimized = selection.map((m) => this.patch.getModule(m)?.kind == "faust" ? this.getModuleById(m) : undefined)
+                .filter((m): m is ModuleClass => !!m).every((m) => m.moduleView.fInterfaceContainer.classList.contains("mini"));
+            showContextMenu(e.clientX, e.clientY, [
+                { label: t().menuCopy, shortcut: shortcut("mod+C"), enabled: faust, action: () => this.copyToClipboard(selection) },
+                { label: t().menuCut, shortcut: shortcut("mod+X"), enabled: faust, action: () => { this.copyToClipboard(selection); this.deleteModules(selection); } },
+                paste,
+                { label: t().menuDuplicate, shortcut: shortcut("mod+D"), enabled: faust, action: () => this.duplicateModules(selection) },
+                { label: t().menuDuplicateAlone, shortcut: shortcut("shift+mod+D"), enabled: faust, action: () => this.duplicateModules(selection, false) },
+                "separator",
+                { label: t().menuUnplug, enabled: plugged, action: () => this.unplugModules(selection) },
+                { label: minimized ? t().menuExpand : t().menuMinimize, enabled: faust, action: () => this.toggleMinimized(selection) },
+                "separator",
+                { label: t().menuDelete, shortcut: shortcut("Delete"), enabled: faust, action: () => this.deleteModules(selection) },
+            ]);
+        });
+        document.addEventListener("keydown", (e) => {
+            if (editing(e.target)) return;
+            var selection = this.patchView.getSelection();
+            if ((e.key == "Delete" || e.key == "Backspace") && selection.length > 0) {
+                e.preventDefault();
+                this.deleteModules(selection);
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() == "a") {
+                e.preventDefault();
+                this.selectAll();
+            }
+        });
+        // copy, cut, paste: the events of the browser, which give the system clipboard without asking
+        document.addEventListener("copy", (e) => {
+            if (editing(e.target) || !e.clipboardData) return;
+            var text = this.copyModules(this.patchView.getSelection());
+            if (!text) return;
+            e.preventDefault();
+            e.clipboardData.setData("text/plain", text);
+        });
+        document.addEventListener("cut", (e) => {
+            if (editing(e.target) || !e.clipboardData) return;
+            var selection = this.patchView.getSelection();
+            var text = this.copyModules(selection);
+            if (!text) return;
+            e.preventDefault();
+            e.clipboardData.setData("text/plain", text);
+            this.deleteModules(selection);
+        });
+        document.addEventListener("paste", (e) => {
+            if (editing(e.target)) return;
+            var text = e.clipboardData?.getData("text/plain") || this.fClipboard;
+            if (!text || !text.trim().startsWith("{")) return;
+            e.preventDefault();
+            this.pasteModules(text, this.fPointer);
+        });
+    }
+
+    // From the menu: copies into the clipboard of the scene and into the system clipboard.
+    private copyToClipboard(ids: ModuleId[]): void {
+        var text = this.copyModules(ids);
+        if (text) navigator.clipboard?.writeText(text).catch(() => { });
+    }
+
+    // From the menu: the system clipboard if it holds modules (copied in another tab), the clipboard
+    // of the scene otherwise.
+    private async pasteFromClipboard(at: { x: number; y: number }): Promise<void> {
+        var text: string | null = null;
+        try {
+            text = (await navigator.clipboard?.readText()) ?? null;
+        } catch {
+            text = null;
+        }
+        if (text && (await this.pasteModules(text, at)).length > 0) return;
+        await this.pasteModules(this.fClipboard, at);
+    }
+
+    hasClipboard(): boolean {
+        return this.fClipboard != null;
+    }
+
+    // Pastes modules copied (a patch file as text, the clipboard of the scene by default): their top
+    // left corner at `at` (stage coordinates), or offset from where they were copied. Returns the new
+    // modules (none if the text is not modules), which become the selection.
+    pasteModules(text: string | null = this.fClipboard, at: { x: number; y: number } | null = null): Promise<ModuleId[]> {
+        return this.operation(async () => {
+            if (!text) return [];
+            var data: unknown;
+            try {
+                data = JSON.parse(text);
+            } catch {
+                return [];
+            }
+            if (!isPatchFileV2(data)) return [];
+            var fragment = data as PatchFileV2;
+            var faust = fragment.modules.filter((m) => m.kind == "faust");
+            if (faust.length == 0) return [];
+            var dx: number, dy: number;
+            if (at) {
+                dx = at.x - Math.min(...faust.map((m) => m.x));
+                dy = at.y - Math.min(...faust.map((m) => m.y));
+            } else {
+                dx = dy = Scene.DUPLICATE_OFFSET * ++this.fPastes;
+            }
+            // only the connections between the pasted modules: the ids of another scene mean nothing here
+            var ids = new Set(faust.map((m) => m.id));
+            return this.insertFragment({ ...fragment, modules: faust, connections: fragment.connections.filter((c) => ids.has(c.from.module) && ids.has(c.to.module)) }, dx, dy);
+        });
+    }
+
+    // Removes the Faust modules among `ids` (the physical input and output stay).
+    deleteModules(ids: ModuleId[]): Promise<void> {
+        return this.operation(async () => {
+            for (var id of ids) {
+                if (this.patch.getModule(id)?.kind != "faust") continue;
+                this.getModuleById(id)?.deleteModule();
+            }
+            this.patchView.select([]);
+        });
+    }
+
+    // Removes every connection to or from these modules (audio and modulation): their modulations
+    // lose their sources and are removed.
+    unplugModules(ids: ModuleId[]): void {
+        var chosen = new Set(ids);
+        for (var c of this.patch.getConnections()) {
+            if (chosen.has(c.from.module) || chosen.has(c.to.module)) this.patch.disconnect(c.id);
+        }
+    }
+
+    // Minimizes the modules, or expands them if they all are minimized.
+    toggleMinimized(ids: ModuleId[]): void {
+        var modules = ids.map((id) => this.patch.getModule(id)?.kind == "faust" ? this.getModuleById(id) : undefined).filter((m): m is ModuleClass => !!m);
+        var expand = modules.every((m) => m.moduleView.fInterfaceContainer.classList.contains("mini"));
+        modules.forEach((m) => expand ? m.maxModule() : m.minModule());
+    }
+
+    selectAll(): void {
+        this.patchView.select(this.fModuleList.map((m) => m.moduleId));
     }
     private fWidgets = new WeakMap<object, WidgetDescription[]>();
 

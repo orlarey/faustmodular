@@ -1125,6 +1125,119 @@ describe("duplication", () => {
     }, 120_000);
 });
 
+describe("context menu and clipboard", () => {
+    const create = (page: Page, name: string, code: string, x: number, y = 120) => page.evaluate(async ([n, c, xx, yy]) => {
+        const { app, scene } = (globalThis as any).faustPlayground;
+        const before = scene.getModules().length;
+        await app.compileFaust({ name: n, sourceCode: c, x: xx, y: yy, callback: (f: any) => app.createModule(f, n, c, xx, yy) });
+        while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+        return scene.getModules()[before].moduleId as string;
+    }, [name, code, x, y] as [string, string, number, number]);
+    const patch = (page: Page) => page.evaluate(() => {
+        const s = (globalThis as any).faustPlayground.scene;
+        const file = s.describePatch();
+        return {
+            modules: file.modules.filter((m: any) => m.kind == "faust").map((m: any) => ({ id: m.id, name: m.name, x: m.x, y: m.y, modulations: (m.modulations ?? []).length })),
+            connections: file.connections.map((c: any) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`),
+            selection: s.patchView.getSelection(),
+        };
+    });
+    const count = (page: Page, n: number) => page.waitForFunction((k) => (globalThis as any).faustPlayground.scene.patch.getModules().filter((m: any) => m.kind == "faust").length == k, n);
+    const title = (page: Page, id: string) => page.evaluate((m) => "#" + (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id + " h6", id);
+    const choose = async (page: Page, label: string) => {
+        await page.locator(".context-menu-item", { hasText: new RegExp("^" + label) }).click();
+        expect(await page.locator(".context-menu").count()).toBe(0);
+    };
+    // A → B → output, a modulation of B by Half
+    const scene = async (page: Page) => {
+        const half = await create(page, "Half", 'process = vgroup("Half", 0.5);', 100, 420);
+        const a = await create(page, "A", 'process = vgroup("A", 0.25);', 100);
+        const b = await create(page, "B", 'process = vgroup("B", *(hslider("g", 0.5, 0, 1, 0.01)));', 400);
+        await page.evaluate(async ([h, x, y]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.patch.connect({ module: x, port: 0 }, { module: y, port: 0 });
+            s.patch.connect({ module: y, port: 0 }, { module: "output", port: 0 });
+            const address = s.widgetsOf(s.getModuleById(y)).find((w: any) => w.label == "g").address;
+            await s.modulate({ module: h, port: 0 }, y, address, "modulate");
+            await s.history.flush();
+        }, [half, a, b]);
+        return { half, a, b };
+    };
+
+    it("copies the selection from the menu and pastes it where the stage is right-clicked, with the connections between its modules", async () => {
+        const { page, errors } = await openApp();
+        const { a, b } = await scene(page);
+        await page.evaluate(([x, y]) => (globalThis as any).faustPlayground.scene.patchView.select([x, y]), [a, b]);
+        await page.click(await title(page, b), { button: "right" });
+        expect(await page.locator(".context-menu-item").allTextContents()).toEqual(expect.arrayContaining([expect.stringMatching(/^Copy/), expect.stringMatching(/^Unplug/), expect.stringMatching(/^Delete/)]));
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.patchView.getSelection().length)).toBe(2);   // B was in it
+        await choose(page, "Copy");
+        // the clipboard is a patch file
+        const text = await page.evaluate(() => (globalThis as any).faustPlayground.scene.fClipboard);
+        expect(JSON.parse(text)).toMatchObject({ format: "faustplayground-patch", modules: [{ name: "A" }, { name: "B" }] });
+        await page.mouse.click(700, 500, { button: "right" });
+        const at = await page.evaluate(() => (globalThis as any).faustPlayground.scene.toStage(700, 500));
+        await choose(page, "Paste");
+        await count(page, 5);
+        const p = await patch(page);
+        const [a2, b2] = p.selection;
+        expect(p.modules.find((m: any) => m.id == a2)).toMatchObject({ name: "A", x: at.x, y: at.y });
+        expect(p.modules.find((m: any) => m.id == b2)).toMatchObject({ name: "B", modulations: 0 });     // its source was not copied
+        expect(p.connections).toContain(`${a2}:0>${b2}:0`);
+        expect(p.connections.filter((c: string) => c.includes(b2 + ":") && !c.startsWith(a2))).toEqual([]);     // not to the output
+        // one undo removes the paste
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await count(page, 3);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("unplugs a module (audio and modulation cables), and on the physical output; deletes the selection", async () => {
+        const { page, errors } = await openApp();
+        const { half, a, b } = await scene(page);
+        await page.click(await title(page, b), { button: "right" });
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.patchView.getSelection())).toEqual([b]);
+        await choose(page, "Unplug");
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.length == 0, b);
+        let p = await patch(page);
+        expect(p.connections).toEqual([]);
+        // the physical output: unplug only
+        await page.evaluate(([x]) => (globalThis as any).faustPlayground.scene.patch.connect({ module: x, port: 0 }, { module: "output", port: 1 }), [a]);
+        await page.click("#moduleOutput", { button: "right" });
+        const enabled = await page.locator(".context-menu-item:not(:disabled)").allTextContents();
+        expect(enabled.map((l) => l.replace(/[⌘⇧⌫].*|Ctrl.*|Del$/, "").trim())).toEqual(["Paste", "Unplug (remove all the cables)"]);
+        await choose(page, "Unplug");
+        expect((await patch(page)).connections).toEqual([]);
+        // Delete: the selection
+        await page.evaluate(([x, y]) => (globalThis as any).faustPlayground.scene.patchView.select([x, y]), [a, half]);
+        await page.keyboard.press("Delete");
+        await count(page, 1);
+        expect((await patch(page)).modules.map((m: any) => m.name)).toEqual(["B"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("Ctrl-A selects all; Ctrl-C, Ctrl-V at the pointer; Ctrl-X cuts", async () => {
+        const { page, errors } = await openApp();
+        const { a } = await scene(page);
+        await page.mouse.click(600, 600);
+        await page.keyboard.press("Control+a");
+        expect((await patch(page)).selection).toHaveLength(3);
+        await page.evaluate((x) => (globalThis as any).faustPlayground.scene.patchView.select([x]), a);
+        await page.keyboard.press("Control+c");
+        await page.mouse.move(650, 520);
+        await page.keyboard.press("Control+v");
+        await count(page, 4);
+        const at = await page.evaluate(() => (globalThis as any).faustPlayground.scene.toStage(650, 520));
+        let p = await patch(page);
+        expect(p.modules.find((m: any) => m.id == p.selection[0])).toMatchObject({ name: "A", x: at.x, y: at.y });
+        await page.keyboard.press("Control+x");
+        await count(page, 3);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("modular library", () => {
     it("computes a module whose inputs are not connected (silence in, not no computation)", async () => {
         const { page, errors } = await openApp();
