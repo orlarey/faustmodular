@@ -7,7 +7,7 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 import { sliderRange, valueAt } from "../model/SliderScale";
 import { ModuleDisplays } from "./Displays";
 import { LayoutNode, uiLayout } from "../model/UILayout";
-import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView } from "./FaustInterface";
+import { ElementCodeFaustParser, FaustInterfaceControler, FaustInterfaceView, setControlerValue } from "./FaustInterface";
 import { Message } from "../Messages";
 import { ModuleFaust } from "./ModuleFaust";
 import { ModuleView } from "./ModuleView";
@@ -291,7 +291,21 @@ export class ModuleClass {
         elements.forEach((widget) => container.appendChild(widget));     // none expected
         // bargraphs, oscilloscope or spectrum (Displays.ts)
         this.displays?.dispose();
-        this.displays = new ModuleDisplays(container, this.moduleFaust.getDSP() as any, Utilitary.audioContext, (address) => bars.get(address));
+        this.displays = new ModuleDisplays(container, this.moduleFaust.getDSP() as any, Utilitary.audioContext, {
+            place: (address) => bars.get(address),
+            // the values of the interface (those of the DSP of an AudioWorklet node lag behind)
+            param: (address) => {
+                var controler = this.moduleControles.find((c) => c.itemParam.address == address);
+                return controler ? parseFloat(controler.value) : undefined;
+            },
+            // a widget set by the display (its size): as by the interface, saved and undone
+            setParam: (address, value) => {
+                var controler = this.moduleControles.find((c) => c.itemParam.address == address);
+                if (!controler) return;
+                setControlerValue(controler, value, (a, v) => this.moduleFaust.getDSP().setParamValue(a, v));
+                Utilitary.currentScene.markModified();
+            },
+        });
     }
 
     // Delete all FaustInterfaceControler

@@ -646,10 +646,8 @@ input.userModuleName {
 	text-align: right;
 }
 canvas.display-canvas {
-	display: block;
-	width: 240px;
-	height: 105px;
-	margin: 6px auto 2px;
+	display: block;		/* its size: the Width and Height widgets of the module (Displays.ts) */
+	box-sizing: border-box;
 	border-radius: 6px;
 	background: var(--fp-value-bg);
 	border: 1px solid var(--fp-accent-border-soft);
@@ -885,4 +883,31 @@ li.modularFamily.selected {
 .control-entry .entry-unit {
 	color: var(--fp-text-quiet);
 	font: 11px var(--fp-mono);
+}
+
+/* The frame of a display, with the grip that resizes it (bottom right) */
+.display-frame {
+	position: relative;
+	width: fit-content;
+	margin: 6px auto 2px;
+}
+.display-grip {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 14px;
+	height: 14px;
+	cursor: nwse-resize;
+	touch-action: none;
+	border-bottom-right-radius: 6px;
+	background:
+		linear-gradient(135deg, transparent 0 55%, var(--fp-accent-border) 55% 62%, transparent 62% 72%, var(--fp-accent-border) 72% 79%, transparent 79%);
+}
+.display-grip:hover {
+	background:
+		linear-gradient(135deg, transparent 0 55%, var(--fp-accent) 55% 62%, transparent 62% 72%, var(--fp-accent) 72% 79%, transparent 79%);
+}
+/* the widgets of the other view of a Scope */
+.widget.display-off {
+	display: none;
 }

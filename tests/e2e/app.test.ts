@@ -1313,6 +1313,71 @@ process = vgroup("Demo", hgroup("[0]Oscillator", os.osc(hslider("[0]Freq[unit:Hz
     }, 120_000);
 });
 
+describe("Scope", () => {
+    it("shows the waveform or the spectrum (calibrated: a sine of 0.5 at 1 kHz reads -6 dB), its widgets per view, resized by its corner", async () => {
+        const { page, errors } = await openApp();
+        const [vco, scope] = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (f: string, x: number) => {
+                const n = scene.getModules().length;
+                app.uploadUrl(app, null, x, 80, location.origin + "/faust-modules/" + f);
+                while (scene.getModules().length == n) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[n].moduleId as string;
+            };
+            const v = await add("modular/SineVCO.dsp", 100), s = await add("display/Scope.dsp", 420);
+            scene.patch.connect({ module: v, port: 0 }, { module: s, port: 0 });
+            await scene.audioGraph.getNode(v).context.resume();
+            return [v, s];
+        });
+        const set = (m: string, label: string, value: number) => page.evaluate(([id, l, v]) => {
+            const scene = (globalThis as any).faustPlayground.scene;
+            const module = scene.getModuleById(id);
+            const c = module.moduleControles.find((x: any) => x.itemParam.label == l);
+            scene.restoreParams(module, { [c.itemParam.address]: v });
+        }, [m, label, value] as [string, string, number]);
+        const param = (label: string) => page.evaluate(([id, l]) => parseFloat((globalThis as any).faustPlayground.scene.getModuleById(id).moduleControles.find((x: any) => x.itemParam.label == l).value), [scope, label]);
+        await set(vco, "Freq", 1000);
+        await set(vco, "Gain", 0.5);
+        const container = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, scope);
+        const shown = () => page.evaluate((c) => Array.from(document.querySelectorAll(`${c} .widget:not(.ui-hidden):not(.display-off) .label`)).map((l) => l.textContent), container);
+        // waveform: its widgets, a line drawn
+        await page.waitForTimeout(400);
+        expect(await shown()).toEqual(["View", "Time", "Trigger", "Slope", "Threshold"]);
+        const lit = await page.evaluate((c) => {
+            const canvas = document.querySelector(`${c} canvas.display-canvas`) as HTMLCanvasElement;
+            const d = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+            let n = 0;
+            for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 150) n++;
+            return n;
+        }, container);
+        expect(lit).toBeGreaterThan(200);
+        // spectrum: its widgets, the peak of the sine
+        await set(scope, "View", 1);
+        await page.waitForFunction((c) => !!(document.querySelector(`${c} canvas.display-canvas`) as HTMLCanvasElement).dataset.peak, container);
+        await page.waitForTimeout(500);
+        expect(await shown()).toEqual(["View", "Scale"]);
+        const [freq, db] = (await page.getAttribute(`${container} canvas.display-canvas`, "data-peak"))!.split(" ").map(Number);
+        expect(Math.abs(freq - 1000)).toBeLessThan(1);
+        expect(Math.abs(db - 20 * Math.log10(0.5))).toBeLessThan(0.3);
+        // 1000 Hz: B5 (987.77 Hz) + 1200·log2(1000/987.77) = +21 cents
+        expect(await page.getAttribute(`${container} canvas.display-canvas`, "title")).toMatch(/^(999\.\d|1000\.\d) Hz · B5 \+21¢ · -6\.\d dB$/);
+        // the corner: 100 px wider, 50 px taller, kept in Width and Height, undone
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        const grip = (await page.locator(`${container} .display-grip`).boundingBox())!;
+        await page.mouse.move(grip.x + 7, grip.y + 7);
+        await page.mouse.down();
+        await page.mouse.move(grip.x + 107, grip.y + 57, { steps: 8 });
+        await page.mouse.up();
+        expect([await param("Width"), await param("Height")]).toEqual([420, 190]);
+        expect(await page.evaluate((c) => { const k = document.querySelector(`${c} canvas.display-canvas`) as HTMLCanvasElement; return [k.offsetWidth, k.offsetHeight]; }, container)).toEqual([420, 190]);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await page.waitForFunction((c) => (document.querySelector(`${c} canvas.display-canvas`) as HTMLCanvasElement).offsetWidth == 320, container);
+        expect([await param("Width"), await param("Height")]).toEqual([320, 140]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("alignment guides", () => {
     const create = (page: Page, name: string, code: string, x: number, y: number) => page.evaluate(async ([n, c, xx, yy]) => {
         const { app, scene } = (globalThis as any).faustPlayground;

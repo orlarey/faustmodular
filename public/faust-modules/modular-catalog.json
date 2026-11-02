@@ -258,20 +258,8 @@
     "Display"
    ],
    "family": "Measure",
-   "summary": "Oscilloscope, inserted anywhere: the signal goes through unchanged",
-   "description": "- Oscilloscope, inserted anywhere: the signal goes through unchanged\n- Time: the duration shown, from 1 ms to 5 s, in [-1, 1]\n- Short durations are triggered on a rising zero crossing (a stable image of a periodic signal);\nlong ones scroll (modulation sources, envelopes)",
-   "inlets": [],
-   "outlets": []
-  },
-  {
-   "path": "faust-modules/display/Spectrum.dsp",
-   "name": "Spectrum",
-   "functions": [
-    "Display"
-   ],
-   "family": "Measure",
-   "summary": "Spectrum analyser, inserted anywhere: the signal goes through unchanged",
-   "description": "- Spectrum analyser, inserted anywhere: the signal goes through unchanged\n- Magnitude in dB (-100 to 0) on a logarithmic frequency axis from 20 Hz",
+   "summary": "Oscilloscope and spectrum analyser, inserted anywhere: the signal goes through unchanged",
+   "description": "- Oscilloscope and spectrum analyser, inserted anywhere: the signal goes through unchanged\n- View: the waveform, or the spectrum\n- Waveform: Time is the duration shown (1 ms to 5 s, in [-1, 1]); short durations are triggered on a\ncrossing of the Threshold (Slope: rising or falling; Trigger auto: the signal is shown even without a\ncrossing, normal: the last image stays), long ones scroll (modulation sources, envelopes)\n- Spectrum: in dB of a sine (0 dB: a sine at full scale), on a logarithmic axis with a line per\nsemitone (Scale: log) or a linear one; the strongest peak is written (frequency, note, level)\n- The corner at the bottom right resizes the display",
    "inlets": [],
    "outlets": []
   }

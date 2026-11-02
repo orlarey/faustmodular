@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.16.0",
+ "version": "3.17.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -29,8 +29,7 @@
   "faust-modules/combined/Whistles.dsp": "d44ee896fad9760827f7a3f5936403afce274546",
   "faust-modules/combined/WoodenKeyboard.dsp": "9cceb5e17f1b863876eb53ff3a518c707dbcd84e",
   "faust-modules/display/Level.dsp": "4c209c3251737eaca0f23a054d05a7fcca7e03b8",
-  "faust-modules/display/Scope.dsp": "f7671b028999a4a8eb09229e20be3939f45e0b62",
-  "faust-modules/display/Spectrum.dsp": "932e9d33820d84b44f55425e40b7d461ce4421f0",
+  "faust-modules/display/Scope.dsp": "6f164a9965149e56403416128d8c2f1a22ff0515",
   "faust-modules/display/StereoLevel.dsp": "b21e230d1f95b62eac3e53acecb40147175e5e5b",
   "faust-modules/display/Value.dsp": "2461c36fc153c457592fc2b96da9b9d25cf27487",
   "faust-modules/effects/ASREnvelope.dsp": "8e82e97834378abceabf3c43c0e124b1a588e532",
@@ -226,6 +225,10 @@
    "path": "faust-modules/modular/VCO.dsp",
    "until": "3.7.0"
   },
+  "932e9d33820d84b44f55425e40b7d461ce4421f0": {
+   "path": "faust-modules/display/Spectrum.dsp",
+   "until": "3.16.0"
+  },
   "974c6ff653427547328e5ecbec0b3fea2c6ae0c2": {
    "path": "faust-modules/modular/LFO.dsp",
    "until": "3.8.0"
@@ -281,6 +284,10 @@
   "ed6fccef688d28f1efffaa9daf2aab1a1f7019b0": {
    "path": "faust-modules/modulation/ADSR.dsp",
    "until": "3.6.0"
+  },
+  "f7671b028999a4a8eb09229e20be3939f45e0b62": {
+   "path": "faust-modules/display/Scope.dsp",
+   "until": "3.16.0"
   }
  }
 }

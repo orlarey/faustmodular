@@ -38,7 +38,7 @@ Contrôle,Envelope Generator · Function Generator · LFO · Envelope Follower �
 Temps et événements,Clock Generator · Clock Modulator · Frequency Divider · Sequencer · Shift Register · Logic · Comparator · Switch
 Hasard et hauteur,Random · Sample and Hold · Quantizer
 Effets,Delay · Reverb · Looper · Effect
-Mesure,les modules d'affichage de faustmodular (Level, Value, Scope, Spectrum)
+Mesure,"les modules d'affichage de faustmodular (Level, Value, Scope : forme d'onde ou spectre)"
 ```
 
 Chaque module de la bibliothèque déclare ses fonctions (`declare function "Oscillator";`, et une seconde au besoin), ce qui permet de filtrer comme sur ModularGrid.

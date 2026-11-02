@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.17.0 (2026-11-02)
+
+- **One Scope module, drawn after faustcode's display**, in place of the Scope and Spectrum modules (the
+  documents keep the code of the modules they use). Its *View* widget shows the waveform or the spectrum:
+  - **waveform**: triggered on a crossing of a *Threshold*, rising or falling (*Slope*), *Trigger* auto (the
+    signal is shown even without a crossing) or normal (the last image stays); a grid of 4 × 5 divisions and
+    the threshold drawn. The duration shown (*Time*, 1 ms to 5 s) stays: long durations scroll;
+  - **spectrum**: an analyser of 8192 points (5.9 Hz at 48 kHz, was 2048); a logarithmic axis with a line per
+    semitone and the octaves named (C1…C10), or a linear one (*Scale*); the frequencies written along the axis,
+    the levels every 20 dB. **Calibrated**: 0 dB is a sine at full scale (the analyser's Blackman window, of
+    coherent gain 0.42, read 20·log10(0.21) = −13.6 dB for it). The **strongest peak** is written (frequency
+    refined between bins, note and deviation in cents, level). Each column of pixels shows the maximum of the
+    bins it covers, so that a peak keeps its height (faustcode's average of 5 bins in dB lowered it by
+    about 10 dB).
+- **A grip resizes the display** (and the module), from 160 × 80 to 1600 × 1000; the size is kept in two
+  hidden widgets of the module: saved with the document, undone. The canvas is drawn at the pixels of the
+  screen (zoom, device pixel ratio): sharp.
+- Only the widgets of the view shown are visible.
+- The computations are pure functions (`src/Modules/ScopeDraw.ts`), tested apart; end to end, a sine of 0.5 at
+  1 kHz reads 1000 Hz, B5 +21¢, −6.0 dB.
+
 ## 3.16.0 (2026-11-02)
 
 - **The groups of the code as sections in the interface of a module**: each `vgroup`, `hgroup` or `tgroup` is
