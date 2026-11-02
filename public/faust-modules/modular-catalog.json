@@ -111,7 +111,7 @@
    ],
    "family": "Control",
    "summary": "Low frequency oscillator, four shapes, bipolar or unipolar, with reset",
-   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Polarity: bipolar in [-1, 1], or unipolar in [0, 1]\n- Reset: restarts the cycle; a clock dropped on it syncs the LFO",
+   "description": "- Low frequency oscillator: sine, triangle, saw or square\n- Output in [-1, 1]; Unipolar: in [0, 1] (on a widget, its value is then the minimum of the modulation)\n- Reset: restarts the cycle; a clock dropped on it syncs the LFO",
    "inlets": [],
    "outlets": [
     "LFO"

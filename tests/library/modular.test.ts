@@ -261,7 +261,7 @@ describe("modular library: level, timbre, control", () => {
             expect(min).toBeGreaterThanOrEqual(-1);
             expect(max).toBeLessThanOrEqual(1);
         }
-        const [u] = await render("LFO.dsp", 1.2, [], { Polarity: 1, Rate: 5 });
+        const [u] = await render("LFO.dsp", 1.2, [], { Unipolar: 1, Rate: 5 });
         const [umin, umax] = range(u, 0.2);
         expect(umin).toBeGreaterThanOrEqual(-1e-6);
         expect(umax).toBeLessThanOrEqual(1);

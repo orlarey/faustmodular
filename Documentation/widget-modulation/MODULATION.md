@@ -72,6 +72,8 @@ exponentiel (fréquences),w·(max/w)^u,w·(w/min)^u,"[min, max]"
 
 Usages : un LFO sur un niveau, une enveloppe sur un gain (curseur à 0, D = 1 : le gain est l'enveloppe), une enveloppe sur la coupure d'un filtre (en octaves). L'exponentiel ne convient pas à la FM : la fréquence moyenne monte avec la profondeur (+92 cents pour u = 0.1 à 440 Hz sur 20–20 000 Hz).
 
+**Source bipolaire ou unipolaire.** Avec une source dans [0, 1] (une enveloppe, un LFO dont la case *Unipolar* est allumée), u ≥ 0 : la valeur va du curseur vers le maximum, le curseur est le minimum de la modulation. Avec une source dans [−1, 1], elle oscille autour du curseur.
+
 ## + additionner
 
 Pour les curseurs de hauteur, à 0.1 par octave (`Documentation/MODULAR-LIBRARY.md`) :

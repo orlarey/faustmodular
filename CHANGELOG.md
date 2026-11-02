@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.19.0 (2026-11-02)
+
+- **LFOs: a *Unipolar* checkbox** (a button with a LED) on the LFO and the Quad LFO of the modulation sources,
+  and on the LFO of the modular library (in place of its Polarity menu): the output in [0, 1] instead of
+  [-1, 1]. Dropped on a widget (± modulate), a unipolar source moves the value from the slider up: the value set
+  on the slider is the minimum of the modulation. Tested from the LFO to the widget: a unipolar square on a
+  slider at 0.2 with depth 1 gives [0.2, 1], a bipolar one [0, 1].
+
 ## 3.18.0 (2026-11-02)
 
 - **Checkboxes are buttons with a LED**, as on hardware synthesizers: a button without LED is momentary

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { getCompiler } from "../helpers/faust";
+import { listWidgets, modulatedCode, modulationSpec } from "../../src/model/Modulation";
 
 const dir = path.resolve(__dirname, "../../public/faust-modules/modulation");
 const LENGTH = 48000 * 4;
@@ -45,10 +46,60 @@ describe("modulation sources", () => {
         }
     });
 
-    it("Quad LFO: 4 outputs in [-1, 1]", async () => {
+    it("LFO, Unipolar: [0, 1] for each shape, reaching both bounds", async () => {
+        for (const shape of [0, 1, 2, 3]) {
+            const [r] = await range("LFO.dsp", { Shape: shape, Rate: 2, Unipolar: 1 });
+            within(r, 0, 1);
+            expect(r[0]).toBeLessThan(0.01);
+            expect(r[1]).toBeGreaterThan(0.99);
+        }
+    });
+
+    it("a unipolar LFO on a widget (± depth 1): the value of the slider is the minimum of the modulation", async () => {
+        // the square of the LFO (0 or 1, unipolar; -1 or 1, bipolar) on a slider at 0.2 in [0, 1]
+        const lfo = async (unipolar: number) => {
+            const generator = new fw.FaustMonoDspGenerator();
+            await generator.compile(await getCompiler(), "lfo", fs.readFileSync(path.join(dir, "LFO.dsp"), "utf8"), FAUST_COMPILE_OPTIONS);
+            const widgets = listWidgets(JSON.parse(generator.factory!.json).ui);
+            const processor = (await generator.createOfflineProcessor(48000, 1024))!;
+            processor.setParamValue(widgets.find((w) => w.label.startsWith("Shape"))!.address, 2);
+            processor.setParamValue(widgets.find((w) => w.label.startsWith("Rate"))!.address, 4);
+            processor.setParamValue(widgets.find((w) => w.label == "Unipolar")!.address, unipolar);
+            return processor.render([], 48000)[0];
+        };
+        const target = `process = vgroup("T", hslider("level", 0.2, 0, 1, 0.01));`;
+        const generator = new fw.FaustMonoDspGenerator();
+        await generator.compile(await getCompiler(), "t", target, FAUST_COMPILE_OPTIONS);
+        const widgets = listWidgets(JSON.parse(generator.factory!.json).ui);
+        const spec = modulationSpec(widgets.find((w) => w.label == "level")!, widgets, "modulate");
+        const modulated = new fw.FaustMonoDspGenerator();
+        await modulated.compile(await getCompiler(), "m", modulatedCode(target, 0, [spec]), FAUST_COMPILE_OPTIONS);
+        const depth = listWidgets(JSON.parse(modulated.factory!.json).ui).find((w) => w.label == "depth level")!.address;
+        const run = async (unipolar: number) => {
+            const processor = (await modulated.createOfflineProcessor(48000, 1024))!;
+            processor.setParamValue(depth, 1);
+            const [out] = processor.render([await lfo(unipolar)], 48000);
+            const settled = out.slice(24000);            // after the smoothing of the depth
+            return [Math.min(...settled), Math.max(...settled)];
+        };
+        const [lo, hi] = await run(1);
+        expect(lo).toBeCloseTo(0.2, 3);                     // the slider: the minimum
+        expect(hi).toBeCloseTo(1, 3);
+        const [blo, bhi] = await run(0);
+        expect(blo).toBeCloseTo(0, 3);                      // bipolar: around the slider
+        expect(bhi).toBeCloseTo(1, 3);
+    });
+
+    it("Quad LFO: 4 outputs in [-1, 1], or in [0, 1] (Unipolar)", async () => {
         const ranges = await range("QuadLFO.dsp");
         expect(ranges).toHaveLength(4);
         ranges.forEach((r) => within(r, -1, 1));
+        const unipolar = await range("QuadLFO.dsp", { Unipolar: 1 });
+        unipolar.forEach((r) => {
+            within(r, 0, 1);
+            expect(r[0]).toBeLessThan(0.01);
+            expect(r[1]).toBeGreaterThan(0.99);
+        });
     });
 
     it("Random: in [-1, 1]; Clock: a 0/1 gate", async () => {

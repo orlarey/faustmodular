@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.18.0",
+ "version": "3.19.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -97,7 +97,7 @@
   "faust-modules/generators/SWhistles3.dsp": "c06ac80e03d05c347892c1823b22b6738799e097",
   "faust-modules/modular/ADSR.dsp": "3e37f602351ca327f7f85654d9892c02ae34b22b",
   "faust-modules/modular/Clock.dsp": "ddeceac40a82ad43f883c8a25379590e899593de",
-  "faust-modules/modular/LFO.dsp": "9c7db9827978fb811423c368fe26a931e6b9da85",
+  "faust-modules/modular/LFO.dsp": "dc90e8538bdbdab09d31b8f0abe7f298f2f29819",
   "faust-modules/modular/Mixer.dsp": "c6c7dae465b409fbe0d2abc49e71e00a5d4a3063",
   "faust-modules/modular/Noise.dsp": "4b5a8ebd19c76731846541bf7bcc065ddaade7bf",
   "faust-modules/modular/Offset.dsp": "bbc672d995915564f2e8c873af943f50af77cfb2",
@@ -111,8 +111,8 @@
   "faust-modules/modulation/ADSR.dsp": "67a93afa4f049052341c01e0aaa8f737489823bb",
   "faust-modules/modulation/Clock.dsp": "7bae6a0a73332d865e3636f4ca48e5cb0a130464",
   "faust-modules/modulation/EnvelopeFollower.dsp": "7c6f83ee9785e030c4505f7a539275fe65ad211c",
-  "faust-modules/modulation/LFO.dsp": "c5d3e1af87ae48a00699acff7ef95e1b9830d4bb",
-  "faust-modules/modulation/QuadLFO.dsp": "0ff2329e99d71c7d5b2df16c2f4d310c9cb03299",
+  "faust-modules/modulation/LFO.dsp": "21325980076c0cc4af1b21ec0c360bd768ec04f1",
+  "faust-modules/modulation/QuadLFO.dsp": "1e005d50980375bfa28a418e75754f8af67902b6",
   "faust-modules/modulation/Random.dsp": "e453b6a62693a062ac565d36c326b99630d28f0d",
   "faust-modules/multichannel/AmbiDecoder3.dsp": "b10ee5e4dda067c7fb8ccfb8f1b45a7f0507a01d",
   "faust-modules/multichannel/AmbiEncoder3.dsp": "338a6f79ffd41624788cb2a2a212e2384b64db14",
@@ -132,6 +132,10 @@
   "025333571c30dff246eebf26fe920790ec0ed46b": {
    "path": "faust-modules/display/Level.dsp",
    "until": "3.4.0"
+  },
+  "0ff2329e99d71c7d5b2df16c2f4d310c9cb03299": {
+   "path": "faust-modules/modulation/QuadLFO.dsp",
+   "until": "3.18.0"
   },
   "121925953af580274ce2a5b54fabd15a0a8c8c54": {
    "path": "faust-modules/modulation/LFO.dsp",
@@ -233,6 +237,10 @@
    "path": "faust-modules/modular/LFO.dsp",
    "until": "3.8.0"
   },
+  "9c7db9827978fb811423c368fe26a931e6b9da85": {
+   "path": "faust-modules/modular/LFO.dsp",
+   "until": "3.18.0"
+  },
   "9c95b59d7477d20a34704ff0f1b2aa8ac8a3818b": {
    "path": "faust-modules/modular/Offset.dsp",
    "until": "3.7.0"
@@ -260,6 +268,10 @@
   "bf05d5ac2bbea52a4c69531470582a3677e0a60d": {
    "path": "faust-modules/modular/VCA.dsp",
    "until": "3.8.0"
+  },
+  "c5d3e1af87ae48a00699acff7ef95e1b9830d4bb": {
+   "path": "faust-modules/modulation/LFO.dsp",
+   "until": "3.18.0"
   },
   "d7db7515e706e590117cd1eceb46cce5e0243005": {
    "path": "faust-modules/modular/VCF.dsp",
