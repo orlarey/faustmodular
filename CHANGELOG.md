@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.19.1 (2026-11-02)
+
+- **Random: the same *Unipolar* checkbox** as the LFOs: its values in [0, 1] instead of [-1, 1] (the slider of
+  the widget it modulates is then the minimum).
+
 ## 3.19.0 (2026-11-02)
 
 - **LFOs: a *Unipolar* checkbox** (a button with a LED) on the LFO and the Quad LFO of the modulation sources,

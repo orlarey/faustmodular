@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.19.0",
+ "version": "3.19.1",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -113,7 +113,7 @@
   "faust-modules/modulation/EnvelopeFollower.dsp": "7c6f83ee9785e030c4505f7a539275fe65ad211c",
   "faust-modules/modulation/LFO.dsp": "21325980076c0cc4af1b21ec0c360bd768ec04f1",
   "faust-modules/modulation/QuadLFO.dsp": "1e005d50980375bfa28a418e75754f8af67902b6",
-  "faust-modules/modulation/Random.dsp": "e453b6a62693a062ac565d36c326b99630d28f0d",
+  "faust-modules/modulation/Random.dsp": "d9e9c2ada6e71f67d25f871d4d4c0cc94e5a6106",
   "faust-modules/multichannel/AmbiDecoder3.dsp": "b10ee5e4dda067c7fb8ccfb8f1b45a7f0507a01d",
   "faust-modules/multichannel/AmbiEncoder3.dsp": "338a6f79ffd41624788cb2a2a212e2384b64db14",
   "faust-modules/multichannel/Mixer4to2.dsp": "a0d829a43b26cbeb34467cdb6a2d32e38d1a0bb5",
@@ -284,6 +284,10 @@
   "e03d1daef019dc66d1b64e2c7d197209ebe5179f": {
    "path": "faust-modules/modular/ADSR.dsp",
    "until": "3.8.0"
+  },
+  "e453b6a62693a062ac565d36c326b99630d28f0d": {
+   "path": "faust-modules/modulation/Random.dsp",
+   "until": "3.19.1"
   },
   "e65b23a949abd5e6bd788afc5da93b1238476bb8": {
    "path": "faust-modules/display/StereoLevel.dsp",

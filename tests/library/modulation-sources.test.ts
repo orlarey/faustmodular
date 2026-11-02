@@ -102,8 +102,13 @@ describe("modulation sources", () => {
         });
     });
 
-    it("Random: in [-1, 1]; Clock: a 0/1 gate", async () => {
-        within((await range("Random.dsp"))[0], -1, 1);
+    it("Random: in [-1, 1], or in [0, 1] (Unipolar); Clock: a 0/1 gate", async () => {
+        const [bipolar] = await range("Random.dsp");
+        within(bipolar, -1, 1);
+        expect(bipolar[0]).toBeLessThan(-0.5);              // 4 values per second over 4 s: both signs
+        const [unipolar] = await range("Random.dsp", { Unipolar: 1 });
+        within(unipolar, 0, 1);
+        expect(unipolar[1] - unipolar[0]).toBeGreaterThan(0.5);
         expect((await range("Clock.dsp"))[0]).toEqual([0, 1]);
     });
 
