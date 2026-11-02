@@ -40,6 +40,7 @@
     "Lib pedals",
     "Lib effects",
     "Lib oscillators",
+    "Lib drums",
     "Lib physical models",
     "Lib analysis"
    ]
@@ -2170,6 +2171,159 @@
    ],
    "outlets": [
     "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/Kick.dsp",
+   "name": "Kick",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Kick drum: a sine whose frequency falls from five times the frequency to the frequency, through a saturation",
+   "description": "- Kick drum: a sine whose frequency falls from five times the frequency to the frequency, through a saturation\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Click: the time of the fall of the frequency; Attack and Decay: the envelope, linear (Decay: to silence); Drive: the saturation (1 to 10)\n- From the Faust libraries: sy.kick (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/Clap.dsp",
+   "name": "Clap",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Hand clap: a white noise through four staggered envelopes and a resonant low pass filter",
+   "description": "- Hand clap: a white noise through four staggered envelopes and a resonant low pass filter\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Tone: the cutoff of the filter (400 to 3500 Hz); Attack and Decay: added to the envelopes of the claps\n- From the Faust libraries: sy.clap (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/HiHat.dsp",
+   "name": "Hi-Hat",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Hi-hat: two sines in phase modulation driven by a noise, through a resonant low pass filter",
+   "description": "- Hi-hat: two sines in phase modulation driven by a noise, through a resonant low pass filter\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Tone: the cutoff of the filter (800 Hz to 18 kHz); Attack and Decay: the envelope, linear (Decay: to silence)\n- From the Faust libraries: sy.hat (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/PopDrum.dsp",
+   "name": "Pop Drum",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Pop drum: a burst of noise of 2 ms through a resonant band pass filter, which rings at the frequency",
+   "description": "- Pop drum: a burst of noise of 2 ms through a resonant band pass filter, which rings at the frequency\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Q: the resonance of the filter, how long it rings (5: a drum); the level is kept about the same whatever the frequency\n- From the Faust libraries: sy.popFilterDrum (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/AdditiveDrum.dsp",
+   "name": "Additive Drum",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Additive drum: sines at the frequencies of the modes of a membrane or of a bar, each with its envelope",
+   "description": "- Additive drum: sines at the frequencies of the modes of a membrane or of a bar, each with its envelope\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Mode: membrane (the modes of a circular membrane, 1, 1.59, 2.14, 2.30...) or bar (a free bar, 1, 2.76, 5.40, 8.93)\n- Damping: how much faster the upper modes die (0 to 1); Attack and Release: the envelope\n- From the Faust libraries: sy.additiveDrum (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/CombString.dsp",
+   "name": "Comb String",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Plucked string, the simplest one: a burst of noise of 2 ms in a comb filter tuned to the frequency",
+   "description": "- Plucked string, the simplest one: a burst of noise of 2 ms in a comb filter tuned to the frequency\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Decay: the time to -60 dB of the string (the module converts it to the resonance of the library: 1000 Decay Freq / (6.91 SR))\n- From the Faust libraries: sy.combString (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/DubSynth.dsp",
+   "name": "Dub Synth",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Dub synth: a sawtooth through a resonant low pass filter, while the gate is held (10 ms of attack and release)",
+   "description": "- Dub synth: a sawtooth through a resonant low pass filter, while the gate is held (10 ms of attack and release)\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Cutoff and Q: the filter\n- From the Faust libraries: sy.dubDub (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/SawTrombone.dsp",
+   "name": "Saw Trombone",
+   "functions": [],
+   "family": "Lib drums",
+   "summary": "Trombone, simply: a sawtooth through a low pass filter that opens with the level, while the gate is held",
+   "description": "- Trombone, simply: a sawtooth through a low pass filter that opens with the level, while the gate is held\n- Gate: triggers the sound; a gate dropped on it (a sequencer, a clock) plays it\n- Freq in Hz; Pitch transposes it, 0.1 per octave: a sequencer dropped on Pitch plays the notes from the frequency set\n- Gain: the level, and the brightness (the cutoff goes from 50 Hz to 5 kHz with it)\n- From the Faust libraries: sy.sawTrombone (synths.lib)",
+   "inlets": [],
+   "outlets": [
+    "audio"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/PitchTracker.dsp",
+   "name": "Pitch Tracker",
+   "functions": [],
+   "family": "Lib analysis",
+   "summary": "Pitch tracker: the frequency of the sound, by its zero crossings after an adaptive low pass filter (2nd order), as a pitch (0.1 per octave from C4), and a gate while the sound is above the threshold",
+   "description": "- Pitch tracker: the frequency of the sound, by its zero crossings after an adaptive low pass filter (2nd order), as a pitch (0.1 per octave from C4), and a gate while the sound is above the threshold\n- Dropped on the Pitch of a VCO and on the Gate of an ADSR, the voice plays what it hears; the gate closes when the sound falls below the threshold or stops (1.5 periods without a zero crossing), and the pitch is held\n- Response: the time constant (with 20 ms: settled in about 170 ms, within 1.4 cents at 55 Hz, 0.2 cent from 110 Hz); Threshold: the level of the gate (RMS, dB)\n- From the Faust libraries: an.pitchTracker (analyzers.lib)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "pitch",
+    "gate"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/SpectralCentroid.dsp",
+   "name": "Spectral Centroid",
+   "functions": [],
+   "family": "Lib analysis",
+   "summary": "Spectral centroid: the brightness of the sound, the frequency that balances the power above and below it, as a pitch (0.1 per octave from C4)",
+   "description": "- Spectral centroid: the brightness of the sound, the frequency that balances the power above and below it, as a pitch (0.1 per octave from C4)\n- Dropped on the Pitch of a filter, the cutoff follows the brightness of another sound\n- Response: the time constant; Nonlinear: a cubic integration, steadier for responses under 5 ms\n- From the Faust libraries: an.spectralCentroid (analyzers.lib)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "pitch"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/ZeroCrossings.dsp",
+   "name": "Zero Crossings",
+   "functions": [],
+   "family": "Lib analysis",
+   "summary": "Zero crossing rate: the part of the samples where the sound changes sign, from 0 to 1; low for a low or pure sound, about 0.5 for a white noise (a sine of f Hz gives 2f/SR)",
+   "description": "- Zero crossing rate: the part of the samples where the sound changes sign, from 0 to 1; low for a low or pure sound, about 0.5 for a white noise (a sine of f Hz gives 2f/SR)\n- A measure of the noisiness of a sound, to drop on a setting\n- Response: the time constant\n- From the Faust libraries: an.zcr (analyzers.lib)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "rate"
+   ]
+  },
+  {
+   "path": "faust-modules/faustlib/RMSLevel.dsp",
+   "name": "RMS Level",
+   "functions": [],
+   "family": "Lib analysis",
+   "summary": "RMS level of the sound in dB, as a unipolar signal: 0 at the floor, 1 at 0 dB (a sine of amplitude 1 is at -3 dB)",
+   "description": "- RMS level of the sound in dB, as a unipolar signal: 0 at the floor, 1 at 0 dB (a sine of amplitude 1 is at -3 dB)\n- A level in dB follows the loudness as heard, where the Envelope Follower follows the amplitude\n- Response: the time constant; Floor: the level that gives 0\n- From the Faust libraries: an.rms_envelope_tau (analyzers.lib)",
+   "inlets": [
+    "audio"
+   ],
+   "outlets": [
+    "level"
    ]
   }
  ]

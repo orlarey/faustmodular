@@ -63,8 +63,8 @@ SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
 The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
 modulations, level and dynamics, spatialization and multichannel, modulation sources), *Faust libraries*
-(reverbs, dynamics, filters, equalizers and crossovers, pedals, effects, oscillators and noises, physical models,
-analysis), then *My modules*; the
+(reverbs, dynamics, filters, equalizers and crossovers, pedals, effects, oscillators and noises, drums and
+voices, physical models, analysis), then *My modules*; the
 modules of the family chosen; the description of the module pointed at. Double click or drag a module to add
 it. The catalog (`public/faust-modules/library-catalog.json`) is built by `npm run library-index`: the modular
 modules from their declarations, the FaustPlayground ones from the table of `scripts/library-families.mjs`
@@ -87,6 +87,13 @@ take their settings as arguments: their modules give them an interface made for 
 the orders in menus, no smoothing. Their frequency responses are measured offline against the theory
 (`tests/library/filters.test.ts`). The Diode Ladder corrects a typo of `ve.diodeLadder` (the feedback through
 its second stage) and is tuned on its analog model so that its cutoff is at -3 dB whatever the resonance.
+
+The drums and voices of `synths.lib` (Kick, Clap, Hi-Hat, Pop Drum, Additive Drum, Comb String, Dub Synth,
+Saw Trombone; `scripts/faust-drum-modules.mjs`) have a *Gate* that a gate drives (a clock, a sequencer) and a
+*Freq* in Hz that *Pitch* transposes. The analyzers of `analyzers.lib` turn a sound into control signals
+(`scripts/faust-analysis-modules.mjs`): *Pitch Tracker* (a pitch and a gate: a voice plays what it hears),
+*Spectral Centroid* (the brightness, as a pitch), *Zero Crossings* (the noisiness), *RMS Level* (in dB, 0 to 1).
+Measured offline in `tests/library/drums-analysis.test.ts`.
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

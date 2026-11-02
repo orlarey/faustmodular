@@ -8,23 +8,26 @@
 // physmodels.lib (pitch: true) gets a Pitch slider, 0.1 per octave from C4, in place of its freq widget (Hz):
 // Faust's widget modulation replaces the widget by the frequency of the pitch, so that a pitch dropped on it
 // (a sequencer) plays in tune, as on the VCO (Documentation/widget-modulation/MODULATION.md, "+ additionner").
-// The filters, equalizers and pedals (faust-filter-modules.mjs) are functions whose settings are arguments: their
-// module has its own code (body), an interface made for music around the function.
+// The filters, equalizers and pedals (faust-filter-modules.mjs), the drums (faust-drum-modules.mjs) and the
+// analyzers (faust-analysis-modules.mjs) are functions whose settings are arguments: their module has its own
+// code (body), an interface made for music around the function.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FAUST_LIBRARY_MODULES } from "./faust-library-modules.mjs";
 import { FILTER_MODULES } from "./faust-filter-modules.mjs";
+import { DRUM_MODULES } from "./faust-drum-modules.mjs";
+import { ANALYSIS_MODULES } from "./faust-analysis-modules.mjs";
 
-// all the modules of the Faust libraries, the demos and instruments then the filters
-export const LIBRARY_MODULES = [...FAUST_LIBRARY_MODULES, ...FILTER_MODULES];
+// all the modules of the Faust libraries: the demos and instruments, then the modules written around functions
+export const LIBRARY_MODULES = [...FAUST_LIBRARY_MODULES, ...FILTER_MODULES, ...DRUM_MODULES, ...ANALYSIS_MODULES];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dir = path.join(root, "public/faust-modules/faustlib");
 
 export function moduleCode(m) {
-    if (m.body) return filterCode(m);
+    if (m.body) return bodyCode(m);
     const lines = [...m.summary];
     if (m.pitch) {
         lines.push("Pitch: 0.1 per octave, 0 = C4 (261.63 Hz), in place of the frequency of the instrument: a pitch dropped on it (a sequencer) plays in tune; Gate: the note");
@@ -52,12 +55,11 @@ ${process}
 `;
 }
 
-function filterCode(m) {
+function bodyCode(m) {
     return `declare name "${m.name}";
 declare author "Faust libraries";
 declare source "${m.source}";
-declare inlets "${m.inlets}";
-declare outlets "${m.outlets}";
+${m.inlets ? `declare inlets "${m.inlets}";\n` : ""}declare outlets "${m.outlets}";
 import("stdfaust.lib");
 
 /* =============== DESCRIPTION ================

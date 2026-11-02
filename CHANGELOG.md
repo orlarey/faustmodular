@@ -1,5 +1,35 @@
 # Changelog
 
+## 3.24.0 (2026-11-02)
+
+- **Drums and voices of `synths.lib`**, a family *Drums and voices* of the group *Faust libraries*: Kick, Clap,
+  Hi-Hat, Pop Drum, Additive Drum (the modes of a membrane or of a bar), Comb String, Dub Synth, Saw Trombone.
+  - A *Gate* button: a clock or a sequencer drops its gate on it (⇐ drive) and plays it.
+  - *Freq* in Hz, transposed by *Pitch* (0.1 per octave): a sequencer dropped on Pitch plays the notes from
+    the frequency set.
+  - Times in ms on a log scale.
+  - Measured: each sound silent before its gate and after its release; the kick, the pop drum, the string,
+    the dub synth and the trombone at their frequency within 5 cents, transposed by Pitch; the kick from up
+    to five times its frequency, its linear envelope silent at Attack + Decay; the modes of the additive
+    drum; the decay of the string within 10% of the Decay asked; the clap and the hi-hat brighter with Tone.
+  - The string's Decay is its time to -60 dB: `sy.combString` takes a time constant per period in ms (its doc
+    says a T60 in seconds), which the module computes, 1000·Decay·f/(6.91·SR). The pop drum's level, which
+    grows with its frequency (0.014 at 50 Hz, 0.3 at 1 kHz), is evened by 1500/f; the hi-hat (1.29 at its top,
+    from the resonance of its filter) is scaled by 0.75.
+- **Analyzers of `analyzers.lib`: a sound turned into control signals**, in the family *Analysis*:
+  - *Pitch Tracker*: the pitch of the sound (0.1 per octave from C4) and a gate. `an.pitchTracker` ripples at
+    the frequency of the sound (100 cents at 220 Hz with 20 ms); smoothed twice more in Hz, before the
+    logarithm, its pitch is within 1 cent from 110 to 880 Hz, sine or sawtooth, with a ripple under 2 cents.
+    The gate closes when the level falls below the threshold or the sound stops (1.5 periods without a zero
+    crossing), and the pitch is held at its value two periods before: a stopped sound would otherwise leave
+    the tracker falling for as long as the level takes to fall (measured: a pitch held 6060 cents off).
+    End to end: a sine at 440 Hz tracked plays a VCO at 440 Hz within 5 cents.
+  - *Spectral Centroid*: the brightness, as a pitch (a sine at its frequency within 10 cents, a white noise
+    at SR/4); *Zero Crossings*: 2f/SR for a sine, 0.5 for a white noise; *RMS Level*: the level in dB, from the
+    floor (0) to 0 dB (1), within 0.002.
+- The fourth order of `an.pitchTracker` loses a sawtooth from 440 Hz (it falls to about 38 Hz): the module
+  uses the second order.
+
 ## 3.23.1 (2026-11-02)
 
 - **The Diode Ladder at -3 dB at its cutoff, whatever the resonance.** `ve.diodeLadder` placed its -3 dB

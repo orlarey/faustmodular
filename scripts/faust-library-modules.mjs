@@ -11,6 +11,7 @@ export const FAUST_LIBRARY_FAMILIES = [
     "Lib pedals",
     "Lib effects",
     "Lib oscillators",
+    "Lib drums",
     "Lib physical models",
     "Lib analysis"
 ];

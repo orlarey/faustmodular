@@ -1572,7 +1572,7 @@ describe("library", () => {
             "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
-            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib effects", "Lib oscillators", "Lib physical models", "Lib analysis",
+            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
             "My modules",
         ]);
         // a family: its modules; a module pointed at: its description
@@ -1699,6 +1699,66 @@ describe("filters, equalizers and pedals of the Faust libraries", () => {
         expect(result.names).toEqual(["low", "mid", "high"]);
         expect(result.svf).toEqual(["Mode", "Cutoff", "Pitch", "Q", "Gain"]);
         expect(result.modes).toEqual({ Cutoff: "modulate", Pitch: "add", Q: "modulate" });
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
+describe("drums and analyzers of the Faust libraries", () => {
+    it("a clock plays the kick through its Gate (⇐ drive); the pitch tracker gives the pitch of a VCO", async () => {
+        const { page, errors } = await openApp();
+        await page.locator("#libraryButtonMenu").click();
+        await page.locator('li.libraryFamily[data-family="Lib drums"]').click();
+        expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Kick", "Clap", "Hi-Hat", "Pop Drum", "Comb String"]));
+        await page.locator('li.libraryFamily[data-family="Lib analysis"]').click();
+        expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Pitch Tracker", "Spectral Centroid", "Zero Crossings", "RMS Level"]));
+        const result = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (f: string, x: number, y = 80) => {
+                const n = scene.getModules().length;
+                app.uploadUrl(app, null, x, y, location.origin + "/faust-modules/" + f);
+                while (scene.getModules().length == n) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[n].moduleId as string;
+            };
+            const modulate = async (from: string, port: number, to: string, label: string) => {
+                const address = scene.widgetsOf(scene.getModuleById(to)).find((w: any) => w.label == label).address;
+                const mode = scene.allowedModesOf(to, address)[0];
+                await scene.modulate({ module: from, port }, to, address, mode);
+                return mode;
+            };
+            const clock = await add("modular/Clock.dsp", 60), kick = await add("faustlib/Kick.dsp", 360);
+            const kickMode = await modulate(clock, 0, kick, "Gate");
+            scene.patch.connect({ module: kick, port: 0 }, { module: "output", port: 0 });
+            const ctx = scene.audioGraph.getNode(kick).context as AudioContext;
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 32768;
+            scene.audioGraph.getNode(kick).connect(analyser);
+            await ctx.resume();
+            await new Promise((r) => setTimeout(r, 900));
+            const x = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(x);
+            const kickPeak = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+            // a sine at 440 Hz into the pitch tracker, whose pitch is added to the Pitch of a VCO (its sine output)
+            const sine = await add("modular/SineVCO.dsp", 60, 400), tracker = await add("faustlib/PitchTracker.dsp", 330, 400), vco = await add("modular/VCO.dsp", 600, 400);
+            scene.patch.connect({ module: sine, port: 0 }, { module: tracker, port: 0 });
+            const pitchMode = await modulate(tracker, 0, vco, "Pitch");
+            scene.patch.connect({ module: vco, port: 0 }, { module: "output", port: 1 });
+            const vcoAnalyser = ctx.createAnalyser();
+            vcoAnalyser.fftSize = 32768;
+            scene.audioGraph.getNode(vco).connect(vcoAnalyser);
+            await new Promise((r) => setTimeout(r, 1500));
+            const y = new Float32Array(vcoAnalyser.fftSize);
+            vcoAnalyser.getFloatTimeDomainData(y);
+            // the frequency of the VCO by its rising zero crossings (the first and the last one, interpolated)
+            const ups: number[] = [];
+            for (let n = 1; n < y.length; n++) if (y[n - 1] <= 0 && y[n] > 0) ups.push(n - 1 + y[n - 1] / (y[n - 1] - y[n]));
+            const vcoHz = ((ups.length - 1) * ctx.sampleRate) / (ups[ups.length - 1] - ups[0]);
+            return { kickMode, kickPeak, pitchMode, vcoHz };
+        });
+        expect(result.kickMode).toBe("drive");
+        expect(result.kickPeak).toBeGreaterThan(0.1);
+        expect(result.pitchMode).toBe("add");
+        expect(Math.abs(1200 * Math.log2(result.vcoHz / 440))).toBeLessThan(5);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
