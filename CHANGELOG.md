@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.13.0 (2026-11-02)
+
+- **Duplicate modules**: ⧉ in the title bar of a module (the selection, if the module is part of it), or
+  Ctrl/Cmd-D on the selection. The copies keep the code, the settings (modulation depths included) and the
+  modulations of their originals, 40 px down and to the right, and become the selection (Ctrl/Cmd-D again
+  makes another copy). The connections between the duplicated modules are duplicated, and the cables coming
+  from other modules too (audio inputs, modulation sources), so that a copy is fed as its original; the
+  cables going out are not (the copy would double their signal). Ctrl/Cmd-Shift-D leaves out the cables from
+  outside; a modulation left without a source is then not duplicated. One undo removes the whole duplication.
+
 ## 3.12.1 (2026-11-02)
 
 - **Fix: the deviation of a ~ port (linear FM) and the amount of a + port (pitch) could not be set.** The

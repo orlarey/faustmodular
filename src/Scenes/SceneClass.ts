@@ -161,6 +161,11 @@ export class Scene {
             } else if ((e.ctrlKey || e.metaKey) && key == "y") {
                 e.preventDefault();
                 this.redo();
+            } else if ((e.ctrlKey || e.metaKey) && key == "d") {
+                // duplicates the selected modules; with Shift, without the cables coming from outside
+                e.preventDefault();
+                var selection = this.patchView.getSelection();
+                if (selection.length > 0) this.duplicateModules(selection, !e.shiftKey);
             }
         });
     }
@@ -238,6 +243,7 @@ export class Scene {
 
     async captureSnapshot(): Promise<string> {
         await Promise.all(Array.from(this.fRecompilations.values()));
+        await Promise.all(Array.from(this.fOperations));
         var snapshot: SceneSnapshot = { modules: [], io: [], connections: [] };
         for (var state of this.patch.getModules()) {
             if (state.kind != "faust") {
@@ -769,6 +775,67 @@ export class Scene {
     // See model/Modulation.ts and Documentation/widget-modulation/PLAN.md.
 
     private fRecompilations = new Map<ModuleId, Promise<boolean>>();
+    // operations of several steps (a duplication): a history step waits for them, so that they make one
+    private fOperations = new Set<Promise<unknown>>();
+
+    /*********************** DUPLICATION ***************************/
+    // Offset of the copies from the originals (stage px).
+    static DUPLICATE_OFFSET = 40;
+
+    // Duplicates modules with their code, their settings (modulation depths included) and their
+    // modulations, offset down and to the right; the copies become the selection. The connections
+    // between the duplicated modules are duplicated; with `withInputs`, the connections coming from
+    // other modules (audio inputs, modulation sources) too, so that the copy is fed as the original.
+    // The outputs to other modules are not: the copy would double their signal. A modulation left
+    // without any source is not duplicated. Undone in one step.
+    duplicateModules(ids: ModuleId[], withInputs: boolean = true): Promise<ModuleId[]> {
+        var task = this.duplicate(ids, withInputs);
+        this.fOperations.add(task);
+        var done = () => { this.fOperations.delete(task); };
+        task.then(done, done);
+        return task;
+    }
+
+    private async duplicate(ids: ModuleId[], withInputs: boolean): Promise<ModuleId[]> {
+        var chosen = new Set(ids.filter((id) => this.patch.getModule(id)?.kind == "faust"));
+        if (chosen.size == 0) return [];
+        await Promise.all(Array.from(this.fRecompilations.values()));
+        var file = this.describePatch();
+        var connections = file.connections.filter((c) => chosen.has(c.to.module) && (chosen.has(c.from.module) || withInputs));
+        // the modulations kept (at least one source), their ports numbered anew: inputs, inputs + 1...
+        var ports = new Map<string, number>();
+        var modules = file.modules.filter((m) => chosen.has(m.id)).map((m) => {
+            var copy: ModuleFileV2 = { ...m, x: m.x + Scene.DUPLICATE_OFFSET, y: m.y + Scene.DUPLICATE_OFFSET };
+            delete copy.modulations;
+            var kept = (m.modulations ?? []).filter((_, i) => {
+                var port = m.inputs + i;
+                if (!connections.some((c) => c.to.module == m.id && c.to.port == port)) return false;
+                ports.set(`${m.id}:${port}`, m.inputs + Array.from(ports.keys()).filter((k) => k.startsWith(m.id + ":")).length);
+                return true;
+            });
+            if (kept.length > 0) copy.modulations = kept;
+            return copy;
+        });
+        var parsed = parsePatchV2({ ...file, modules, connections: [] });
+        var warnings: string[] = [];
+        var created = await this.recallModules(parsed.patch.getModules().filter((m) => m.kind == "faust"), warnings);
+        for (var c of connections) {
+            var from = chosen.has(c.from.module) ? created.get(c.from.module) : c.from.module;
+            var to = created.get(c.to.module);
+            var input = this.patch.getModule(c.to.module)!.numInputs;
+            var port = c.to.port < input ? c.to.port : ports.get(`${c.to.module}:${c.to.port}`);
+            if (from === undefined || to === undefined || port === undefined) continue;
+            try {
+                this.patch.connect({ module: from, port: c.from.port }, { module: to, port });
+            } catch (e) {
+                warnings.push(`connection ${from}:${c.from.port} -> ${to}:${port}: ${(e as Error).message}`);
+            }
+        }
+        warnings.forEach((w) => console.warn("duplicate:", w));
+        var copies = Array.from(chosen).map((id) => created.get(id)).filter((id): id is ModuleId => id !== undefined);
+        this.patchView.select(copies);
+        return copies;
+    }
     private fWidgets = new WeakMap<object, WidgetDescription[]>();
 
     // Widgets of the current DSP of a module (cached per DSP: asked at every move of a cable).

@@ -114,7 +114,7 @@ interface BandDrag {
 }
 
 // Elements of a module that keep their own pointer behaviour (controls, buttons, editor).
-const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit, .update";
+const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit, .update, .duplicate";
 
 export class PatchView {
     private fCables = new Map<ConnectionId, SVGPathElement>();

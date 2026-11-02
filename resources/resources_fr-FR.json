@@ -108,6 +108,7 @@
   "documentStorageLocal": "Ce navigateur n'offre pas le système de fichiers privé (OPFS) : les documents sont gardés dans le stockage local, limité à quelques Mo.",
   "documentStorageMemory": "Aucun stockage disponible : les documents seront perdus à la fermeture de l'onglet. Exportez-les.",
   "documentsUnavailable": "Les documents ne sont pas disponibles",
+  "moduleDuplicate": "Dupliquer ce module, ou les modules sélectionnés (Ctrl/Cmd-D ; avec Maj, sans les câbles venant d'autres modules)",
   "moduleUpdate": "Mettre à jour : passer à la dernière version de ce module (Ctrl/Cmd-Z pour revenir)",
   "moduleUpdateFailed": "{name} : la mise à jour a échoué ({error})",
   "titleUserModules": "Mes modules",

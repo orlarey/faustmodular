@@ -1019,6 +1019,112 @@ describe("widget styles", () => {
     }, 120_000);
 });
 
+describe("duplication", () => {
+    // creates a module from code, returns its id
+    const create = (page: Page, name: string, code: string, x: number, y = 100) => page.evaluate(async ([n, c, xx, yy]) => {
+        const { app, scene } = (globalThis as any).faustPlayground;
+        const before = scene.getModules().length;
+        await app.compileFaust({ name: n, sourceCode: c, x: xx, y: yy, callback: (f: any) => app.createModule(f, n, c, xx, yy) });
+        while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+        return scene.getModules()[before].moduleId as string;
+    }, [name, code, x, y] as [string, string, number, number]);
+    const modulate = (page: Page, from: string, to: string, label: string) => page.evaluate(async ([f, o, l]) => {
+        const s = (globalThis as any).faustPlayground.scene;
+        const address = s.widgetsOf(s.getModuleById(o)).find((w: any) => w.label == l).address;
+        await s.modulate({ module: f, port: 0 }, o, address, s.allowedModesOf(o, address)[0]);
+        const id = s.patch.getModule(o).modulations.at(-1).id;
+        while (s.getDepth(o, id) === undefined && s.patch.getModule(o).modulations.at(-1).spec.mode != "drive") await new Promise((r) => setTimeout(r, 20));
+        return id as string;
+    }, [from, to, label]);
+    // the patch as the tests see it
+    const patch = (page: Page) => page.evaluate(() => {
+        const s = (globalThis as any).faustPlayground.scene;
+        const file = s.describePatch();
+        return {
+            modules: file.modules.filter((m: any) => m.kind == "faust").map((m: any) => ({ id: m.id, name: m.name, x: m.x, y: m.y, params: m.params, modulations: (m.modulations ?? []).map((x: any) => x.mode) })),
+            connections: file.connections.map((c: any) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`),
+            selection: s.patchView.getSelection(),
+        };
+    });
+    const count = (page: Page, n: number) => page.waitForFunction((k) => (globalThis as any).faustPlayground.scene.patch.getModules().filter((m: any) => m.kind == "faust").length == k, n);
+
+    it("the ⧉ button duplicates a module with its settings and its modulation, fed as the original, undone in one step", async () => {
+        const { page, errors } = await openApp();
+        const half = await create(page, "Half", 'process = vgroup("Half", 0.5);', 100);
+        const lin = await create(page, "Lin", 'process = vgroup("Lin", hslider("f[mod:lin]", 100, 1, 1000, 1));', 400);
+        const modulation = await modulate(page, half, lin, "f");
+        await page.evaluate(([l, m]) => {
+            const s = (globalThis as any).faustPlayground.scene;
+            s.setDepth(l, m, 6);
+            const module = s.getModuleById(l);
+            s.restoreParams(module, { [module.moduleControles.find((c: any) => c.itemParam.label == "f").itemParam.address]: 200 });
+            s.patch.connect({ module: l, port: 0 }, { module: "output", port: 0 });
+        }, [lin, modulation]);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        const container = await page.evaluate((l) => (globalThis as any).faustPlayground.scene.getModuleById(l).moduleView.fModuleContainer.id, lin);
+        await page.click(`#${container} > .duplicate`);
+        await count(page, 3);
+        const after = await patch(page);
+        const original = after.modules.find((m: any) => m.id == lin)!;
+        const copy = after.modules.find((m: any) => m.id != lin && m.id != half)!;
+        expect(copy.name).toBe("Lin");
+        expect([copy.x - original.x, copy.y - original.y]).toEqual([40, 40]);
+        expect(copy.params).toEqual(original.params);                     // f = 200, deviation 6
+        expect(Object.values(copy.params)).toEqual(expect.arrayContaining([200, 6]));
+        expect(copy.modulations).toEqual(["linear"]);
+        expect(after.connections).toContain(`${half}:0>${copy.id}:0`);    // its modulation source
+        expect(after.connections.filter((c: string) => c.startsWith(copy.id + ":"))).toEqual([]);     // not its outputs
+        expect(after.selection).toEqual([copy.id]);
+        // the copy sounds as the original: 200·(1 + 6·0.5)
+        const value = await page.evaluate(async (m) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(m);
+            await node.context.resume();
+            const analyser = node.context.createAnalyser();
+            node.connect(analyser);
+            await new Promise((r) => setTimeout(r, 500));
+            const x = new Float32Array(analyser.fftSize);
+            analyser.getFloatTimeDomainData(x);
+            return x[x.length - 1];
+        }, copy.id);
+        expect(value).toBeCloseTo(800, 1);
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await count(page, 2);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
+    it("Ctrl-D duplicates the selection with the connections between its modules; Ctrl-Shift-D without those from outside", async () => {
+        const { page, errors } = await openApp();
+        const half = await create(page, "Half", 'process = vgroup("Half", 0.5);', 100, 400);
+        const a = await create(page, "A", 'process = vgroup("A", 0.25);', 100);
+        const b = await create(page, "B", 'process = vgroup("B", *(hslider("g", 0.5, 0, 1, 0.01)));', 400);
+        await page.evaluate(([x, y]) => (globalThis as any).faustPlayground.scene.patch.connect({ module: x, port: 0 }, { module: y, port: 0 }), [a, b]);
+        await modulate(page, half, b, "g");
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        await page.evaluate(([x, y]) => (globalThis as any).faustPlayground.scene.patchView.select([x, y]), [a, b]);
+        await page.keyboard.press("Control+d");
+        await count(page, 5);
+        let p = await patch(page);
+        const [a2, b2] = p.selection;
+        expect(p.modules.find((m: any) => m.id == a2)!.name).toBe("A");
+        expect(p.modules.find((m: any) => m.id == b2)!.modulations).toEqual(["modulate"]);
+        expect(p.connections).toEqual(expect.arrayContaining([`${a2}:0>${b2}:0`, `${half}:0>${b2}:1`]));
+        // one step undoes the whole duplication
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.undo());
+        await count(page, 3);
+        // B alone, without the cables from outside: neither its audio input nor its modulation
+        await page.evaluate((y) => (globalThis as any).faustPlayground.scene.patchView.select([y]), b);
+        await page.keyboard.press("Control+Shift+d");
+        await count(page, 4);
+        p = await patch(page);
+        const [b3] = p.selection;
+        expect(p.modules.find((m: any) => m.id == b3)!.modulations).toEqual([]);
+        expect(p.connections.filter((c: string) => c.includes(b3 + ":"))).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("modular library", () => {
     it("computes a module whose inputs are not connected (silence in, not no computation)", async () => {
         const { page, errors } = await openApp();

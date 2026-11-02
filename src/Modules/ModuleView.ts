@@ -23,6 +23,7 @@ export class ModuleView {
     fInterfaceContainer: HTMLInterfaceContainer;
     fEditImg: HTMLDivElement;
     fUpdate: HTMLDivElement;
+    fDuplicate: HTMLDivElement;
     fTitle: HTMLElement;
     fInputPorts: HTMLElement[] = [];
     fOutputPorts: HTMLElement[] = [];
@@ -74,8 +75,16 @@ export class ModuleView {
             fMaxButton.className = "max";
             this.maxButton = fMaxButton;
 
+            // ⧉ next to −: duplicates the module (the selection if it is part of it)
+            var fDuplicate = document.createElement("div");
+            fDuplicate.className = "duplicate";
+            fDuplicate.draggable = false;
+            fDuplicate.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5h-5a1.5 1.5 0 0 0-1.5 1.5v5a1.5 1.5 0 0 0 1.5 1.5h.5"/></svg>';
+            this.fDuplicate = fDuplicate;
+
             fModuleContainer.appendChild(fCloseButton);
             fModuleContainer.appendChild(fMinButton);
+            fModuleContainer.appendChild(fDuplicate);
             fModuleContainer.appendChild(fMaxButton);
 
             // the pencil, in the title bar: edits the code in faustcode

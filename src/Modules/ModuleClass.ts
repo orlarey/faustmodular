@@ -66,6 +66,14 @@ export class ModuleClass {
             this.moduleView.fEditImg.title = Utilitary.messageResource.editInFaustcode;
             this.moduleView.fEditImg.addEventListener("click", () => { Utilitary.currentScene.editInFaustcode(this) });
         }
+        if (this.moduleView.fDuplicate != undefined) {
+            this.moduleView.fDuplicate.title = Utilitary.messageResource.moduleDuplicate;
+            this.moduleView.fDuplicate.addEventListener("click", () => {
+                var scene = Utilitary.currentScene;
+                var selection = scene.patchView.getSelection();
+                scene.duplicateModules(selection.indexOf(this.moduleId) >= 0 ? selection : [this.moduleId]);
+            });
+        }
         if (this.moduleView.fUpdate != undefined) {
             this.moduleView.fUpdate.title = Utilitary.messageResource.moduleUpdate;
             this.moduleView.fUpdate.addEventListener("click", () => { Utilitary.currentScene.updateModule(this) });

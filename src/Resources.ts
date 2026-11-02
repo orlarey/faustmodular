@@ -64,6 +64,7 @@ export class Resources {
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;
+    moduleDuplicate: string;
     moduleUpdateFailed: string;
     titleUserModules: string;
     userModulesEmpty: string;

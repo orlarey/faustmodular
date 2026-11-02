@@ -25,6 +25,10 @@ channels.
   (see `Documentation/widget-modulation/MODULATION.md`).
 - Shift-click modules, or drag a rectangle on the empty stage, to select several modules and move them
   together.
+- ⧉ in the title bar of a module, or Ctrl/Cmd-D on the selection, duplicates modules with their code,
+  settings and modulations, the connections between them, and the cables coming from other modules
+  (audio inputs, modulation sources), so that a copy is fed as its original; not the cables going out.
+  Ctrl/Cmd-Shift-D leaves out the cables coming from outside. The copies become the selection.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
