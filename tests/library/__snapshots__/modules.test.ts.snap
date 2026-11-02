@@ -105,6 +105,7 @@ exports[`library modules > all indexed modules compile, with at most 32 inputs a
   "faust-modules/modular/Quantizer.dsp": "1x1",
   "faust-modules/modular/SampleHold.dsp": "1x1",
   "faust-modules/modular/Sequencer.dsp": "0x2",
+  "faust-modules/modular/SineVCO.dsp": "0x1",
   "faust-modules/modular/VCA.dsp": "1x1",
   "faust-modules/modular/VCF.dsp": "1x1",
   "faust-modules/modular/VCO.dsp": "0x4",

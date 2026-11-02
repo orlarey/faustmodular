@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.11.0 (2026-11-02)
+
+- **SineVCO**, the simplest oscillator of the modular library: a frequency in Hz (log scale) and a gain.
+  Two of them make **classic FM**: the output of one dropped on the *Freq* of the other.
+- **A new modulation mode, "~ linear FM"**, for the sliders declaring `[mod:lin]`: w·(1 + D·m), the deviation
+  D from −10 to 10, 1 by default, bounded to [−max, max]. With a sine modulator of gain g at fm, the index is
+  I = D·g·fc/fm, the mean frequency stays fc, and the frequency goes through zero (the phase turns
+  backwards) instead of being clipped. The exponential ± of the frequency sliders could not do classic FM:
+  the pitch drifted up with the depth (+92 cents for an excursion of 0.1 at 440 Hz), the excursion
+  depended on the position of the slider, and the frequency stopped at the minimum of the slider.
+- **`[mod:...]`**: a slider declares its modulation mode, `lin` or `add` (as `[unit:pitch]`).
+- The depth of a modulation port covers the range of its mode (±10 for the deviation, the same drag).
+- Tests: the spectrum of two SineVCO against Chowning's, fc ± k·fm with the amplitudes |J_k(I)|, within
+  5·10⁻⁴ for an amplitude of 0.5, through zero included; end to end, the sidebands in the application.
+
 ## 3.10.0 (2026-11-02)
 
 - **Port names on the scene**: the names a module declares (`declare inlets "audio";`,

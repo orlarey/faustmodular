@@ -36,7 +36,8 @@ SampleHold (see `Documentation/MODULAR-LIBRARY.md`). The former library stays un
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to
-their value, "+"), a clock on the *Clock* button of the sequencer, an envelope on the *Gain* of a VCA.
+their value, "+"), a clock on the *Clock* button of the sequencer, an envelope on the *Gain* of a VCA. A
+slider declaring `[mod:lin]` is modulated linearly ("~"): two *SineVCO* make classic FM.
 
 ## Documents
 

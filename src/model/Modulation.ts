@@ -23,11 +23,16 @@
     - "add" (+), for the pitch sliders ([unit:pitch], 0.1 per octave): w + A·m, A being an amount slider
       of the circuit (−1..1, 1 by default): the slider is a transposition, the signal a pitch added to it,
       as the knob and the 1 V/oct input of an oscillator (Documentation/MODULAR-LIBRARY.md);
+    - "linear" (~), for the widgets declaring [mod:lin] (the frequency of an oscillator): w·(1 + D·m),
+      D being a deviation slider of the circuit (−10..10, 1 by default), bounded to [−max, max] (through
+      zero: a negative frequency turns the phase backwards). With a sine of gain g on the frequency fc of
+      a sine oscillator, the deviation is D·g·fc and the index of classic (Chowning) FM is
+      I = D·g·fc/fm; the mean frequency stays fc;
     - "scale" (×): w·m;
     - "drive" (⇐): clip(m); the widget stays in the interface but has no effect.
 */
 
-export type ModulationMode = "modulate" | "add" | "scale" | "drive";
+export type ModulationMode = "modulate" | "add" | "linear" | "scale" | "drive";
 
 // A widget of a compiled module, from the JSON description of its factory.
 export interface WidgetDescription {
@@ -58,25 +63,36 @@ export const DEFAULT_DEPTH = 0.5;
 // Amount of a new + modulation: the pitch is followed exactly.
 export const DEFAULT_AMOUNT = 1;
 
+// Deviation of a new linear modulation: with a modulator of gain g at the frequency of the carrier,
+// the index of the FM is g.
+export const DEFAULT_DEVIATION = 1;
+
 // The modes whose circuit has a depth slider (shown and set on the modulation port).
 export function hasDepth(mode: ModulationMode): boolean {
-    return mode == "modulate" || mode == "add";
+    return mode == "modulate" || mode == "add" || mode == "linear";
 }
 
 export function defaultDepth(mode: ModulationMode): number {
-    return mode == "add" ? DEFAULT_AMOUNT : DEFAULT_DEPTH;
+    return mode == "add" ? DEFAULT_AMOUNT : mode == "linear" ? DEFAULT_DEVIATION : DEFAULT_DEPTH;
+}
+
+// The depth slider goes from −range to range.
+export function depthRange(mode: ModulationMode): number {
+    return mode == "linear" ? 10 : 1;
 }
 
 // Address of the depth slider of a ± modulation: ".../depth_<key>" (label "depth <key>"), of a +
 // modulation: ".../amount_<key>". The value of a depth whose modulation is removed is kept with the
 // module's parameters: it is used again when the widget is modulated again, by the same source or another.
 export function isDepthAddress(address: string): boolean {
-    return /(^|\/)(depth|amount)_[^/]*$/.test(address);
+    return /(^|\/)(depth|amount|deviation)_[^/]*$/.test(address);
 }
 
 // Default value of the depth slider at this address (a remembered depth equal to it is not kept).
 export function defaultDepthAt(address: string): number {
-    return /(^|\/)amount_[^/]*$/.test(address) ? DEFAULT_AMOUNT : DEFAULT_DEPTH;
+    if (/(^|\/)amount_[^/]*$/.test(address)) return DEFAULT_AMOUNT;
+    if (/(^|\/)deviation_[^/]*$/.test(address)) return DEFAULT_DEVIATION;
+    return DEFAULT_DEPTH;
 }
 
 // Labels Faust gives to groups without a label ("h:[1]/x" → group "0x00"): they are not in the source.
@@ -113,17 +129,29 @@ export function isModulable(widget: WidgetDescription): boolean {
 // minimum, depth 1); pitch sliders add the signal to their value; buttons and checkboxes are driven
 // by the signal.
 export function allowedModes(widget: WidgetDescription): ModulationMode[] {
-    return isSwitch(widget) ? ["drive"] : isPitch(widget) ? ["add"] : ["modulate"];
+    return isSwitch(widget) ? ["drive"] : isLinear(widget) ? ["linear"] : isPitch(widget) ? ["add"] : ["modulate"];
 }
 
 // The modes accepted (patches saved before 2.8.0 may have "scale" and "drive" on sliders).
 export function supportedModes(widget: WidgetDescription): ModulationMode[] {
-    return isSwitch(widget) ? ["drive"] : isPitch(widget) ? ["add", "modulate", "scale", "drive"] : ["modulate", "scale", "drive"];
+    if (isSwitch(widget)) return ["drive"];
+    const first: ModulationMode[] = isLinear(widget) ? ["linear"] : isPitch(widget) ? ["add"] : [];
+    return [...first, "modulate", "scale", "drive"];
 }
 
-// Pitch sliders: [unit:pitch], 0.1 per octave (Documentation/MODULAR-LIBRARY.md).
+// The mode a slider declares: [mod:lin] (linear), [mod:add] (added, as a pitch).
+function declaredMode(widget: WidgetDescription): string | undefined {
+    return widget.meta["mod"]?.trim().toLowerCase();
+}
+
+// Pitch sliders: [unit:pitch], 0.1 per octave (Documentation/MODULAR-LIBRARY.md), or [mod:add].
 export function isPitch(widget: WidgetDescription): boolean {
-    return widget.meta["unit"]?.toLowerCase() == "pitch";
+    return widget.meta["unit"]?.toLowerCase() == "pitch" || declaredMode(widget) == "add";
+}
+
+// Sliders modulated linearly: [mod:lin] (the frequency of an oscillator, for classic FM).
+export function isLinear(widget: WidgetDescription): boolean {
+    return declaredMode(widget) == "lin";
 }
 
 function isSwitch(widget: WidgetDescription): boolean {
@@ -202,6 +230,11 @@ export function circuit(spec: ModulationSpec): string {
         case "add": {
             const amount = `hslider("[${DEPTH_METADATA}:${depthKey(spec)}][style:knob]amount ${depthKey(spec)}", ${float(DEFAULT_AMOUNT)}, -1, 1, 0.001) : si.smoo`;
             return `(_, *(${amount}) : + : ${clip})`;
+        }
+        case "linear": {
+            const deviation = `hslider("[${DEPTH_METADATA}:${depthKey(spec)}][style:knob]deviation ${depthKey(spec)}", ${float(DEFAULT_DEVIATION)}, -10, 10, 0.001) : si.smoo`;
+            const hi = float(Math.max(Math.abs(spec.min), Math.abs(spec.max)));
+            return `(_, *(${deviation}) : \\(w, u).(w * (1 + u)) : max(-${hi}) : min(${hi}))`;
         }
         case "scale":
             return "*";

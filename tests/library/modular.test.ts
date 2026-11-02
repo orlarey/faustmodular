@@ -102,8 +102,8 @@ const constant = (v: number) => () => v;
 describe("modular library: ports and settings", () => {
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".dsp"));
 
-    it("has the twelve modules of the first voice", () => {
-        expect(files.sort()).toEqual(["ADSR", "Clock", "LFO", "Mixer", "Noise", "Offset", "Quantizer", "SampleHold", "Sequencer", "VCA", "VCF", "VCO"].map((n) => n + ".dsp"));
+    it("has the twelve modules of the first voice, and the SineVCO", () => {
+        expect(files.sort()).toEqual(["ADSR", "Clock", "LFO", "Mixer", "Noise", "Offset", "Quantizer", "SampleHold", "Sequencer", "SineVCO", "VCA", "VCF", "VCO"].map((n) => n + ".dsp"));
     });
 
     it("no setting is smoothed: a modulation goes through it at audio rate", () => {
@@ -118,7 +118,7 @@ describe("modular library: ports and settings", () => {
         }
         expect(arity).toEqual({
             ADSR: [0, 1], Clock: [0, 1], LFO: [0, 1], Mixer: [4, 1], Noise: [0, 2], Offset: [1, 1],
-            Quantizer: [1, 1], SampleHold: [1, 1], Sequencer: [0, 2], VCA: [1, 1], VCF: [1, 1], VCO: [0, 4],
+            Quantizer: [1, 1], SampleHold: [1, 1], Sequencer: [0, 2], SineVCO: [0, 1], VCA: [1, 1], VCF: [1, 1], VCO: [0, 4],
         });
     }, 120_000);
 
@@ -129,6 +129,7 @@ describe("modular library: ports and settings", () => {
         };
         expect(await modes("VCO.dsp")).toEqual({ Pitch: "add", Octave: "modulate", Tune: "modulate", FM: "modulate", Width: "modulate" });
         expect((await modes("VCF.dsp")).Pitch).toBe("add");
+        expect(await modes("SineVCO.dsp")).toEqual({ Freq: "linear", Gain: "modulate" });
         expect((await modes("ADSR.dsp")).Gate).toBe("drive");
         expect((await modes("Sequencer.dsp")).Clock).toBe("drive");
     }, 120_000);
@@ -323,5 +324,50 @@ describe("modular library: time and events", () => {
         const values = new Set(Array.from(random).map((v) => v.toFixed(6)));
         expect(values.size).toBeGreaterThan(4);
         expect(values.size).toBeLessThan(12);
+    }, 120_000);
+});
+
+// Bessel function of the first kind, J_n(x), by its series (|n| small, x up to a few units).
+function bessel(n: number, x: number): number {
+    const k = Math.abs(n);
+    let sum = 0, term = (x / 2) ** k / Array.from({ length: k }, (_, i) => i + 1).reduce((a, b) => a * b, 1);
+    for (let m = 0; m < 40; m++) {
+        sum += term;
+        term *= -((x / 2) ** 2) / ((m + 1) * (m + 1 + k));
+    }
+    return n < 0 && k % 2 == 1 ? -sum : sum;
+}
+
+describe("modular library: classic FM with two SineVCO", () => {
+    // the amplitude at fc + k·fm, against gain·|J_k(I)|
+    const expectSpectrum = (x: Float32Array, gain: number, fc: number, fm: number, index: number, ks: number[]) => {
+        for (const k of ks) {
+            const expected = gain * Math.abs(bessel(k, index));
+            expect(Math.abs(amplitude(x, Math.abs(fc + k * fm)) - expected), `component ${k}: ${fc + k * fm} Hz`).toBeLessThan(0.002);
+        }
+    };
+
+    it("SineVCO: a sine at Freq, times Gain", async () => {
+        const [x] = await render("SineVCO.dsp", 1.2, [], { Freq: 330, Gain: 0.8 });
+        expect(cents(frequency(x), 330)).toBeLessThan(1);
+        expect(amplitude(x, 330)).toBeCloseTo(0.8, 2);
+    }, 120_000);
+
+    it("a sine on Freq gives the spectrum of Chowning: fc ± k·fm with the amplitudes J_k(I), I = D·g·fc/fm", async () => {
+        // fc 1000 Hz, fm 100 Hz, D 0.2: a deviation of 200 Hz, I = 2; the carrier stays at fc (no drift)
+        const [x] = await render("SineVCO.dsp", 1.2, [], { Freq: 1000, Gain: 0.5 }, { Freq: { signal: sine(100), depth: 0.2 } });
+        expectSpectrum(x, 0.5, 1000, 100, 2, [-3, -2, -1, 0, 1, 2, 3]);
+    }, 120_000);
+
+    it("through zero: a deviation larger than fc turns the phase backwards (components reflected, not clipped)", async () => {
+        // fc 100 Hz, fm 400 Hz, D 4: I = 1, the frequency goes down to -300 Hz; lower sidebands at 300, 700 Hz
+        const [x] = await render("SineVCO.dsp", 1.2, [], { Freq: 100, Gain: 0.5 }, { Freq: { signal: sine(400), depth: 4 } });
+        expectSpectrum(x, 0.5, 100, 400, 1, [-2, -1, 0, 1, 2]);
+    }, 120_000);
+
+    it("two SineVCO: the modulator's output on the carrier's Freq, default deviation 1: I = Gain·fc/fm", async () => {
+        const [modulator] = await render("SineVCO.dsp", 1.2, [], { Freq: 300, Gain: 0.6 });
+        const [x] = await render("SineVCO.dsp", 1.2, [], { Freq: 1000, Gain: 0.5 }, { Freq: (t) => modulator[t] });
+        expectSpectrum(x, 0.5, 1000, 300, 2, [-3, -2, -1, 0, 1, 2, 3]);
     }, 120_000);
 });

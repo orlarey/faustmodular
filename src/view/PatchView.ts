@@ -9,7 +9,7 @@
         - on a port of the other direction: port-to-port connection,
         - on the body of another module: bus connection between the two modules (cyclic rule);
         - on a widget (from an output): modulates the widget with the mode of its kind ("modulate"
-          for sliders, "add" for pitch sliders, "drive" for buttons and checkboxes; Documentation/widget-modulation/PLAN.md);
+          for sliders, "add" for pitch sliders, "linear" for [mod:lin] sliders, "drive" for buttons and checkboxes; Documentation/widget-modulation/PLAN.md);
     - click on a cable to delete it.
 
     Each pointer is tracked separately (pointerId), so several cables can be drawn at once
@@ -21,22 +21,24 @@
     left edge at the height of its widget: an
     icon shows its type and, for "modulate" and "add", a ring shows its depth (arc length = |depth|,
     clockwise when positive). Dragging such a port vertically sets the depth live (0.01 per pixel, 0.001
-    with Shift); a double click sets it back to its default (0.5 for "modulate", 1 for "add").
+    with Shift, ten times more for "linear", whose deviation goes from −10 to 10); a double click sets it
+    back to its default (0.5 for "modulate", 1 for "add" and "linear").
     Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
 import type { ModulationMode } from "../model/Modulation";
-import { defaultDepth, hasDepth } from "../model/Modulation";
+import { defaultDepth, depthRange, hasDepth } from "../model/Modulation";
 import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, PortRef } from "../model/Patch";
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
 
-export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", add: "+", scale: "×", drive: "→" };
+export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", add: "+", linear: "~", scale: "×", drive: "→" };
 
 // Stroke icons of the modulation types (24 x 24 viewBox, drawn with currentColor).
 export const MODE_ICONS: Record<ModulationMode, string> = {
     modulate: "M12 4v9M7.5 8.5h9M7.5 19h9",       // ±
     add: "M12 6v12M6 12h12",                       // + the signal is added to the slider (a pitch)
+    linear: "M3 12c2.5-7 6.5-7 9 0s6.5 7 9 0",     // ~ linear frequency modulation
     scale: "M7 7l10 10M17 7L7 17",                 // ×
     drive: "M4 12h14M13 7l5 5-5 5",                // → the signal drives the widget
 };
@@ -64,6 +66,7 @@ interface DepthDrag {
     module: ModuleId;
     modulation: string;
     port: HTMLElement;
+    range: number;              // the depth goes from −range to range
     lastY: number;
     depth: number;
 }
@@ -320,7 +323,7 @@ export class PatchView {
         const state = this.fPatch.getModule(id);
         if (!container || !state) return;
         container.querySelectorAll("[data-widget]").forEach((element) =>
-            element.classList.remove("modulated", "modulated-modulate", "modulated-add", "modulated-scale", "modulated-drive"));
+            element.classList.remove("modulated", "modulated-modulate", "modulated-add", "modulated-linear", "modulated-scale", "modulated-drive"));
         for (const modulation of state.modulations) {
             this.widgetElement(id, modulation.widget)?.classList.add("modulated", "modulated-" + modulation.spec.mode);
         }
@@ -396,6 +399,7 @@ export class PatchView {
         const labels: Record<ModulationMode, string> = {
             modulate: Utilitary.messageResource.modulationModulate,
             add: Utilitary.messageResource.modulationAdd,
+            linear: Utilitary.messageResource.modulationLinear,
             scale: Utilitary.messageResource.modulationScale,
             drive: Utilitary.messageResource.modulationDrive,
         };
@@ -407,7 +411,7 @@ export class PatchView {
         const depth = this.fModulation?.getDepth(id, modulationId);
         const size = MODULATION_PORT_SIZE;
         const circumference = 2 * Math.PI * (size / 2 - 1.5);
-        const amount = depth === undefined ? 1 : Math.min(1, Math.abs(depth));
+        const amount = depth === undefined ? 1 : Math.min(1, Math.abs(depth) / depthRange(modulation.spec.mode));
         arc.setAttribute("stroke-dasharray", `${amount * circumference} ${circumference}`);
         // from the top, clockwise for a positive depth, counterclockwise for a negative one
         arc.setAttribute("transform", (depth ?? 1) < 0
@@ -415,7 +419,7 @@ export class PatchView {
             : `rotate(-90 ${size / 2} ${size / 2})`);
         port.classList.toggle("negative", (depth ?? 1) < 0);
         port.dataset.depth = depth === undefined ? "" : depth.toFixed(3);
-        port.title = `${title} : ${Utilitary.messageResource.modulationDepth} ${depth === undefined ? "" : depth.toFixed(3)}\n${Utilitary.messageResource.modulationPortHint}`;
+        port.title = `${title} : ${modulation.spec.mode == "linear" ? Utilitary.messageResource.modulationDeviation : Utilitary.messageResource.modulationDepth} ${depth === undefined ? "" : depth.toFixed(3)}\n${Utilitary.messageResource.modulationPortHint}`;
     }
 
     private updateFeedbackStyle(): void {
@@ -464,7 +468,7 @@ export class PatchView {
         }
     }
 
-    // Vertical drag on a "modulate" port: depth from −1 to 1 (up increases), adjusted live.
+    // Vertical drag on a port with a depth: from −1 to 1 (−10 to 10 for "linear"; up increases), live.
     private startDepthDrag(e: PointerEvent, module: ModuleClass, port: HTMLElement): void {
         e.stopPropagation();
         e.preventDefault();
@@ -473,15 +477,18 @@ export class PatchView {
         if (depth === undefined) return;        // module being recompiled
         port.setPointerCapture(e.pointerId);
         port.classList.add("adjusting");
-        this.fDepthDrags.set(e.pointerId, { module: module.moduleId, modulation, port, lastY: e.clientY, depth });
+        const mode = this.fPatch.getModule(module.moduleId)?.modulations.find((m) => m.id == modulation)?.spec.mode ?? "modulate";
+        this.fDepthDrags.set(e.pointerId, { module: module.moduleId, modulation, port, range: depthRange(mode), lastY: e.clientY, depth });
     }
 
     private onPointerMove(e: PointerEvent): void {
         const depthDrag = this.fDepthDrags.get(e.pointerId);
         if (depthDrag) {
             // by steps from the previous position, so that pressing or releasing Shift does not jump
-            const rate = e.shiftKey ? FINE_DEPTH_PER_PIXEL : DEPTH_PER_PIXEL;
-            depthDrag.depth = Math.max(-1, Math.min(1, depthDrag.depth + (depthDrag.lastY - e.clientY) * rate));
+            // the same drag covers the range of the mode (−1..1, or −10..10 for a linear modulation)
+            const range = depthDrag.range;
+            const rate = (e.shiftKey ? FINE_DEPTH_PER_PIXEL : DEPTH_PER_PIXEL) * range;
+            depthDrag.depth = Math.max(-range, Math.min(range, depthDrag.depth + (depthDrag.lastY - e.clientY) * rate));
             depthDrag.lastY = e.clientY;
             this.fModulation?.setDepth(depthDrag.module, depthDrag.modulation, Math.round(depthDrag.depth * 1000) / 1000);
             this.showDepth(depthDrag.port, depthDrag.module, depthDrag.modulation);

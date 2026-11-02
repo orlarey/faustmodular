@@ -78,6 +78,18 @@ describe("widget descriptions and Faust targets", () => {
         expect(() => modulationSpec(byLabel("gate"), widgets, "scale")).toThrow(ModulationError);
     });
 
+    it("offers ~ (linear) for the sliders declaring [mod:lin], + for [mod:add]", async () => {
+        const widgets = await widgetsOf(wrap("Osc", `process = hslider("freq[unit:Hz][scale:log][mod:lin]", 440, 20, 20000, 0.01) + hslider("p[mod:add]", 0, -1, 1, 0.001) + hslider("f[unit:Hz]", 440, 20, 20000, 1);`));
+        const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
+        expect(allowedModes(byLabel("freq"))).toEqual(["linear"]);
+        expect(supportedModes(byLabel("freq"))).toEqual(["linear", "modulate", "scale", "drive"]);
+        expect(allowedModes(byLabel("p"))).toEqual(["add"]);
+        expect(allowedModes(byLabel("f"))).toEqual(["modulate"]);          // a frequency without [mod:lin]: exponential
+        expect(() => modulationSpec(byLabel("f"), widgets, "linear")).toThrow(ModulationError);
+        expect(isDepthAddress("/Osc/deviation_freq")).toBe(true);
+        expect(defaultDepthAt("/Osc/deviation_freq")).toBe(1);
+    });
+
     it("offers + for the pitch sliders ([unit:pitch]), only for them", async () => {
         const widgets = await widgetsOf(wrap("VCO", `process = hslider("pitch[unit:pitch]", 0, -1, 1, 0.001) + hslider("gain", 0.5, 0, 1, 0.01);`));
         const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
@@ -147,6 +159,21 @@ describe("effective code", () => {
         const amount = (await run(code, [0])).widgets.find((w) => w.label == "amount pitch")!;
         expect(amount.meta).toMatchObject({ modulation: "pitch" });
         expect(isModulable(amount)).toBe(false);
+    });
+
+    it("~ linear: w·(1 + D·m), D from −10 to 10 (1 by default), through zero down to −max", async () => {
+        const osc = wrap("Osc", `process = hslider("freq[unit:Hz][scale:log][mod:lin]", 440, 20, 20000, 0.01);`);
+        const code = await modulated(osc, 0, [["freq", "linear"]]);
+        close((await run(code, [0])).out[0], 440);
+        close((await run(code, [0.5])).out[0], 660);
+        close((await run(code, [-0.5])).out[0], 220);
+        close((await run(code, [0.5], { "deviation freq": 4 })).out[0], 1320);
+        close((await run(code, [-0.5], { "deviation freq": 4 })).out[0], -440);       // below the minimum of the slider
+        close((await run(code, [1], { "deviation freq": 10, freq: 5000 })).out[0], 20000);
+        close((await run(code, [-1], { "deviation freq": 10, freq: 5000 })).out[0], -20000);
+        const deviation = (await run(code, [0])).widgets.find((w) => w.label == "deviation freq")!;
+        expect([deviation.min, deviation.max]).toEqual([-10, 10]);
+        expect(isModulable(deviation)).toBe(false);
     });
 
     it("× doser: w·m; ⇐ piloter: clip(m), the widget staying in the interface", async () => {

@@ -37,6 +37,8 @@ export class Resources {
     modulationsRemoved: string;
     modulationModulate: string;
     modulationAdd: string;
+    modulationLinear: string;
+    modulationDeviation: string;
     modulationScale: string;
     modulationDrive: string;
     modulationDepth: string;

@@ -1021,6 +1021,58 @@ describe("modular library", () => {
         await page.close();
     }, 120_000);
 
+    it("classic FM with two SineVCO: the modulator dropped on the carrier's Freq (linear, deviation 1)", async () => {
+        const { page, errors } = await openApp();
+        const result = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const add = async (x: number) => {
+                const before = scene.getModules().length;
+                app.uploadUrl(app, null, x, 100, location.origin + "/faust-modules/modular/SineVCO.dsp");
+                while (scene.getModules().length == before) await new Promise((r) => setTimeout(r, 20));
+                return scene.getModules()[before].moduleId as string;
+            };
+            const set = (m: string, label: string, v: number) => {
+                const module = scene.getModuleById(m);
+                const c = module.moduleControles.find((x: any) => x.itemParam.label == label);
+                scene.restoreParams(module, { [c.itemParam.address]: v });
+            };
+            const modulator = await add(100), carrier = await add(400);
+            // fm 300 Hz, gain 0.6; fc 1000 Hz: I = 0.6 · 1000 / 300 = 2
+            set(modulator, "Freq", 300);
+            set(modulator, "Gain", 0.6);
+            set(carrier, "Freq", 1000);
+            const freq = scene.widgetsOf(scene.getModuleById(carrier)).find((w: any) => w.label == "Freq").address;
+            const [mode] = scene.allowedModesOf(carrier, freq);
+            await scene.modulate({ module: modulator, port: 0 }, carrier, freq, mode);
+            const id = scene.patch.getModule(carrier).modulations[0].id;
+            while (scene.getDepth(carrier, id) === undefined) await new Promise((r) => setTimeout(r, 20));
+            const port = document.querySelector(".modulation-port") as HTMLElement;
+            const node = scene.audioGraph.getNode(carrier);
+            const ctx = node.context as AudioContext;
+            await ctx.resume();
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 32768;
+            analyser.smoothingTimeConstant = 0;
+            node.connect(analyser);
+            await new Promise((r) => setTimeout(r, 1500));
+            const db = new Float32Array(analyser.frequencyBinCount);
+            analyser.getFloatFrequencyData(db);
+            const peak = (hz: number) => {
+                const bin = Math.round((hz * analyser.fftSize) / ctx.sampleRate);
+                return Math.max(...Array.from(db.slice(bin - 3, bin + 4)));
+            };
+            return { mode, linear: port.classList.contains("modulation-linear"), deviation: scene.getDepth(carrier, id), carrier: peak(1000), upper: peak(1300), lower2: peak(400) };
+        });
+        expect(result.mode).toBe("linear");
+        expect(result.linear).toBe(true);
+        expect(result.deviation).toBe(1);
+        // J1(2) / J0(2) = 0.5767 / 0.2239: +8.2 dB; J2(2) / J0(2) = 0.3528 / 0.2239: +3.9 dB
+        expect(result.upper - result.carrier).toBeCloseTo(20 * Math.log10(0.5767 / 0.2239), 0);
+        expect(result.lower2 - result.carrier).toBeCloseTo(20 * Math.log10(0.3528 / 0.2239), 0);
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+
     it("plays a sequenced voice: Clock, Sequencer, Quantizer, VCO, VCF, VCA and ADSR, in tune", async () => {
         const { page, errors } = await openApp();
         const add = (file: string, x: number, y: number) => page.evaluate(async ([f, xx, yy]) => {

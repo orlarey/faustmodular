@@ -29,6 +29,20 @@
    ]
   },
   {
+   "path": "faust-modules/modular/SineVCO.dsp",
+   "name": "SineVCO",
+   "functions": [
+    "Oscillator"
+   ],
+   "family": "Sources",
+   "summary": "Sine oscillator: a frequency in Hz and a gain; two of them make classic FM",
+   "description": "- Sine oscillator: Freq in Hz, Gain from 0 to 1\n- Freq is modulated linearly ([mod:lin]): f = Freq * (1 + D * m), D being the deviation set on the\nmodulation port (1 by default, from -10 to 10)\n- Classic FM: the output of a SineVCO (the modulator, at fm) dropped on the Freq of another (the\ncarrier, at fc) gives the index I = D * Gain * fc / fm; with the same frequency, the Gain of the\nmodulator is the index. The frequency may go through zero (the phase then turns backwards).",
+   "inlets": [],
+   "outlets": [
+    "sine"
+   ]
+  },
+  {
    "path": "faust-modules/modular/Noise.dsp",
    "name": "Noise",
    "functions": [

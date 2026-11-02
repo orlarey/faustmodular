@@ -74,6 +74,7 @@ Chaque sorte de widget a son mode de modulation (`allowedModes`) :
 ```csv "Modes de modulation des réglages" \label{tab:modes}
 Réglage,Mode,Effet,Exemple
 Curseur de hauteur [unit:pitch],+ additionner,w + A·m (A = 1 par défaut),séquenceur → Pitch du VCO : juste quelle que soit la position du curseur
+Curseur déclarant [mod:lin],~ FM linéaire,w·(1 + D·m) (D = 1 par défaut ; jusqu'à −max),SineVCO → Freq d'un autre SineVCO : la FM classique
 Curseur de fréquence [unit:Hz] ou [scale:log],± moduler,exponentiel : en octaves,enveloppe → Cutoff du VCF
 Autre curseur,± moduler,linéaire autour du curseur (D = 0.5 par défaut),ADSR → Gain du VCA (curseur à 0 et D = 1 : le gain est l'enveloppe)
 Bouton,⇐ piloter,le signal remplace le bouton,horloge → Clock du séquenceur ; porte → Gate de l'ADSR
@@ -147,7 +148,7 @@ Prises le 1er novembre 2026 :
 3. **Premier ensemble** : une voix d'abord, douze modules : VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer, SampleHold.
 4. **Des réglages plutôt que des entrées de contrôle** (3.9.0) : des modules à l'interface complète, pilotés par la modulation de widget ; un mode « + additionner » pour les curseurs de hauteur.
 
-::: note [État, faustmodular 3.9.0]
+::: note [État, faustmodular 3.11.0]
 Les douze modules sont dans `public/faust-modules/modular/`, avec les modules d'affichage dans la famille « Mesure ». Le catalogue (`modular-catalog.json`) est produit par `npm run library-index` à partir des déclarations des modules : `declare function "..."` (et `function2`), `declare summary "..."`, `declare inlets "..."` et `declare outlets "..."` (les noms des ports, écrits à côté d'eux sur la scène depuis 3.10.0 et repris dans leur infobulle ; `inputs` et `outputs` sont des mots réservés de Faust) et le commentaire `DESCRIPTION`. Les libellés des menus ne contiennent pas de tiret : le JSON d'un DSP compilé délimite ces libellés par des tirets. Faust ordonne les widgets en comparant leurs préfixes `[n]` comme des chaînes : au-delà de dix, ils s'écrivent sur deux chiffres (`[01]`, …, `[10]`).
 
 Depuis 3.9.0, les ports ne portent que les signaux transformés :
@@ -155,6 +156,7 @@ Depuis 3.9.0, les ports ne portent que les signaux transformés :
 ```csv "Ports et réglages pilotables" \label{tab:etat}
 Module,Ports (entrées → sorties),Réglages pilotés par modulation
 VCO,→ sine · triangle · saw · square,Pitch (+) · Octave · Tune · FM (octaves) · Width
+SineVCO,→ sine,Freq (~ FM linéaire) · Gain
 Noise,→ white · pink,Level
 VCF,audio → audio,Mode · Cutoff (octaves) · Pitch (+ : suivi de clavier) · Resonance
 VCA,audio → audio,Gain · Response
@@ -175,6 +177,8 @@ Les tests (`tests/library/modular.test.ts`) rendent les modulations par le code 
 - la hauteur ajoutée, juste à moins de 1 cent quelle que soit la position du curseur ;
 - la FM à fréquence audio, par ses bandes latérales ;
 - les portes, horloges et déclencheurs pilotés.
+
+Le SineVCO (3.11.0) est l'oscillateur le plus simple : une fréquence en Hz, un gain. Deux SineVCO font de la FM classique : le spectre mesuré suit celui de Chowning, fc ± k·fm avec les amplitudes |J_k(I)|, à moins de 5·10⁻⁴ près pour une amplitude de 0.5, y compris quand la fréquence passe par zéro. Il ne remplace pas le VCO complet : sa fréquence n'a pas d'entrée de hauteur à 0.1 par octave, un séquenceur ne le joue donc pas juste.
 
 Un test de bout en bout joue la voix séquencée : Clock → Clock du Sequencer, pitch → Quantizer → Pitch du VCO, gate → Gate de l'ADSR, enveloppe → Gain du VCA. Elle est juste à moins de 5 cents.
 :::

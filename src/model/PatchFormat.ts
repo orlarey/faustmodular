@@ -226,7 +226,7 @@ function parseAcc(value: unknown, where: string): AccMapping {
 function parseModulation(value: unknown, where: string): { widget: string; spec: ModulationSpec } {
     const x = expectObject(value, where);
     const mode = expectString(x.mode, `${where}.mode`);
-    if (mode != "modulate" && mode != "add" && mode != "scale" && mode != "drive") {
+    if (mode != "modulate" && mode != "add" && mode != "linear" && mode != "scale" && mode != "drive") {
         throw new PatchFormatError(`${where}.mode: unknown modulation mode "${mode}"`);
     }
     return {

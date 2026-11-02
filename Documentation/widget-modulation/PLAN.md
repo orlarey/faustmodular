@@ -333,3 +333,30 @@ aux curseurs marqués `[unit:pitch]` :
   modulation est retirée, sauf si elle vaut sa valeur par défaut (1, contre 0.5 pour le ±).
 - Ce n'est pas le « + » brut écarté plus haut : il ne s'applique qu'à des curseurs dont l'unité est
   celle du signal (0.1 par octave), ce qui rend l'addition exacte.
+
+### Évolution (2026-11-02, version 3.11.0) : « ~ FM linéaire » et la métadonnée `[mod:...]`
+
+Le ± d'un curseur de fréquence est exponentiel : il ne donne pas la FM classique (Chowning), où la
+fréquence instantanée est fc + Δf·m(t) et l'indice I = Δf/fm. Trois défauts, mesurés pour un porteur à
+440 Hz sur 20–20 000 Hz :
+
+- la fréquence moyenne monte avec la profondeur (+33, +92 et +284 cents pour une excursion u = 0.05,
+  0.1 et 0.2) : la note dérive quand l'indice change, et le spectre n'est plus celui de Bessel ;
+- l'excursion dépend de la position du curseur et de ses bornes (0.55 octave vers le haut, 0.45 vers
+  le bas pour u = 0.1) ;
+- la fréquence est bornée au minimum du curseur, alors que la FM passe par zéro dès que Δf > fc.
+
+D'où un cinquième mode, déclaré par le module avec la métadonnée `[mod:lin]` :
+
+| Choix | Formule | Rôle |
+|---|---|---|
+| **~ FM linéaire** | w · (1 + D · m), borné à [−max, max] ; D de −10 à 10, 1 par défaut | la FM classique : avec un modulateur sinusoïdal de gain g à fm, I = D·g·fc/fm ; la fréquence moyenne reste fc ; la phase repart en arrière quand la fréquence devient négative (`os.osc` le permet : son accumulateur de phase en virgule fixe boucle dans les deux sens) |
+
+- **`[mod:...]`** déclare le mode d'un curseur : `lin` (FM linéaire), `add` (équivalent de `[unit:pitch]`).
+  Sans déclaration, le mode reste déduit de la sorte du widget.
+- Le curseur de déviation s'appelle `deviation <cible>` (adresse `.../deviation_<cible>`), mémorisé
+  comme les profondeurs ; sa plage de ±10 permet des indices de 5 à 10 (cloches, cuivres). Le glisser
+  vertical sur le port couvre cette plage avec le même geste (0.1 par pixel, 0.01 avec Maj), et
+  l'anneau montre |D|/10.
+- Un indice constant sur tout le clavier : si porteur et modulateur suivent la même hauteur avec un
+  rapport fixe, I = D·g·fc/fm ne change pas, comme sur un DX7.
