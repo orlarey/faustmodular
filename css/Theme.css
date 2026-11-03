@@ -486,6 +486,47 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	padding: 0 !important;
 }
 
+/* The volume of the scene on the icon of the output module (view/VolumeControl.ts): the icon is set by a vertical
+   drag, its brightness shows the volume; the module is moved by its edge */
+#moduleOutput > .content {
+	position: relative;
+	background: none !important;
+	cursor: grab;
+}
+#moduleOutput .volume-icon {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 52px;
+	height: 52px;
+	transform: translate(-50%, -50%);
+	background: url("../img/ico-speaker.png") no-repeat center;
+	cursor: ns-resize;
+	touch-action: none;
+	transition: opacity 60ms;
+}
+#moduleOutput .volume-icon.muted {
+	background-image: url("../img/ico-speaker-mute.png");
+}
+#moduleOutput .volume-label {
+	position: absolute;
+	left: 50%;
+	bottom: 3px;
+	transform: translateX(-50%);
+	padding: 0 6px;
+	border-radius: 999px;
+	background: #fff;			/* inverted by the filter of the content: a dark chip, light text */
+	color: #000;
+	font: 11px var(--fp-mono);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 120ms;
+}
+#moduleOutput .content.adjusting-volume .volume-label {
+	opacity: 1;
+}
+
 /* Selected modules (moved together), and the selection rectangle */
 .moduleFaust.selected {
 	border-color: var(--fp-accent);

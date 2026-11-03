@@ -43,6 +43,9 @@ export class Resources {
     modulationDrive: string;
     modulationDepth: string;
     modulationPortHint: string;
+    volume: string;
+    volumeMuted: string;
+    volumeHint: string;
     editInFaustcode: string;
     confirmReplaceScene: string;
     undo: string;

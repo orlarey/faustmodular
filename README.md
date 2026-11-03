@@ -52,6 +52,15 @@ channels.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 
+## Volume
+
+The volume of the scene is set on the speaker of the physical output module, as the depth of a modulation port:
+drag the speaker vertically (1 % per pixel, 0.1 % with Shift); its brightness shows the volume, and its tooltip
+gives the value. A double click mutes or unmutes the scene (the audio keeps running: analyzers and modulations
+go on). The gain is (v / 100)², as in faustcode: about −12 dB at 50 %, no boost at 100 %. The volume is
+remembered by the browser, not by the scene (`src/audio/MasterVolume.ts`). The output module is moved by its
+edge, around the speaker.
+
 ## Interface of a module
 
 The widgets are laid out in the groups of the code: each `vgroup`, `hgroup` or `tgroup` is a section with

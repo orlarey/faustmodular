@@ -11,6 +11,8 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
+import { MasterVolume } from "../audio/MasterVolume";
+import { VolumeControl } from "../view/VolumeControl";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
 import { allowedModes, defaultDepthAt, depthWidget, hasDepth, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
@@ -79,6 +81,8 @@ interface ModuleDescription {
 
 export class Scene {
     isMute: boolean = false;
+    masterVolume: MasterVolume | null = null;
+    volumeControl: VolumeControl | null = null;
     //-- Patch model and its audio rendering
     patch: Patch = new Patch();
     audioGraph: AudioGraph;
@@ -417,19 +421,14 @@ export class Scene {
     getSceneContainer(): HTMLDivElement { return this.sceneView.fSceneContainer; }
 
     /*********************** MUTE/UNMUTE SCENE ***************************/
+    // By the gain of the volume (audio/MasterVolume.ts): the audio keeps running, the volume is kept.
     muteScene(): void {
-        Utilitary.audioContext.suspend();
+        this.masterVolume?.setMuted(true);
         this.isMute = true;
-        this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker-mute.png)"
     }
     unmuteScene(): void {
-        window.setTimeout(() => { this.delayedUnmuteScene() }, 500)
-    }
-
-    delayedUnmuteScene() {//because of probable Firefox bug with audioContext.resume() when resume to close from suspend
-        Utilitary.audioContext.resume();
+        this.masterVolume?.setMuted(false);
         this.isMute = false;
-        this.getAudioOutput().moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-speaker.png)"
     }
 
     //add listner on the output module to give the user the possibility to mute/onmute the scene
@@ -529,7 +528,10 @@ export class Scene {
         // its position in the model too: the history and the documents record it
         this.patch.addModule({ id: OUTPUT_ID, kind: "output", name: "output", numInputs: channels, numOutputs: 0, x: positionOutput.x, y: positionOutput.y });
         this.fAudioOutput.moduleId = OUTPUT_ID;
-        this.audioGraph.setNode(OUTPUT_ID, destination);
+        // the volume of the scene between the output module and the device, set on its icon
+        this.masterVolume = new MasterVolume(Utilitary.audioContext, channels);
+        this.volumeControl = new VolumeControl(this.fAudioOutput.moduleView.fInterfaceContainer, this.masterVolume);
+        this.audioGraph.setNode(OUTPUT_ID, this.masterVolume.node);
         this.addMuteOutputListner(this.fAudioOutput);
         this.patchView.addModule(this.fAudioOutput);
     }

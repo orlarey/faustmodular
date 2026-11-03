@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.33.0 (2026-11-03)
+
+- **The volume of the scene, on the speaker of the output module**, as the depth of a modulation port: a
+  vertical drag on the speaker sets it (1 % per pixel, 0.1 % with Shift), a label shows the value while it is
+  set, and the brightness of the speaker shows it at rest (its tooltip gives the value). The gain, between the
+  output module and the audio device, is (v / 100)², as in faustcode (about −12 dB at 50 %, 1 at 100 %), and
+  glides over 20 ms. The volume is remembered by the browser, not by the scene (no history, no document).
+- A double click on the output module mutes the scene by this gain: the audio keeps running (analyzers,
+  modulations) and comes back at once, in place of a suspended audio context resumed after 500 ms. Muted, or at
+  0 %, the speaker is crossed.
+- The output module is moved by its edge, around the speaker.
+
 ## 3.32.0 (2026-11-03)
 
 - The signature of the author in the bottom left corner of the stage, as the GRAME logo of FaustPlayground: a
