@@ -24,6 +24,7 @@ export class ModuleView {
     fEditImg: HTMLDivElement;
     fUpdate: HTMLDivElement;
     fDuplicate: HTMLDivElement;
+    fOrbitToggle: HTMLDivElement;
     fTitle: HTMLElement;
     fInputPorts: HTMLElement[] = [];
     fOutputPorts: HTMLElement[] = [];
@@ -95,6 +96,14 @@ export class ModuleView {
             fModuleContainer.appendChild(fEditImg);
 
             // ↑ next to it, when a newer version of the module exists (documents)
+            // ◎: the Orbit interface or the classic one (ModuleClass.setOrbit)
+            var fOrbitToggle = document.createElement("div");
+            fOrbitToggle.className = "orbit-toggle";
+            fOrbitToggle.draggable = false;
+            fOrbitToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.6"/><circle cx="12.2" cy="3.8" r="1.4"/></svg>';
+            this.fOrbitToggle = fOrbitToggle;
+            fModuleContainer.appendChild(fOrbitToggle);
+
             var fUpdate = document.createElement("div");
             fUpdate.className = "update";
             fUpdate.draggable = false;

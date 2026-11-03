@@ -99,6 +99,9 @@ export class Resources {
     menuNewModule: string;
     newModuleName: string;
     faustcodeImportFailed: string;
+    moduleOrbit: string;
+    menuOrbitInterface: string;
+    menuClassicInterface: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

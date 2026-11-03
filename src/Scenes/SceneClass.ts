@@ -14,7 +14,8 @@ import { AudioGraph } from "../audio/AudioGraph";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
 import { allowedModes, defaultDepthAt, depthWidget, hasDepth, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
-import { AccMapping, Connection, MAX_CHANNELS, ModuleId, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
+import { AccMapping, Connection, MAX_CHANNELS, ModuleId, ModuleViewSettings, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
+import { ORBIT_SIZE } from "../Modules/OrbitPanel";
 import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
@@ -38,6 +39,7 @@ interface SceneSnapshot {
         id: ModuleId; name: string; code: string; x: number; y: number; numInputs: number;
         params: Record<string, number>;
         modulations: Array<{ widget: string; spec: ModulationSpec }>;
+        view?: ModuleViewSettings;          // the Orbit and its size (the layout of its points is not undone)
     }>;
     io: Array<{ id: ModuleId; x: number; y: number }>;        // physical input and output modules
     connections: string[];                                      // "from:port>to:port", sorted
@@ -72,6 +74,7 @@ interface ModuleDescription {
     factory?: PrecompiledFactory;           // compiled from the effective code
     numInputs?: number;                     // audio inputs, needed with modulations
     modulations?: Array<{ widget: string; spec: ModulationSpec }>;
+    view?: ModuleViewSettings;              // the Orbit interface
 }
 
 export class Scene {
@@ -165,6 +168,16 @@ export class Scene {
             var target = e.target as HTMLElement | null;
             if (target?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]")) return;
             var key = e.key.toLowerCase();
+            // in an Orbit whose library of presets is open: the undo of the library (faust-orbit-ui)
+            var orbit = target?.closest?.(".orbit-ui-root.orbit-ui-overlay-active") as HTMLElement | null;
+            if (orbit && (e.ctrlKey || e.metaKey) && key == "z") {
+                var owner = this.fModuleList.find((m) => m.orbit?.host === orbit);
+                if (owner) {
+                    e.preventDefault();
+                    if (e.shiftKey) owner.orbit!.orbit.redoLibrary(); else owner.orbit!.orbit.undoLibrary();
+                    return;
+                }
+            }
             if ((e.ctrlKey || e.metaKey) && key == "z") {
                 e.preventDefault();
                 if (e.shiftKey) this.redo(); else this.undo();
@@ -271,9 +284,11 @@ export class Scene {
                 var depth = parseFloat(remembered[address]);
                 if (!(address in params) && isDepthAddress(address) && !isNaN(depth) && depth != defaultDepthAt(address)) params[address] = depth;
             }
+            var orbit = module?.orbitSettings();
             snapshot.modules.push({
                 id: state.id, name: state.name, code: state.code, x: state.x, y: state.y, numInputs: state.numInputs, params,
                 modulations: state.modulations.map((m) => ({ widget: m.widget, spec: m.spec })),
+                ...(orbit ? { view: { orbit: { width: orbit.width, height: orbit.height } } } : {}),
             });
         }
         // in the order of the ids: a module created again (undo of a removal) is not at the same place in the patch
@@ -294,7 +309,7 @@ export class Scene {
         for (var t of target.modules) {
             var existing = this.getModuleById(t.id);
             if (!existing) {
-                await this.createModule({ id: t.id, name: t.name, code: t.code, x: t.x, y: t.y, params: t.params, acc: [], numInputs: t.numInputs, modulations: t.modulations }, true);
+                await this.createModule({ id: t.id, name: t.name, code: t.code, x: t.x, y: t.y, params: t.params, acc: [], numInputs: t.numInputs, modulations: t.modulations, view: t.view }, true);
                 continue;
             }
             var state = this.patch.getModule(t.id)!;
@@ -310,6 +325,7 @@ export class Scene {
                 await this.recompileModulations(existing);
             }
             this.restoreParams(existing, t.params);
+            this.restoreView(existing, t.view);
             this.moveModule(existing, t.x, t.y);
             this.patchView.refreshModule(t.id);
         }
@@ -347,6 +363,44 @@ export class Scene {
                 module.moduleFaust.getDSP().setParamValue(address, value);
             }
         }
+        module.syncOrbit();
+    }
+
+    // The Orbit interface of a module, or the classic one (an undo, a redo): its size; the layout of its
+    // points stays as it is.
+    private restoreView(module: ModuleClass, view: ModuleViewSettings | undefined): void {
+        var orbit = view?.orbit;
+        module.setOrbit(orbit ? { width: orbit.width, height: orbit.height } : null);
+        this.patch.updateModule(module.moduleId, { view: orbit ? { orbit: { width: orbit.width, height: orbit.height } } : undefined });
+    }
+
+    /*********************** ORBIT INTERFACE ***************************/
+    // The Orbit interface (faust-orbit-ui) of the modules, in place of the classic one (ModuleClass.setOrbit).
+
+    // Shows the Orbit of the modules, or their classic interface if they all show the Orbit.
+    toggleOrbit(ids: ModuleId[]): void {
+        var modules = ids.map((id) => this.getModuleById(id)).filter((m): m is ModuleClass => !!m && m.canShowOrbit());
+        if (modules.length == 0) return;
+        var classic = modules.every((m) => m.orbit);
+        for (var module of modules) {
+            module.setOrbit(classic ? null : { width: ORBIT_SIZE.width, height: ORBIT_SIZE.height });
+            this.orbitChanged(module);
+        }
+    }
+
+    // The Orbit of a module shown, hidden or resized (the patch, so the history), or the layout of its
+    // points changed (saved with the document, not recorded by the history).
+    orbitChanged(module: ModuleClass): void {
+        var state = this.patch.getModule(module.moduleId);
+        if (!state) return;
+        var settings = module.orbitSettings();
+        var view: ModuleViewSettings | undefined = settings ? { orbit: { width: settings.width, height: settings.height } } : undefined;
+        if (JSON.stringify(state.view ?? null) != JSON.stringify(view ?? null)) {
+            this.patch.updateModule(module.moduleId, { view });
+        } else {
+            this.markModified();
+        }
+        this.patchView.refreshModule(module.moduleId);
     }
 
     private moveModule(module: ModuleClass, x: number, y: number): void {
@@ -550,6 +604,7 @@ export class Scene {
                 params,
                 acc,
                 factory: isPrecompiled ? this.exportFactory(module.moduleFaust.factory) : undefined,
+                view: module.orbit ? { orbit: module.orbitSettings()! } : undefined,
             });
         }
     }
@@ -601,6 +656,8 @@ export class Scene {
             });
             var file: ModuleFileV2 = { ...base, name: module.moduleFaust.getName(), code: module.moduleFaust.getSource(), x: state.x, y: state.y, params, acc };
             if (state.modulations.length > 0) file.modulations = state.modulations.map((m) => ({ widget: m.widget, ...m.spec }));
+            var orbitSettings = module.orbitSettings();
+            if (orbitSettings) file.view = { orbit: orbitSettings };
             modules.push(file);
         }
         return {
@@ -902,7 +959,8 @@ export class Scene {
     // or imports a Faust file there. The same commands have shortcuts.
     private attachCommands(stage: HTMLElement): void {
         var t = () => Utilitary.messageResource;
-        var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]");
+        // keys typed in a text field, or in an Orbit (its keys: L, Delete of its presets, Esc), are not commands
+        var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true], .orbit-ui-root");
         stage.addEventListener("pointermove", (e) => { this.fPointer = this.toStage(e.clientX, e.clientY); });
         stage.addEventListener("contextmenu", (e) => {
             e.preventDefault();
@@ -924,6 +982,8 @@ export class Scene {
             var selection = this.patchView.getSelection();
             var faust = selection.some((m) => this.patch.getModule(m)?.kind == "faust");
             var plugged = this.patch.getConnections().some((c) => selection.indexOf(c.from.module) >= 0 || selection.indexOf(c.to.module) >= 0);
+            var orbitable = selection.map((m) => this.getModuleById(m)).filter((m): m is ModuleClass => !!m && m.canShowOrbit());
+            var orbitShown = orbitable.length > 0 && orbitable.every((m) => m.orbit);
             var minimized = selection.map((m) => this.patch.getModule(m)?.kind == "faust" ? this.getModuleById(m) : undefined)
                 .filter((m): m is ModuleClass => !!m).every((m) => m.moduleView.fInterfaceContainer.classList.contains("mini"));
             showContextMenu(e.clientX, e.clientY, [
@@ -935,6 +995,7 @@ export class Scene {
                 "separator",
                 { label: t().menuUnplug, enabled: plugged, action: () => this.unplugModules(selection) },
                 { label: minimized ? t().menuExpand : t().menuMinimize, enabled: faust, action: () => this.toggleMinimized(selection) },
+                { label: orbitShown ? t().menuClassicInterface : t().menuOrbitInterface, enabled: orbitable.length > 0, action: () => this.toggleOrbit(selection) },
                 "separator",
                 { label: t().menuDelete, shortcut: shortcut("Delete"), enabled: faust, action: () => this.deleteModules(selection) },
             ]);
@@ -1346,6 +1407,11 @@ export class Scene {
         module.createFaustInterface();
         this.addModule(module, modulations.map((m) => ({ widget: m.widget, spec: m.spec })), keepId ? description.id : undefined);
         this.recallAccValues(description.acc, module);
+        var orbit = description.view?.orbit;
+        if (orbit && module.setOrbit(orbit)) {
+            this.patch.updateModule(module.moduleId, { view: { orbit: { width: orbit.width, height: orbit.height } } });
+            this.patchView.refreshModule(module.moduleId);
+        }
         return module;
     }
 

@@ -58,6 +58,20 @@ wide), a `tgroup` as tabs. `[style:knob]` gives a knob: a vertical drag turns it
 click sets it back to its initial value. Buttons and checkboxes are centered buttons, a checkbox with a LED.
 See `src/model/UILayout.ts`.
 
+## Orbit interface
+
+◎ in the title bar of a module (or *Orbit interface* in its context menu) shows its settings in an Orbit
+([faust-orbit-ui](https://github.com/orlarey/faust-orbit-ui), as in faustcode) in place of the classic interface:
+each setting is a point around a centre, its value set by its distance to the centre; moving the centre moves
+them all; the Orbit has its presets and its random mixes. ◎ again gives back the classic interface. The values
+stay those of the module: a gesture in the Orbit sets them as a slider does (sound, saving, undo), and an undo or a
+recall shows them in the Orbit. The Orbit is resized by its grip; it is shown again, with its size and the layout
+of its points, when the document is opened. Its modulation ports are in a column under the title, and a cable
+dropped on one of its points modulates that setting. The Orbit shows the input widgets of the user (not the depths
+of the modulations, nor the bargraphs). `src/Modules/OrbitPanel.ts` works around two limits of faust-orbit-ui
+0.4.1 with a zoomed stage (the pointer read in screen pixels, the dropdowns placed in screen pixels), until the
+library handles them.
+
 ## Modular library
 
 The *Modular* library (Modules menu) holds modules organized by function, as on ModularGrid, with common

@@ -74,6 +74,13 @@ export interface ModuleState {
     acc: AccMapping[];
     modulations: Modulation[];
     factory?: PrecompiledFactory;
+    view?: ModuleViewSettings;      // how the module is shown, when not the classic interface
+}
+
+// How a module is shown: the Orbit interface (faust-orbit-ui) in place of the classic one, its size, and
+// the layout of its points (OrbitUI.getOrbitState: saved with the document, not recorded by the history).
+export interface ModuleViewSettings {
+    orbit?: { width: number; height: number; state?: unknown };
 }
 
 // Number of input ports: audio inputs, then modulation inputs.
@@ -94,9 +101,10 @@ export interface ModuleInit {
     acc?: AccMapping[];
     modulations?: Array<{ widget: string; spec: ModulationSpec }>;
     factory?: PrecompiledFactory;
+    view?: ModuleViewSettings;
 }
 
-export type ModuleChanges = Partial<Pick<ModuleState, "name" | "code" | "x" | "y" | "params" | "acc" | "factory">>;
+export type ModuleChanges = Partial<Pick<ModuleState, "name" | "code" | "x" | "y" | "params" | "acc" | "factory" | "view">>;
 
 export type PatchEvent =
     | { type: "moduleAdded"; module: ModuleState }
@@ -203,6 +211,9 @@ export class Patch {
         };
         if (init.factory) {
             module.factory = init.factory;
+        }
+        if (init.view) {
+            module.view = init.view;
         }
         this.fModules.set(id, module);
         const numeric = Number(id);

@@ -239,6 +239,8 @@ Ce contenu est exactement l'état qu'utilise déjà l'annulation (`Scene.capture
 }
 ```
 
+Une instance affichée avec l'interface Orbit (3.28.0) porte en plus `"view": { "orbit": { "width": 360, "height": 360, "state": { … } } }` : la taille de l'Orbit et la disposition de ses points (`OrbitUI.getOrbitState`). Le champ est absent pour l'interface classique ; un document qui ne l'a pas s'ouvre en interface classique. L'historique enregistre l'affichage de l'Orbit et sa taille, pas la disposition des points, qui est enregistrée avec le document.
+
 ## Copie validée et copie de travail \label{sec:save}
 
 Chaque document a deux états, comme dans markpage :

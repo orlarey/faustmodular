@@ -17,6 +17,7 @@ import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
 import { DEPTH_METADATA, DRIVEN_METADATA, depthKey, listWidgets, widgetTarget } from "../model/Modulation";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
+import { hasOrbitWidgets, orbitDescriptor, OrbitPanel, OrbitSettings } from "./OrbitPanel";
 
 interface DSPCallback { (): void; }
 
@@ -33,6 +34,9 @@ export class ModuleClass {
     displays: ModuleDisplays | null = null;
     lastError: string | null = null;
     private fModuleInterfaceParams: { [label: string]: string } = {};
+    // the Orbit interface, in place of the classic one (null: the classic one), and the widgets it shows
+    orbit: OrbitPanel | null = null;
+    private fOrbitWidgets = "";
 
     compileFaust: (conpileFaust: CompileFaust) => Promise<void>;
 
@@ -73,6 +77,14 @@ export class ModuleClass {
                 var scene = Utilitary.currentScene;
                 var selection = scene.patchView.getSelection();
                 scene.duplicateModules(selection.indexOf(this.moduleId) >= 0 ? selection : [this.moduleId]);
+            });
+        }
+        if (this.moduleView.fOrbitToggle != undefined) {
+            this.moduleView.fOrbitToggle.title = Utilitary.messageResource.moduleOrbit;
+            this.moduleView.fOrbitToggle.addEventListener("click", () => {
+                var scene = Utilitary.currentScene;
+                var selection = scene.patchView.getSelection();
+                scene.toggleOrbit(selection.indexOf(this.moduleId) >= 0 ? selection : [this.moduleId]);
             });
         }
         if (this.moduleView.fUpdate != undefined) {
@@ -180,6 +192,7 @@ export class ModuleClass {
         this.setFaustInterfaceControles();
         this.createFaustInterface();
         this.recallInterfaceParams();
+        this.refreshOrbit();
 
         // the previous DSP is destroyed after the crossfade with the new one (AudioGraph)
         var removed = Utilitary.currentScene.updateModuleDSP(this, () => this.deleteDSP(toDelete));
@@ -192,6 +205,92 @@ export class ModuleClass {
                 .replace("{count}", String(removed.length)));
         }
         return true;
+    }
+
+    /******************** ORBIT INTERFACE *************************/
+    // The Orbit interface (OrbitPanel, faust-orbit-ui) in place of the classic one: the values stay those
+    // of the controllers (a gesture in the Orbit sets them as a slider does).
+
+    // The widgets of the module the Orbit can show (none: a display, a module without settings).
+    canShowOrbit(): boolean {
+        return hasOrbitWidgets(this.uiDescriptor());
+    }
+
+    private uiDescriptor(): any[] {
+        var dsp = this.moduleFaust.getDSP();
+        return dsp ? JSON.parse(dsp.getJSON()).ui : [];
+    }
+
+    // Shows the Orbit interface (its size, the layout of its points) or the classic one (null); false
+    // when the module has nothing the Orbit can show.
+    setOrbit(settings: OrbitSettings | null): boolean {
+        if (!settings) {
+            if (this.orbit) {
+                this.orbit.destroy();
+                this.orbit = null;
+                this.moduleView.fModuleContainer.classList.remove("orbit-mode");
+                this.redrawCables();
+            }
+            return true;
+        }
+        var ui = this.uiDescriptor();
+        if (!hasOrbitWidgets(ui)) return false;
+        if (this.orbit) {
+            this.orbit.setSize(settings.width, settings.height);
+            this.redrawCables();
+            return true;
+        }
+        this.orbit = new OrbitPanel(ui, {
+            values: () => this.orbitValues(),
+            setValue: (address, value) => {
+                var controler = this.moduleControles.find((c) => c.itemParam.address == address);
+                if (!controler) return;
+                setControlerValue(controler, value, (a, v) => this.moduleFaust.getDSP().setParamValue(a, v));
+                // a button, pressed and released, is not a state of the scene
+                if (controler.itemParam.type != "button") Utilitary.currentScene?.markModified();
+            },
+            gesture: () => { },
+            changed: () => Utilitary.currentScene?.orbitChanged(this),
+        }, settings, (frame) => {
+            var container = this.moduleView.fModuleContainer;
+            container.classList.add("orbit-mode");
+            container.insertBefore(frame, this.moduleView.fInterfaceContainer.nextSibling);
+        });
+        this.fOrbitWidgets = JSON.stringify(orbitDescriptor(ui));
+        this.redrawCables();
+        return true;
+    }
+
+    orbitSettings(): OrbitSettings | null {
+        return this.orbit ? this.orbit.settings() : null;
+    }
+
+    // The values of the controllers shown in the Orbit (after an undo, a recall).
+    syncOrbit(): void {
+        this.orbit?.sync();
+    }
+
+    // The interface of the module changed (its code): the Orbit is made again if its widgets changed (the
+    // layout of the former ones would not fit), else its values are updated.
+    private refreshOrbit(): void {
+        if (!this.orbit) return;
+        var ui = this.uiDescriptor();
+        if (JSON.stringify(orbitDescriptor(ui)) == this.fOrbitWidgets) {
+            this.orbit.sync();
+            return;
+        }
+        var { width, height } = this.orbit.settings();
+        this.setOrbit(null);
+        if (!this.setOrbit({ width, height })) Utilitary.currentScene?.orbitChanged(this);
+    }
+
+    private orbitValues(): Record<string, number> {
+        var values: Record<string, number> = {};
+        for (var c of this.moduleControles) {
+            var value = parseFloat(c.value);
+            if (!isNaN(value)) values[c.itemParam.address] = value;
+        }
+        return values;
     }
 
     // Redraws the cables of the module (its size or ports changed).
@@ -333,6 +432,8 @@ export class ModuleClass {
                 Utilitary.currentScene.markModified();
             },
         });
+        // ◎ for the modules whose settings the Orbit can show
+        if (this.moduleView.fOrbitToggle) this.moduleView.fOrbitToggle.style.display = this.canShowOrbit() ? "" : "none";
     }
 
     // The tab chosen in each tgroup of the module (by the path of its labels): kept when the interface is

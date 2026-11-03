@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.28.0 (2026-11-03)
+
+- **The Orbit interface for a module** ([faust-orbit-ui](https://github.com/orlarey/faust-orbit-ui) 0.4.1, as in
+  faustcode): ◎ in the title bar, or *Orbit interface* in the context menu of a selection, shows the settings of
+  the module as points around a centre, in place of the classic interface; ◎ again gives it back. Not offered for
+  a module without settings.
+  - One source of truth: a gesture in the Orbit sets the values as a slider does (sound, saving, undo); an undo,
+    a redo or a recall pushes them back into the Orbit.
+  - Its size (a grip) and the layout of its points are saved with the document (a field `view` of the instance,
+    of the patch file); showing it and its size are undone, the layout is not.
+  - Its modulation ports are in a column under the title; a cable dropped on one of its points modulates that
+    setting. The keys typed in it (L, Delete of its presets, Esc) are its own; Cmd/Ctrl-Z there undoes its
+    library of presets when that is open.
+  - It shows the input widgets of the user: not the depths of the modulations, the driven or hidden widgets, the
+    bargraphs.
+- **Two workarounds of faust-orbit-ui 0.4.1**, until the library handles a zoomed host: the stage of faustmodular is
+  zoomed by a CSS transform, and the library reads the pointer in screen pixels while it draws in CSS pixels (the
+  five methods that read the pointer are wrapped), and places its dropdowns (fixed elements) in screen pixels
+  inside the zoomed stage (they are moved to its coordinates). Tested: a point follows the pointer exactly at
+  zooms of 0.75, 1 and 1.5; without the workarounds, the gesture misses the point at 0.75 and a dropdown opens
+  394 px away from its button at 1.5.
+- The icons of the toolbar of the Orbit come from the Material Symbols font (Google Fonts).
+
 ## 3.27.0 (2026-11-03)
 
 - **From faustcode to faustmodular**: the *faustmodular* button of faustcode (0.15.0) opens its session here, as a

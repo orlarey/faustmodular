@@ -23,8 +23,8 @@
 */
 
 import { wrapModuleCode, unwrapModuleCode } from "../model/ModuleCode";
-import { ModuleFileV2, ModulationFile, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2 } from "../model/PatchFormat";
-import { AccMapping, MAX_CHANNELS } from "../model/Patch";
+import { ModuleFileV2, ModulationFile, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parseView } from "../model/PatchFormat";
+import { AccMapping, MAX_CHANNELS, ModuleViewSettings } from "../model/Patch";
 import { sha1 } from "./Sha1";
 
 export const DOCUMENT_FORMAT = "faustmodular-document";
@@ -49,6 +49,7 @@ export interface InstanceV4 {
     params: Record<string, number>;
     acc: AccMapping[];
     modulations: ModulationFile[];
+    view?: ModuleViewSettings;      // the Orbit interface (3.28.0), absent for the classic one
 }
 
 export interface DocumentV4 {
@@ -93,6 +94,7 @@ export async function documentFromPatch(file: PatchFileV2, name: string, faust: 
             id: m.id, name: m.name, code: hash, wrapped, x: m.x, y: m.y, inputs: m.inputs, outputs: m.outputs,
             params: { ...m.params }, acc: m.acc.map((a) => ({ ...a })),
             modulations: (m.modulations ?? []).map((x) => ({ ...x })),
+            ...(m.view ? { view: m.view } : {}),
         });
     }
     // in the order of the ids, like the states of the history (a module created again by an undo
@@ -122,6 +124,7 @@ export function patchFromDocument(document: DocumentV4, codeOf: (hash: string) =
             x: i.x, y: i.y, inputs: i.inputs, outputs: i.outputs, params: { ...i.params }, acc: i.acc.map((a) => ({ ...a })),
         };
         if (i.modulations.length > 0) module.modulations = i.modulations.map((x) => ({ ...x }));
+        if (i.view) module.view = i.view;
         modules.push(module);
     }
     const connections = document.connections.map((key) => {
@@ -170,6 +173,13 @@ export function parseDocument(data: unknown): DocumentV4 {
         if (typeof i.params != "object" || i.params === null) throw where(`instances[${k}].params`, "object expected");
         if (!Array.isArray(i.acc)) throw where(`instances[${k}].acc`, "array expected");
         if (!Array.isArray(i.modulations)) throw where(`instances[${k}].modulations`, "array expected");
+        if (i.view !== undefined) {
+            try {
+                parseView(i.view, `instances[${k}].view`);
+            } catch (e) {
+                throw new DocumentFormatError(String((e as Error).message));
+            }
+        }
     }
     const point = (p: any, path: string) => {
         if (typeof p?.x != "number" || typeof p?.y != "number") throw where(path, "{ x, y } expected");

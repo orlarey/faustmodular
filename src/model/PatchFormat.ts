@@ -13,7 +13,7 @@
 */
 
 import { ModulationMode, ModulationSpec } from "./Modulation";
-import { AccMapping, ModuleKind, Patch, PatchError, PortRef, PrecompiledFactory } from "./Patch";
+import { AccMapping, ModuleKind, ModuleViewSettings, Patch, PatchError, PortRef, PrecompiledFactory } from "./Patch";
 
 export const PATCH_FORMAT = "faustplayground-patch";
 export const PATCH_VERSION = 2;
@@ -42,6 +42,7 @@ export interface ModuleFileV2 {
     acc: AccMapping[];
     modulations?: ModulationFile[];     // version 3; ports inputs .. inputs + n - 1
     factory?: PrecompiledFactory;
+    view?: ModuleViewSettings;          // the Orbit interface (3.28.0), absent for the classic one
 }
 
 export interface ConnectionFileV2 {
@@ -96,6 +97,9 @@ export function serializePatch(patch: Patch, sceneName: string, precompiled: boo
             if (precompiled && m.factory) {
                 module.factory = m.factory;
             }
+            if (m.view) {
+                module.view = m.view;
+            }
             return module;
         }),
         connections: patch.getConnections().map((c) => ({
@@ -143,6 +147,7 @@ export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string }
             acc: expectArray(m.acc, `${where}.acc`).map((a, j) => parseAcc(a, `${where}.acc[${j}]`)),
             modulations: m.modulations === undefined ? [] : expectArray(m.modulations, `${where}.modulations`).map((x, j) => parseModulation(x, `${where}.modulations[${j}]`)),
             factory: m.factory === undefined ? undefined : parseFactory(m.factory, `${where}.factory`),
+            view: m.view === undefined ? undefined : parseView(m.view, `${where}.view`),
         }));
     });
     connections.forEach((value, i) => {
@@ -153,6 +158,20 @@ export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string }
         wrap(where, () => patch.connect(from, to));
     });
     return { patch, sceneName };
+}
+
+// How a module is shown: { orbit: { width, height, state? } }.
+export function parseView(value: unknown, where: string): ModuleViewSettings {
+    const view = expectObject(value, where);
+    if (view.orbit === undefined) return {};
+    const orbit = expectObject(view.orbit, `${where}.orbit`);
+    return {
+        orbit: {
+            width: expectNumber(orbit.width, `${where}.orbit.width`),
+            height: expectNumber(orbit.height, `${where}.orbit.height`),
+            ...(orbit.state === undefined ? {} : { state: orbit.state }),
+        },
+    };
 }
 
 /******************** VALIDATION HELPERS ********************/

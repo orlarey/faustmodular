@@ -123,7 +123,7 @@ interface BandDrag {
 }
 
 // Elements of a module that keep their own pointer behaviour (controls, buttons, editor).
-const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit, .update, .duplicate, .display-grip";
+const INTERACTIVE = "input, textarea, select, button, a, .close, .minus, .max, .edit, .update, .duplicate, .orbit-toggle, .display-grip, .orbit-frame";
 
 export class PatchView {
     private fCables = new Map<ConnectionId, SVGPathElement>();
@@ -400,6 +400,17 @@ export class PatchView {
         const state = this.fPatch.getModule(id);
         if (!view || !state) return;
         const box = view.getModuleContainer().getBoundingClientRect();
+        // the Orbit interface: no widget to stand by; the ports in a column under the title, in their order
+        if (view.getModuleContainer().classList.contains("orbit-mode")) {
+            const title = view.fTitle.getBoundingClientRect();
+            state.modulations.forEach((modulation, i) => {
+                const port = this.modulationPort(id, modulation.id);
+                if (!port) return;
+                port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
+                port.style.top = ((title.bottom - box.top) / this.zoom + 10 + i * (MODULATION_PORT_SIZE + 6)) + "px";
+            });
+            return;
+        }
         for (const modulation of state.modulations) {
             const port = this.modulationPort(id, modulation.id);
             if (!port) continue;
@@ -668,6 +679,16 @@ export class PatchView {
                 : undefined;
         }
         if (drag.dir == "out") {
+            // a point of an Orbit interface: its widget
+            const orbit = element.closest(".orbit-host") as HTMLElement | null;
+            const orbitOwner = orbit?.closest(".moduleFaust") as HTMLElement | null;
+            const orbitModule = orbitOwner ? this.fContainers.get(orbitOwner) : undefined;
+            if (orbit && orbitModule !== undefined) {
+                const address = (this.fLookup(orbitModule) as any)?.orbit?.widgetAt(e.clientX, e.clientY) as string | null;
+                if (address && (this.fModulation?.allowedModes(orbitModule, address).length ?? 0) > 0) {
+                    return { kind: "widget", element: orbit, module: orbitModule, widget: address };
+                }
+            }
             const widget = element.closest("[data-widget]") as HTMLElement | null;
             const owner = widget?.closest(".moduleFaust") as HTMLElement | null;
             const module = owner ? this.fContainers.get(owner) : undefined;
