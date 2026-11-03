@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.29.2 (2026-11-03)
+
+- The − button of the title bar of a module is removed: a module is minimized from its context menu
+  (*Minimize*); a minimized module keeps the button that expands it, left of ⧉, which takes the place of −.
+
 ## 3.29.1 (2026-11-03)
 
 - The accelerometer button of the toolbar is hidden for now, as the Edit menu that maps the sliders to the motion

@@ -124,7 +124,6 @@ export class ModuleClass {
         this.moduleView.fInterfaceContainer.classList.remove("mini");
         this.moduleView.fTitle.classList.remove("miniTitle");
         this.moduleView.maxButton.style.display = "none";
-        this.moduleView.miniButton.style.display = "block";
         this.redrawCables();
     }
 

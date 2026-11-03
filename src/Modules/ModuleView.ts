@@ -70,6 +70,9 @@ export class ModuleView {
             fMinButton.draggable = false;
             fMinButton.className = "minus";
             this.miniButton = fMinButton;
+            // − is not in the title bar any more: a module is minimized from its context menu (3.29.2);
+            // the button that expands a minimized module stays
+            fMinButton.style.display = "none";
 
             var fMaxButton: HTMLDivElement = document.createElement("div");
             fMaxButton.draggable = false;

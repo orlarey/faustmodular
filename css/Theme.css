@@ -160,7 +160,7 @@ li > a:hover {
 	font-weight: 600;
 	letter-spacing: 0.1em;
 	margin: 0;
-	padding: 10px 80px 9px;		/* room for ✎ ◎ ↑ on the left, ⧉ − × on the right; the title stays centered */
+	padding: 10px 80px 9px;		/* room for ✎ ◎ ↑ on the left, ⤢ ⧉ × on the right; the title stays centered */
 	border-bottom: 1px solid var(--fp-accent-border-soft);
 }
 .moduleFaust .close, .moduleFaust .minus, .moduleFaust .max, .moduleFaust > .edit,
@@ -294,11 +294,11 @@ input[type="range"]::-moz-range-thumb,
 }
 
 /* The pencil, in the title bar */
-/* ⧉ duplicate, left of − */
+/* ⧉ duplicate, left of × (the button that expands a minimized module on its left) */
 .moduleFaust > .duplicate {
 	position: absolute;
 	top: 7px;
-	right: 46px;
+	right: 27px;
 	width: 17px;
 	height: 17px;
 	color: var(--fp-title);
