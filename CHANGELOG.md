@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.32.0 (2026-11-03)
+
+- The signature of the author in the bottom left corner of the stage, as the GRAME logo of FaustPlayground: a
+  seal with a lambda (the lambda calculus) whose branch carries a small o (Yo), darker than the stage, as
+  engraved; under the modules, it takes no click.
+
 ## 3.31.3 (2026-11-03)
 
 - The knobs have a body: an almost black disc inside their arc, its edge barely lit; the pointer is drawn on it.

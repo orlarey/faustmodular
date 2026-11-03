@@ -41,6 +41,19 @@ body {
 	color: var(--fp-text);
 }
 
+/* The signature of the author (index.html): a seal in the bottom left corner of the stage, darker than it, as
+   engraved; under the modules, it takes no click */
+svg#signature {
+	position: fixed;
+	left: 16px;
+	bottom: 14px;
+	width: 44px;
+	height: 44px;
+	z-index: 0;
+	color: rgba(0, 0, 0, 0.42);
+	pointer-events: none;
+}
+
 /* Header: a bar with the app name, pills, the patch name in a mono pill */
 div#buttonsMenu {
 	background: var(--fp-panel);
