@@ -1,12 +1,13 @@
 // The volume of the scene (src/audio/MasterVolume.ts, src/view/VolumeControl.ts) on the icon of the output module:
 // a vertical drag on the icon sets it (Shift: fine), its brightness shows it, the signal sent to the device is
 // scaled by (v / 100)²; it is remembered by the browser after a reload; a double click mutes the scene by the
-// gain (the audio keeps running); the edge of the module still moves it.
+// gain (the audio keeps running); the edge of the module still moves it. The safety limiter after it: transparent
+// under −1 dBFS, a peak brought down to −1 dBFS, NaN silenced, its action shown on the speaker.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
 import path from "path";
-import { clampVolume, volumeGain } from "../../src/audio/MasterVolume";
+import { clampVolume, LIMIT_CEILING, volumeGain } from "../../src/audio/MasterVolume";
 
 let server: ViteDevServer;
 let browser: Browser;
@@ -184,6 +185,50 @@ describe("volume of the scene", () => {
         const moved = await volume(page);
         expect(moved.x).toBeLessThan(v.x - 90);
         expect(moved.volume).toBe(70);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+    it("is followed by a safety limiter: transparent under −1 dBFS, peaks brought down, NaN silenced", async () => {
+        const { context, page, errors } = await open();
+        const result = await page.evaluate(async () => {
+            const { scene } = (globalThis as any).faustPlayground;
+            const volume = scene.masterVolume;
+            if (!(await volume.ready)) return null;
+            const ctx = volume.node.context as AudioContext;
+            await ctx.resume();
+            // a source of a level set by a message (NaN included), into the volume (in place of the modules)
+            const code = `registerProcessor("source", class extends AudioWorkletProcessor {
+                constructor() { super(); this.level = 0; this.port.onmessage = (e) => { this.level = e.data; }; }
+                process(inputs, outputs) { for (const ch of outputs[0]) ch.fill(this.level); return true; }
+            });
+            registerProcessor("peak", class extends AudioWorkletProcessor {
+                constructor() { super(); this.peak = 0; this.bad = 0; this.port.onmessage = () => { this.port.postMessage({ peak: this.peak, bad: this.bad }); this.peak = 0; this.bad = 0; }; }
+                process(inputs) { for (const ch of inputs[0]) for (const v of ch) { if (!Number.isFinite(v)) this.bad++; else this.peak = Math.max(this.peak, Math.abs(v)); } return true; }
+            });`;
+            await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+            const source = new AudioWorkletNode(ctx, "source", { outputChannelCount: [2] });
+            const tap = new AudioWorkletNode(ctx, "peak");
+            const sink = ctx.createGain();
+            sink.gain.value = 0;
+            tap.connect(sink).connect(ctx.destination);
+            source.connect(volume.node);
+            volume.limiter.connect(tap);
+            const read = () => new Promise<{ peak: number; bad: number }>((r) => { tap.port.onmessage = (e) => r(e.data); tap.port.postMessage(0); });
+            const level = async (x: number) => { source.port.postMessage(x); await new Promise((r) => setTimeout(r, 300)); await read(); await new Promise((r) => setTimeout(r, 300)); return read(); };
+            const quiet = await level(0.5);
+            const loud = await level(4);
+            const glowing = document.querySelector("#moduleOutput .volume-icon")!.classList.contains("limiting");
+            const nan = await level(NaN);
+            const back = await level(0.5);
+            return { quiet, loud, glowing, nan, back };
+        });
+        expect(result).not.toBeNull();
+        expect(result!.quiet.peak).toBeCloseTo(0.5, 6);      // transparent: exactly the input
+        expect(result!.loud.peak).toBeLessThanOrEqual(LIMIT_CEILING + 1e-6);
+        expect(result!.loud.peak).toBeGreaterThan(LIMIT_CEILING - 0.01);
+        expect(result!.glowing).toBe(true);
+        expect(result!.nan).toEqual({ peak: 0, bad: 0 });
+        expect(result!.back.peak).toBeCloseTo(0.5, 3);       // the gain came back
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

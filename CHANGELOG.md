@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.34.0 (2026-11-03)
+
+- **The microphone on demand**: it is no longer asked for when the application opens, but when a cable leaves
+  the input module (drawn, undone, in a scene opened) or on a click on it (not on a move of it). The input module
+  is dim until then, crossed if the microphone is refused or missing (a click asks again); its tooltip says so.
+- **No request to another site at load**: the script of the Google API (the Drive saving of FaustPlayground, not
+  shown) is no longer loaded, and the export service is asked for its targets only when the Export menu is
+  opened (not shown either).
+- **A safety limiter after the volume**: a peak limiter linked across the channels (an AudioWorklet), transparent
+  under −1 dBFS (its gain is exactly 1 there), bringing the peaks down to −1 dBFS at once, its gain coming back in
+  about 100 ms; NaN and infinite samples are silenced. The speaker of the output module glows coral while it acts.
+
 ## 3.33.0 (2026-11-03)
 
 - **The volume of the scene, on the speaker of the output module**, as the depth of a modulation port: a

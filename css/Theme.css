@@ -486,6 +486,19 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	padding: 0 !important;
 }
 
+/* The microphone (Scene.activateAudioInput), asked for on demand: dim until it is on, crossed if refused */
+#moduleInput > .content {
+	transition: opacity 120ms;
+}
+#moduleInput[data-microphone="idle"] > .content, #moduleInput[data-microphone="pending"] > .content {
+	opacity: 0.45;
+	cursor: pointer;
+}
+#moduleInput[data-microphone="refused"] > .content {
+	background-image: url("../img/ico-micro-mute.png") !important;
+	cursor: pointer;
+}
+
 /* The volume of the scene on the icon of the output module (view/VolumeControl.ts): the icon is set by a vertical
    drag, its brightness shows the volume; the module is moved by its edge */
 #moduleOutput > .content {
@@ -504,6 +517,9 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	cursor: ns-resize;
 	touch-action: none;
 	transition: opacity 60ms;
+}
+#moduleOutput .volume-icon.limiting {
+	filter: drop-shadow(0 0 3px #00b4ff) drop-shadow(0 0 6px #00b4ff);	/* inverted by the content: coral */
 }
 #moduleOutput .volume-icon.muted {
 	background-image: url("../img/ico-speaker-mute.png");

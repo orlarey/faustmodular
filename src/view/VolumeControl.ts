@@ -2,7 +2,8 @@
     The volume of the scene (audio/MasterVolume.ts) on the icon of the physical output module, as the depth of
     a modulation port: a vertical drag on the icon sets it (1 % per pixel up, 0.1 % with Shift), a label shows
     its value while it is set, and the brightness of the icon shows it at rest (its tooltip gives the value).
-    Muted, or at 0 %, the icon is the crossed speaker. The module is moved by its edge, around the icon.
+    Muted, or at 0 %, the icon is the crossed speaker; it glows while the safety limiter acts. The module is
+    moved by its edge, around the icon.
 */
 
 import type { MasterVolume } from "../audio/MasterVolume";
@@ -24,6 +25,13 @@ export class VolumeControl {
         container.append(this.icon, this.fLabel);
         this.attachDrag();
         fVolume.onChange(() => this.show());
+        // the limiter acts: the speaker glows a moment
+        let timer = 0;
+        fVolume.onLimit(() => {
+            this.icon.classList.add("limiting");
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => this.icon.classList.remove("limiting"), 300);
+        });
         this.show();
     }
 

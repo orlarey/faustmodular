@@ -8,6 +8,8 @@
   "errorObjectNotFaustCompatible": "Le contenu n'est pas compatible avec Faust",
   "errorLoading": "Erreur lors du chargement de la scène",
   "errorGettingAudioInput": "Le micro ou l'entrée son n'ont pas pu être activés",
+  "microphoneIdle": "Micro : éteint. Cliquer, ou tirer un câble depuis lui, pour l'allumer (le navigateur demande l'autorisation)",
+  "microphoneOn": "Micro : allumé",
   "errorInputAPINotAvailable": "Le micro ou l'entrée son ne peuvent pas être utilisés dans ce navigateur",
   "errorAccSliderNotFound": ": Slider non trouvé, les changements sur ce slider ne seront pas exportés dans l'application finale",
   "errorAccelerometerNotFound": "Accéléromètre non trouvé, les changements sur ce slider ne seront pas exportés dans l'application finale",

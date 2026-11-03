@@ -61,6 +61,16 @@ go on). The gain is (v / 100)², as in faustcode: about −12 dB at 50 %, no boo
 remembered by the browser, not by the scene (`src/audio/MasterVolume.ts`). The output module is moved by its
 edge, around the speaker.
 
+A safety limiter follows the volume, for the ears and the speakers (a cycle of cables that blows up, a module
+badly set): transparent under −1 dBFS, it brings the peaks down to −1 dBFS at once and lets the gain come back in
+about 100 ms; NaN and infinite samples are silenced. The speaker glows coral while it acts.
+
+## Microphone
+
+The microphone is not asked for when the application opens: the input module stays dim until a cable leaves it
+(drawn, undone, or in a scene opened) or until it is clicked; the browser then asks for the permission. Refused,
+or without a microphone, its icon is crossed; a click asks again.
+
 ## Interface of a module
 
 The widgets are laid out in the groups of the code: each `vgroup`, `hgroup` or `tgroup` is a section with

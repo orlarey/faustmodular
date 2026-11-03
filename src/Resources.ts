@@ -22,6 +22,8 @@ export class Resources {
     errorObjectNotFaustCompatible: string;
     errorLoading: string;
     errorGettingAudioInput: string;
+    microphoneIdle: string;
+    microphoneOn: string;
     errorInputAPINotAvailable: string;
     errorAccSliderNotFound: string;
     errorAccelerometerNotFound: string;

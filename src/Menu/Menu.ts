@@ -40,6 +40,7 @@ export class Menu {
     load: Load
     save: Save;
     expor: Export;
+    private fTargetsAsked = false;   // the export service is asked for its targets on the first opening
     accEdit: AccelerometerEdit;
     isFullScreen: boolean = false;
     isAccelerometer: boolean = Utilitary.isAccelerometerOn;
@@ -132,7 +133,7 @@ export class Menu {
         this.fillSelectLocal(this.save.saveView.existingSceneSelect);
         this.expor = new Export();
         this.expor.exportView = this.menuView.exportView;
-        this.expor.uploadTargets();
+        // the targets of the export service are asked for when the Export menu is first opened, not at load
         this.expor.setEventListeners();
         this.accEdit = new AccelerometerEdit(this.menuView.accEditView);
     }
@@ -292,6 +293,10 @@ export class Menu {
 
     //manage the export display
     exportMenu() {
+        if (!this.fTargetsAsked) {
+            this.fTargetsAsked = true;
+            this.expor.uploadTargets();
+        }
         switch (this.currentMenuChoices) {
             case MenuChoices.null:// case MenuChoices.edit:
                 this.menuView.contentsMenu.style.display = "block";

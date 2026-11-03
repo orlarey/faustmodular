@@ -544,7 +544,30 @@ export class Scene {
         this.patch.addModule({ id: INPUT_ID, kind: "input", name: "input", numInputs: 0, numOutputs: 2, x: positionInput.x, y: positionInput.y });
         this.fAudioInput.moduleId = INPUT_ID;
         this.patchView.addModule(this.fAudioInput);
-        this.activateAudioInput();
+        // the microphone on demand, not at load: when a cable leaves the input module (drawn, undone, loaded
+        // with a scene), or on a click on it
+        this.showAudioInput();
+        this.patch.subscribe((event) => {
+            if (event.type == "connectionAdded" && event.connection.from.module == INPUT_ID) this.activateAudioInput();
+        });
+        const container = this.fAudioInput.moduleView.fModuleContainer;
+        let down: { x: number; y: number } | null = null;
+        container.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; }, true);
+        container.addEventListener("click", (e) => {
+            if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && !(e.target as HTMLElement).closest(".port")) this.activateAudioInput();
+        });
+    }
+
+    // The state of the microphone: not asked yet (idle), being asked, on, or refused (or missing).
+    audioInputState: "idle" | "pending" | "on" | "refused" = "idle";
+
+    private showAudioInput(): void {
+        const container = this.fAudioInput.moduleView.fModuleContainer;
+        const t = Utilitary.messageResource;
+        container.dataset.microphone = this.audioInputState;
+        container.title = this.audioInputState == "on" ? (t.microphoneOn ?? "")
+            : this.audioInputState == "refused" ? t.errorGettingAudioInput
+            : (t.microphoneIdle ?? "");
     }
 
     getAudioOutput(): ModuleClass { return this.fAudioOutput; }
@@ -554,19 +577,25 @@ export class Scene {
 **********************  ACTIVATE PHYSICAL IN/OUTPUT *****************
 ********************************************************************/
 
+    // Asks for the microphone, once (again after a refusal: the user asks for it).
     activateAudioInput(): void {
+        if (this.audioInputState == "pending" || this.audioInputState == "on") return;
+        this.audioInputState = "pending";
+        this.showAudioInput();
         navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } as any })
             // 'as any' is needed here because of a typo in lib.d.ts (echoCancellation is written echoCancelation)
             .then(
                 (mediaStream) => {
+                    this.audioInputState = "on";
                     this.getDevice(mediaStream);
+                    this.showAudioInput();
                     console.log("audio track has settings:", mediaStream.getAudioTracks()[0].getSettings());
                 }
             ).catch(
                 (err) => {
-                    console.error(err);
-                    this.fAudioInput.moduleView.fInterfaceContainer.style.backgroundImage = "url(img/ico-micro-mute.png)"
-                    this.fAudioInput.moduleView.fInterfaceContainer.title = Utilitary.messageResource.errorGettingAudioInput;
+                    console.warn("microphone:", err);
+                    this.audioInputState = "refused";
+                    this.showAudioInput();
                     new Message(Utilitary.messageResource.errorGettingAudioInput);
                 }
             );

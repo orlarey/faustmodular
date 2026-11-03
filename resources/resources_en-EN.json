@@ -8,6 +8,8 @@
   "errorObjectNotFaustCompatible": "Content is not compatible with Faust",
   "errorLoading": "Error while loading the scene",
   "errorGettingAudioInput": "Could not enable microphone or audio input",
+  "microphoneIdle": "Microphone: off. Click, or draw a cable from it, to turn it on (the browser asks for the permission)",
+  "microphoneOn": "Microphone: on",
   "errorInputAPINotAvailable": "The microphone or audio input cannot be used in your browser",
   "errorAccSliderNotFound": "Could not find slider, modifications on the slider will not be exported in the final version of the application",
   "errorAccelerometerNotFound": "Could not find accelerometer, modifications on the slider will not be exported in the final version of the application",
