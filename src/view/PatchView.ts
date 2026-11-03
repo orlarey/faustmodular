@@ -100,6 +100,9 @@ interface CableDrag {
     element: HTMLElement;
     path: SVGPathElement;
     target?: DropTarget;
+    startX: number;
+    startY: number;
+    moved: boolean;             // false: a click on the port (its menu, for an output)
 }
 
 interface ModuleDrag {
@@ -152,6 +155,8 @@ export class PatchView {
 
     private fSelection = new Set<ModuleId>();
     private fBand?: { pointer: number; drag: BandDrag };
+    // a click on an output port, without a drag (Scene: its menu, to the speakers)
+    onOutputClick?: (module: ModuleId, port: number, clientX: number, clientY: number) => void;
     // the magnifier of the modules when the stage is zoomed out (view/Magnifier.ts)
     readonly magnifier = new Magnifier({
         zoom: () => this.zoom,
@@ -631,7 +636,11 @@ export class PatchView {
         const cableDrag = this.fCableDrags.get(e.pointerId);
         if (cableDrag) {
             this.fCableDrags.delete(e.pointerId);
-            if (commit) {
+            if (commit && !cableDrag.moved && cableDrag.dir == "out" && this.onOutputClick) {
+                // a click on an output: its menu (the speakers)
+                const { module, port } = cableDrag;
+                queueMicrotask(() => this.onOutputClick?.(module.moduleId, port, e.clientX, e.clientY));
+            } else if (commit) {
                 this.setTarget(cableDrag, this.findTarget(cableDrag, e));
                 this.connect(cableDrag);
             }
@@ -674,12 +683,13 @@ export class PatchView {
         const path = document.createElementNS(SVG_NS, "path") as SVGPathElement;
         path.setAttribute("class", "cable dragging");
         this.fSvg.appendChild(path);
-        const drag: CableDrag = { module, dir: port.dataset.dir as Dir, port: Number(port.dataset.port), element: port, path };
+        const drag: CableDrag = { module, dir: port.dataset.dir as Dir, port: Number(port.dataset.port), element: port, path, startX: e.clientX, startY: e.clientY, moved: false };
         this.fCableDrags.set(e.pointerId, drag);
         this.moveCable(drag, e);
     }
 
     private moveCable(drag: CableDrag, e: PointerEvent): void {
+        drag.moved ||= Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 4;
         const start = this.center(drag.element);
         const pointer = this.toCanvas(e.clientX, e.clientY);
         const none: Point = { x: 0, y: 0 };

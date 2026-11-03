@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.39.0 (2026-11-03)
+
+- **The menu of an output port**: a click on an output (without a drag) or a right click opens it, to send the
+  output to the speakers or unplug it at once, without drawing a cable to the output module (often far): left +
+  right speakers, left, right (other channels in a submenu on a device of more than two), with a check mark where
+  it goes (a checked line unplugs it); unplug this output (all its cables). For a module of several outputs: all
+  its outputs to the speakers (the bus rule: 1 → left, 2 → right) or none; the module menu has these two commands
+  too. The microphone is not sent to the speakers (it would ring). Each command is one step of the history.
+- The context menus show states with check marks.
+
 ## 3.38.0 (2026-11-03)
 
 - **The magnifier of the modules**, as the Dock of macOS: when the stage is zoomed out under 75 %, the module

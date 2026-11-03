@@ -1201,7 +1201,7 @@ describe("context menu and clipboard", () => {
         const { half, a, b } = await scene(page);
         await page.click(await title(page, b), { button: "right" });
         expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.patchView.getSelection())).toEqual([b]);
-        await choose(page, "Unplug");
+        await choose(page, "Unplug \\(");
         await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).modulations.length == 0, b);
         let p = await patch(page);
         expect(p.connections).toEqual([]);
@@ -1210,7 +1210,7 @@ describe("context menu and clipboard", () => {
         await page.click("#moduleOutput", { button: "right" });
         const enabled = await page.locator(".context-menu-item:not(:disabled)").allTextContents();
         expect(enabled.map((l) => l.replace(/[⌘⇧⌫].*|Ctrl.*|Del$/, "").trim())).toEqual(["Paste", "Unplug (remove all the cables)"]);
-        await choose(page, "Unplug");
+        await choose(page, "Unplug \\(");
         expect((await patch(page)).connections).toEqual([]);
         // Delete: the selection
         await page.evaluate(([x, y]) => (globalThis as any).faustPlayground.scene.patchView.select([x, y]), [a, half]);

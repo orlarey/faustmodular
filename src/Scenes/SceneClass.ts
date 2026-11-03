@@ -994,9 +994,16 @@ export class Scene {
         // keys typed in a text field, or in an Orbit (its keys: L, Delete of its presets, Esc), are not commands
         var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true], .orbit-ui-root");
         stage.addEventListener("pointermove", (e) => { this.fPointer = this.toStage(e.clientX, e.clientY); });
+        this.patchView.onOutputClick = (id, port, x, y) => this.outputPortMenu(id, port, x, y);
         stage.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             var at = this.toStage(e.clientX, e.clientY);
+            // an output port: its menu (the speakers)
+            var outputPort = (e.target as HTMLElement).closest?.(".port-output") as HTMLElement | null;
+            if (outputPort?.dataset.module !== undefined && !outputPort.classList.contains("modulation-port")) {
+                this.outputPortMenu(outputPort.dataset.module, Number(outputPort.dataset.port), e.clientX, e.clientY);
+                return;
+            }
             var id = this.patchView.moduleOf(e.target as Element);
             var paste: MenuItem = { label: t().menuPaste, shortcut: shortcut("mod+V"), action: () => this.pasteFromClipboard(at) };
             if (id === undefined) {
@@ -1026,6 +1033,8 @@ export class Scene {
                 { label: t().menuDuplicateAlone, shortcut: shortcut("shift+mod+D"), enabled: faust, action: () => this.duplicateModules(selection, false) },
                 "separator",
                 { label: t().menuUnplug, enabled: plugged, action: () => this.unplugModules(selection) },
+                { label: t().moduleToSpeakers, enabled: selection.some((m) => this.canReachSpeakers(m)), action: () => { this.step(() => this.toSpeakers(selection)) } },
+                { label: t().moduleOffSpeakers, enabled: selection.some((m) => this.speakerConnections(m).length > 0), action: () => { this.step(() => this.offSpeakers(selection)) } },
                 { label: minimized ? t().menuExpand : t().menuMinimize, enabled: faust, action: () => this.toggleMinimized(selection) },
                 { label: orbitShown ? t().menuClassicInterface : t().menuOrbitInterface, enabled: orbitable.length > 0, action: () => this.toggleOrbit(selection) },
                 "separator",
@@ -1134,6 +1143,86 @@ export class Scene {
 
     // Removes every connection to or from these modules (audio and modulation): their modulations
     // lose their sources and are removed.
+    /*********************** SPEAKERS ***************************/
+    // The menu of an output port (a click on it, or a right click): to the speakers or not, at once, without
+    // drawing a cable to the output module, often far. Each command is one step of the history.
+
+    // The connections of a module (of one of its outputs) to the speakers.
+    speakerConnections(id: ModuleId, port?: number): Connection[] {
+        return this.patch.getConnections().filter((c) => c.from.module == id && c.to.module == OUTPUT_ID && (port === undefined || c.from.port == port));
+    }
+
+    // A command of a menu, one step of the history of its own (two commands in a row are two steps, though
+    // within the delay that groups the changes of a gesture).
+    private async step(run: () => void): Promise<void> {
+        await this.history.flush();
+        run();
+        await this.history.flush();
+    }
+
+    // Not the microphone: to the speakers, it would ring (Larsen).
+    private canReachSpeakers(id: ModuleId): boolean {
+        var state = this.patch.getModule(id);
+        return !!state && state.kind == "faust" && state.numOutputs > 0 && !!this.patch.getModule(OUTPUT_ID);
+    }
+
+    // An output to these channels of the speakers: all connected if one is missing, all unplugged otherwise.
+    toggleSpeakers(id: ModuleId, port: number, channels: number[]): void {
+        var from = { module: id, port };
+        var existing = channels.map((ch) => this.patch.findConnection(from, { module: OUTPUT_ID, port: ch }));
+        if (existing.every((c) => c)) {
+            existing.forEach((c) => this.patch.disconnect(c!.id));
+        } else {
+            channels.forEach((ch, i) => { if (!existing[i]) this.patch.connect(from, { module: OUTPUT_ID, port: ch }); });
+        }
+    }
+
+    // All the outputs of modules to the speakers, as a cable dropped on the output module (the bus rule).
+    toSpeakers(ids: ModuleId[]): void {
+        for (var id of ids) if (this.canReachSpeakers(id)) this.patch.connectBus(id, OUTPUT_ID);
+    }
+
+    offSpeakers(ids: ModuleId[]): void {
+        for (var id of ids) this.speakerConnections(id).forEach((c) => this.patch.disconnect(c.id));
+    }
+
+    // All the cables of an output.
+    unplugOutput(id: ModuleId, port: number): void {
+        this.patch.getConnections().filter((c) => c.from.module == id && c.from.port == port).forEach((c) => this.patch.disconnect(c.id));
+    }
+
+    outputPortMenu(id: ModuleId, port: number, clientX: number, clientY: number): void {
+        var t = Utilitary.messageResource;
+        var state = this.patch.getModule(id);
+        var speakers = this.patch.getModule(OUTPUT_ID);
+        if (!state) return;
+        var reach = this.canReachSpeakers(id);
+        var channels = speakers?.numInputs ?? 0;
+        var on = (ch: number) => !!this.patch.findConnection({ module: id, port }, { module: OUTPUT_ID, port: ch });
+        var item = (label: string, chs: number[]): MenuItem => ({ label, checked: chs.every(on), enabled: reach, action: () => { this.step(() => this.toggleSpeakers(id, port, chs)) } });
+        var items: MenuItem[] = [];
+        if (channels == 1) {
+            items.push(item(t.speakerMono, [0]));
+        } else if (channels >= 2) {
+            items.push(item(t.speakersBoth, [0, 1]), item(t.speakerLeft, [0]), item(t.speakerRight, [1]));
+            if (channels > 2) {
+                var others = Array.from({ length: channels - 2 }, (_, k) => item(t.speakerChannel.replace("{n}", String(k + 3)), [k + 2]));
+                items.push({ label: t.speakersOther, enabled: reach, items: others });
+            }
+        }
+        items.push("separator", {
+            label: t.unplugOutput,
+            enabled: this.patch.getConnections().some((c) => c.from.module == id && c.from.port == port),
+            action: () => { this.step(() => this.unplugOutput(id, port)) },
+        });
+        if (state.numOutputs > 1 && reach) {
+            items.push("separator",
+                { label: t.moduleToSpeakers, action: () => { this.step(() => this.toSpeakers([id])) } },
+                { label: t.moduleOffSpeakers, enabled: this.speakerConnections(id).length > 0, action: () => { this.step(() => this.offSpeakers([id])) } });
+        }
+        showContextMenu(clientX, clientY, items);
+    }
+
     unplugModules(ids: ModuleId[]): void {
         var chosen = new Set(ids);
         for (var c of this.patch.getConnections()) {

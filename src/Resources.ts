@@ -80,6 +80,16 @@ export class Resources {
     menuDuplicate: string;
     menuDuplicateAlone: string;
     menuUnplug: string;
+    speakersBoth: string;
+    speakerLeft: string;
+    speakerRight: string;
+    speakerMono: string;
+    speakerChannel: string;
+    speakersOther: string;
+    unplugOutput: string;
+    moduleToSpeakers: string;
+    moduleOffSpeakers: string;
+    outputMenuTitle: string;
     menuMinimize: string;
     menuExpand: string;
     menuDelete: string;

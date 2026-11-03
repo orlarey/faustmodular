@@ -1002,6 +1002,11 @@ li.libraryFamily.selected {
 	color: var(--fp-text-quiet);
 	font: 12px var(--fp-mono);
 }
+.context-menu-check {
+	display: inline-block;
+	width: 18px;
+	color: var(--fp-accent);
+}
 .context-menu-separator {
 	height: 1px;
 	margin: 4px 6px;

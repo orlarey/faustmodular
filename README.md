@@ -20,6 +20,11 @@ channels.
   connections reaching the same input are summed; an output can feed several inputs.
 - Release on the body of another module instead to connect all the channels at once: output
   `k mod n` goes to input `k mod m` (Faust's `<:` and `:>` when one number of channels divides the other).
+- Click on an output port (without dragging), or right click it, to send it to the speakers or unplug it at once,
+  without drawing a cable to the output module: left + right, left, right (a check mark shows where it goes; a
+  checked line unplugs), unplug this output (all its cables); for a module of several outputs, all its outputs to
+  the speakers (the bus rule) or none. The module menu has these two commands too. The microphone is not sent to
+  the speakers (it would ring). Each command is one step of the history.
 - Click on a cable to delete it. Dashed cables close a cycle and are delayed by 128 samples.
 - Release on a widget to modulate it by the signal: the mode (± modulate, + add, ~ linear FM, ⇐ drive)
   follows from the widget and its metadata, and the depth is set by a vertical drag on the modulation port

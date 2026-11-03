@@ -11,6 +11,7 @@ export interface MenuCommand {
     action?: () => void;
     items?: MenuItem[];         // a submenu
     title?: string;             // tooltip
+    checked?: boolean;          // a state (a check mark in a column on the left of the menu)
 }
 
 export type MenuItem = MenuCommand | "separator";
@@ -40,6 +41,8 @@ export function showContextMenu(clientX: number, clientY: number, items: MenuIte
     const build = (list: MenuItem[], x: number, y: number, level: number): HTMLElement => {
         const menu = document.createElement("div");
         menu.className = "context-menu" + (level > 0 ? " context-submenu" : "");
+        // a column of check marks when an item has a state
+        const checks = list.some((item) => item != "separator" && item.checked !== undefined);
         menu.setAttribute("role", "menu");
         for (const item of list) {
             if (item == "separator") {
@@ -56,6 +59,13 @@ export function showContextMenu(clientX: number, clientY: number, items: MenuIte
             if (item.title) button.title = item.title;
             const label = document.createElement("span");
             label.textContent = item.label;
+            if (checks) {
+                const check = document.createElement("span");
+                check.className = "context-menu-check";
+                check.textContent = item.checked ? "\u2713" : "";
+                label.prepend(check);
+                if (item.checked !== undefined) button.setAttribute("aria-checked", String(!!item.checked));
+            }
             button.appendChild(label);
             if (item.shortcut || item.items) {
                 const keys = document.createElement("span");
