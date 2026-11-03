@@ -228,3 +228,15 @@ describe("scene of the first visit", () => {
         await context.close();
     }, 60_000);
 });
+
+describe("signature", () => {
+    it("links to the repository of faustmodular, in a new tab, above the stage", async () => {
+        const { context, page } = await open("?starter=0");
+        const link = page.locator("a#signature");
+        expect(await link.getAttribute("href")).toBe("https://github.com/orlarey/faustmodular");
+        expect(await link.getAttribute("target")).toBe("_blank");
+        const box = (await link.boundingBox())!;
+        expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("a")?.id, [box.x + box.width / 2, box.y + box.height / 2])).toBe("signature");
+        await context.close();
+    }, 60_000);
+});

@@ -42,16 +42,26 @@ body {
 }
 
 /* The signature of the author (index.html): a seal in the bottom left corner of the stage, darker than it, as
-   engraved; under the modules, it takes no click */
-svg#signature {
+   engraved, lit when pointed at; a click opens the repository of faustmodular on GitHub */
+a#signature {
 	position: fixed;
 	left: 16px;
 	bottom: 14px;
 	width: 44px;
 	height: 44px;
-	z-index: 0;
-	color: rgba(0, 0, 0, 0.42);
-	pointer-events: none;
+	z-index: 1;					/* above the stage: a link to the repository (its README) */
+	color: rgba(0, 0, 0, 0.42) !important;		/* not the white of the links (Main.css) */
+	border-radius: 50%;
+	transition: color 150ms;
+}
+a#signature svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+a#signature:hover, a#signature:focus-visible {
+	color: rgba(205, 238, 245, 0.45) !important;
+	outline: none;
 }
 
 /* Header: a bar with the app name, pills, the patch name in a mono pill */

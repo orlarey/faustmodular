@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.40.0 (2026-11-03)
+
+- **A README for the users**: a tour of the application with screenshots (first steps, modules and their search,
+  cables and the speakers, modulation, the interface of a module and its Orbit, writing modules with faustcode,
+  large patches, sound, scenes and files, keyboard and mouse), and a link to open the application at its top. The
+  former README, with every feature in detail and the development notes, is the reference manual
+  (`Documentation/REFERENCE.md`).
+- The screenshots (`Documentation/screenshots/`) are made by `npm run screenshots` (`scripts/readme-screenshots.mjs`):
+  the application served by Vite and driven by Playwright, in English, at twice the resolution of the screen.
+- The λ seal in the bottom left corner is a link to the repository on GitHub (its README), in a new tab; lit when
+  pointed at. It is above the stage (a module moved over it passes under it).
+
 ## 3.39.1 (2026-11-03)
 
 - On the speaker of the output module, the first direction of a drag decides: mostly vertical, the volume; mostly
