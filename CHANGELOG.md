@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.31.3 (2026-11-03)
+
+- The knobs have a body: an almost black disc inside their arc, its edge barely lit; the pointer is drawn on it.
+
 ## 3.31.2 (2026-11-03)
 
 - A wait no longer shows the animated GRAME logo of FaustPlayground (`logoAnim.gif`, 185 kB, removed) but a ring

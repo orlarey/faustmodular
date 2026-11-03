@@ -1105,6 +1105,12 @@ li.libraryFamily.selected {
 .control-knob .knob-value {
 	stroke: var(--fp-accent);
 }
+/* the knob itself: an almost black disc inside the arc, its edge barely lit */
+.control-knob .knob-body {
+	fill: #080a0e;
+	stroke: rgba(255, 255, 255, 0.07);
+	stroke-width: 1;
+}
 .control-knob .knob-pointer {
 	stroke: var(--fp-title);
 	stroke-width: 2;

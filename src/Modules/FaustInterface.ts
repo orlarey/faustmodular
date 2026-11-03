@@ -417,9 +417,14 @@ export class FaustInterfaceView {
         track.setAttribute("d", knobArc(-135, 135));
         var arc = document.createElementNS(NS, "path");
         arc.setAttribute("class", "knob-value");
+        var body = document.createElementNS(NS, "circle");
+        body.setAttribute("class", "knob-body");
+        body.setAttribute("cx", "24");
+        body.setAttribute("cy", "24");
+        body.setAttribute("r", "14");
         var pointer = document.createElementNS(NS, "line");
         pointer.setAttribute("class", "knob-pointer");
-        svg.append(track, arc, pointer);
+        svg.append(track, arc, body, pointer);
         group.insertBefore(label, slider);
         group.insertBefore(svg, slider);
         group.insertBefore(value, slider);
@@ -596,10 +601,10 @@ export class FaustInterfaceView {
             var angle = -135 + 270 * (Number(this.slider.value) / Math.max(1, Number(this.slider.max)));
             this.fKnob.value.setAttribute("d", angle > -134.9 ? knobArc(-135, angle) : "");
             var r = (angle - 90) * Math.PI / 180;
-            this.fKnob.pointer.setAttribute("x1", String(24 + 7 * Math.cos(r)));
-            this.fKnob.pointer.setAttribute("y1", String(24 + 7 * Math.sin(r)));
-            this.fKnob.pointer.setAttribute("x2", String(24 + 15 * Math.cos(r)));
-            this.fKnob.pointer.setAttribute("y2", String(24 + 15 * Math.sin(r)));
+            this.fKnob.pointer.setAttribute("x1", String(24 + 5 * Math.cos(r)));
+            this.fKnob.pointer.setAttribute("y1", String(24 + 5 * Math.sin(r)));
+            this.fKnob.pointer.setAttribute("x2", String(24 + 12 * Math.cos(r)));
+            this.fKnob.pointer.setAttribute("y2", String(24 + 12 * Math.sin(r)));
         }
         if (this.fEntry && this.slider) {
             var range = this.fRange ?? sliderRange(this.fItemParam!);
