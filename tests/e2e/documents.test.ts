@@ -1,10 +1,12 @@
 // Documents in the application (Chromium, OPFS): the working copy survives a reload, Cmd/Ctrl-S
-// commits it, the Documents menu creates, renames, duplicates, deletes and restores documents,
-// and the scenes of the localStorage are migrated once.
+// saves the scene to its file and commits it, the File menu makes a new scene and opens the recent
+// ones, the name of the scene is typed in place, and the scenes of the localStorage are migrated once.
+// The disk is in memory (fake-files.ts): Playwright cannot drive the pickers of the browser.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
 import path from "path";
+import { files, installFakeFiles } from "./fake-files";
 
 let server: ViteDevServer;
 let browser: Browser;
@@ -63,6 +65,7 @@ const sliderValue = (page: Page) => page.evaluate(() => (globalThis as any).faus
 describe("documents", () => {
     it("keeps the working copy across a reload; Cmd/Ctrl-S commits it; undo back makes it clean", async () => {
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
         const errors: string[] = [];
         const page = await open(context, errors);
         expect((await info(page)).name).toBe("Untitled");
@@ -107,6 +110,7 @@ describe("documents", () => {
 
     it("reverts to the saved version, and saves as a new document leaving the original clean", async () => {
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
         const page = await open(context);
         await importFile(page, "/json/Modulation_Example.json");
         const saved = await sliderValue(page);
@@ -125,42 +129,105 @@ describe("documents", () => {
         await context.close();
     }, 240_000);
 
-    it("creates, renames, duplicates, deletes and restores documents from the Documents menu", async () => {
+    it("File menu: a new scene, the recent ones; the name of the scene typed in place", async () => {
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
         const errors: string[] = [];
         const page = await open(context, errors);
         await importFile(page, "/tests/fixtures/v1/patch_light.json");
-        await page.locator("#documentsButtonMenu").click();
-        await expect.poll(() => page.locator("#documentsContainer .documentRow").count()).toBe(1);
-
-        // rename the open document
-        await page.locator("#documentName").fill("Light");
-        await page.locator("#documentName").press("Enter");
+        // the name: a click on it, typed, Enter
+        await page.locator("#PatchName").click();
+        await page.locator("#PatchName input.scene-name-input").fill("Light");
+        await page.locator("#PatchName input.scene-name-input").press("Enter");
         await expect.poll(async () => (await info(page)).header).toBe("Light");
-        // a new document
-        await page.locator("#documentsContainer .documentNew").click();
+        // Escape gives up
+        await page.locator("#PatchName").click();
+        await page.locator("#PatchName input.scene-name-input").fill("Other");
+        await page.locator("#PatchName input.scene-name-input").press("Escape");
+        expect((await info(page)).name).toBe("Light");
+        // a new scene, empty
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: /^(New scene|Nouvelle scène)/ }).click();
         await expect.poll(async () => (await info(page)).name).toBe("Untitled");
         expect((await info(page)).modules).toEqual([]);
-        // duplicate Light, then open it by a click on its row
-        await page.locator("#documentsContainer .documentRow", { hasText: "Light" }).locator(".documentDuplicate").click();
-        await expect.poll(async () => (await info(page)).names).toEqual(["Light", "Light 2", "Untitled"]);
-        await page.locator("#documentsContainer .documentRow", { hasText: "Light 2" }).locator(".documentRowName").click();
-        await expect.poll(async () => (await info(page)).name).toBe("Light 2");
+        // Light, in the recent scenes
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: /^(Recent scenes|Scènes récentes)/ }).hover();
+        await page.locator(".context-submenu .context-menu-item", { hasText: "Light" }).click();
+        await expect.poll(async () => (await info(page)).name).toBe("Light");
         expect((await info(page)).modules).toEqual(["Echo", "SOscillator", "Volume"]);
-        // delete it (confirmation), then restore it from the trash
-        await page.locator("#documentsContainer .documentRow.current .documentDelete").click();
-        await page.locator("#dialogue #validButton").click();
-        await expect.poll(async () => (await info(page)).trash).toEqual(["Light 2"]);
-        await expect.poll(async () => (await info(page)).name).not.toBe("Light 2");      // another document opened
-        await page.locator("#documentsContainer .documentRestore").click();
-        await expect.poll(async () => (await info(page)).trash).toEqual([]);
-        expect((await info(page)).names).toEqual(["Light", "Light 2", "Untitled"]);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 240_000);
+
+    it("File menu: Save as names the scene after its file, Save writes it again, Open replaces the scene and remembers its file", async () => {
+        const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
+        const errors: string[] = [];
+        const page = await open(context, errors);
+        await importFile(page, "/json/Modulation_Example.json");
+        await moveSlider(page, "5");
+        expect((await info(page)).dirty).toBe(true);
+        // Save as: a file chosen, the scene named after it, not modified any more
+        await page.evaluate(() => { (window as any).__nextSave = "Ma scène.jfaust"; });
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: /^(Save as|Enregistrer sous)/ }).click();
+        await page.waitForFunction(() => (globalThis as any).faustmodular.documents.current.name == "Ma scène" && !(globalThis as any).faustmodular.documents.dirty);
+        let disk = await files(page);
+        const written = JSON.parse(disk.files["Ma scène.jfaust"]);
+        expect(written.sceneName).toBe("Ma scène");
+        expect(written.modules.filter((m: any) => m.kind == "faust").length).toBeGreaterThan(0);
+        expect((await info(page)).header).toBe("Ma scène");
+        // Save (Ctrl-S) after a change: the same file, no picker
+        await moveSlider(page, "8");
+        await page.mouse.click(700, 860);
+        await page.keyboard.press("Control+s");
+        await page.waitForFunction(() => !(globalThis as any).faustmodular.documents.dirty);
+        disk = await files(page);
+        expect(disk.pickers.save).toBe(1);
+        expect(disk.files["Ma scène.jfaust"]).not.toBe(JSON.stringify(written, null, 1));
+        // Open (Ctrl-O): a scene of the disk in place of the one shown, named after its file, its file remembered
+        const example = await fixture(page, "/json/Multichannel_Example.json");
+        await page.evaluate((json) => { (window as any).__files["Autre.jfaust"] = json; (window as any).__nextOpen = "Autre.jfaust"; }, example);
+        await page.keyboard.press("Control+o");
+        await page.waitForFunction(() => (globalThis as any).faustmodular.documents.current?.name == "Autre", null, { timeout: 60_000 });
+        expect((await info(page)).dirty).toBe(false);
+        expect((await info(page)).names).toEqual(["Autre", "Ma scène"]);
+        await moveSlider(page, "3");
+        await page.keyboard.press("Control+s");
+        await page.waitForFunction(() => !(globalThis as any).faustmodular.documents.dirty);
+        disk = await files(page);
+        expect(disk.pickers.save).toBe(1);
+        expect(disk.files["Autre.jfaust"]).not.toBe(example);
+        expect(JSON.parse(disk.files["Autre.jfaust"]).sceneName).toBe("Autre");
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 240_000);
+
+    it("File menu without the API (Firefox, Safari): Save downloads the scene, Open reads a file chosen", async () => {
+        const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true });
+        await context.addInitScript(() => { delete (window as any).showOpenFilePicker; delete (window as any).showSaveFilePicker; });
+        const errors: string[] = [];
+        const page = await open(context, errors);
+        await importFile(page, "/json/Modulation_Example.json");
+        await moveSlider(page, "6");
+        const download = page.waitForEvent("download");
+        await page.mouse.click(700, 860);
+        await page.keyboard.press("Control+s");
+        const file = await download;
+        expect(file.suggestedFilename()).toBe("Modulation_Example.jfaust");
+        await page.waitForFunction(() => !(globalThis as any).faustmodular.documents.dirty);
+        const chooser = page.waitForEvent("filechooser");
+        await page.keyboard.press("Control+o");
+        await (await chooser).setFiles({ name: "Mine.jfaust", mimeType: "application/json", buffer: Buffer.from(await fixture(page, "/json/Multichannel_Example.json")) });
+        await page.waitForFunction(() => (globalThis as any).faustmodular.documents.current?.name == "Mine", null, { timeout: 60_000 });
         expect(errors).toEqual([]);
         await context.close();
     }, 240_000);
 
     it("migrates the scenes saved in the localStorage once, converting each when first opened", async () => {
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
         const page0 = await context.newPage();
         await page0.goto(url + "favicon.ico");                                     // same origin, the application not started
         const light = await page0.evaluate(async () => (await fetch("/tests/fixtures/v1/patch_light.json")).text());
@@ -186,6 +253,7 @@ describe("documents", () => {
 
     it("user modules: My modules lists them, an edit adds a version, ↑ updates an instance, double click adds one", async () => {
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await installFakeFiles(context);
         const errors: string[] = [];
         const page = await open(context, errors);
         const myModules = () => page.locator("#userLibrarySelect li.userModule a").allTextContents();

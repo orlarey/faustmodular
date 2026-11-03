@@ -12,6 +12,7 @@ import { Scene } from "../Scenes/SceneClass";
 import { Confirm, Message } from "../Messages";
 import { AccelerometerHandler } from "../Accelerometer";
 import type { Documents } from "../documents/Documents";
+import { FileMenu } from "./FileMenu";
 
 declare global {
     interface Document {
@@ -44,6 +45,7 @@ export class Menu {
     isAccelerometer: boolean = Utilitary.isAccelerometerOn;
     drive: DriveAPI;
     documents: Documents | null = null;
+    readonly fileMenu = new FileMenu(() => this.documents);
 
     constructor(htmlContainer: HTMLElement) {
         //create and init menu view wich gone create and init all sub menus views
@@ -51,10 +53,14 @@ export class Menu {
         this.menuView.init(htmlContainer);
 
         //add Event Listeners
-        this.menuView.documentsButton.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.documents) };
-        this.menuView.patchNameScene.addEventListener("click", () => {
-            if (this.currentMenuChoices != MenuChoices.documents) this.menuHandler(this.newMenuChoices = MenuChoices.documents);
-        });
+        // File: a dropdown, as in a desktop application (FileMenu); the panel of the documents is kept for later
+        this.menuView.documentsButton.onclick = () => {
+            this.menuHandler(this.newMenuChoices = MenuChoices.null);
+            this.fileMenu.show(this.menuView.documentsButton);
+        };
+        // the name of the scene: a click renames it
+        this.menuView.patchNameScene.title = Utilitary.messageResource.renameScene;
+        this.menuView.patchNameScene.addEventListener("click", () => this.renameInPlace());
         this.menuView.libraryButtonMenu.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.library) };
         this.menuView.exportButtonMenu.onclick = () => { this.menuHandler(this.newMenuChoices = MenuChoices.export) };
         this.menuView.editButtonMenu.addEventListener("click", () => { this.menuHandler(this.newMenuChoices = MenuChoices.edit) });
@@ -85,11 +91,16 @@ export class Menu {
         document.addEventListener("openmodules", () => {
             if (this.currentMenuChoices != MenuChoices.library) this.menuHandler(this.newMenuChoices = MenuChoices.library);
         });
-        // Cmd/Ctrl-S: the working copy becomes the committed copy
+        // Cmd/Ctrl-S: save; with Shift: save as; Cmd/Ctrl-O: open a scene
         document.addEventListener("keydown", (e) => {
-            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() == "s" && this.documents) {
+            if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+            var key = e.key.toLowerCase();
+            if (key == "s") {
                 e.preventDefault();
-                this.documents.save();
+                if (e.shiftKey) this.fileMenu.saveAs(); else this.fileMenu.save();
+            } else if (key == "o" && !e.shiftKey) {
+                e.preventDefault();
+                this.fileMenu.open();
             }
         });
 
@@ -181,10 +192,41 @@ export class Menu {
     }
 
     // the name of the scene (of the open document) wherever it is shown
+    // The name of the scene typed in place of the name shown: Enter (or a click elsewhere) renames it,
+    // Escape gives up.
+    renameInPlace() {
+        var pill = this.menuView.patchNameScene;
+        if (!this.documents?.current || pill.querySelector("input")) return;
+        var input = document.createElement("input");
+        input.type = "text";
+        input.className = "scene-name-input";
+        input.spellcheck = false;
+        input.value = this.documents.current.name;
+        pill.textContent = "";
+        pill.appendChild(input);
+        input.focus();
+        input.select();
+        var done = false;
+        var finish = (commit: boolean) => {
+            if (done) return;
+            done = true;
+            var name = input.value.trim();
+            this.showSceneName();
+            if (commit && name && name != this.documents?.current?.name) this.documents?.rename(name);
+        };
+        input.addEventListener("keydown", (e) => {
+            e.stopPropagation();
+            if (e.key == "Enter") finish(true);
+            else if (e.key == "Escape") finish(false);
+        });
+        input.addEventListener("blur", () => finish(true));
+        input.addEventListener("click", (e) => e.stopPropagation());
+    }
+
     showSceneName() {
         var name = Utilitary.currentScene.sceneName;
         this.menuView.patchNameScene.textContent = name + (this.documents?.dirty ? " \u25CF" : "");
-        this.menuView.patchNameScene.title = this.documents?.dirty ? Utilitary.messageResource.documentModified : "";
+        this.menuView.patchNameScene.title = (this.documents?.dirty ? Utilitary.messageResource.documentModified + "\n" : "") + Utilitary.messageResource.renameScene;
         this.menuView.exportView.dynamicName.textContent = name;
         this.menuView.exportView.inputNameApp.value = name;
         this.menuView.saveView.dynamicName.textContent = name;

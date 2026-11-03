@@ -317,6 +317,14 @@ Fichier ▾
  Nouveau depuis un exemple ▸
 ```
 
+::: note [Mise à jour du 3 novembre 2026 (3.30.0) : le menu Fichier d'une application de bureau]
+Le menu Fichier est un menu déroulant réduit à l'essentiel : Nouvelle scène, Ouvrir une scène… (Cmd/Ctrl-O), Enregistrer (Cmd/Ctrl-S), Enregistrer sous… (Maj-Cmd/Ctrl-S), Importer un fichier Faust (.dsp)…, Scènes récentes ▸, Exemples ▸.
+
+- **Fichiers du disque.** Ouvrir lit un fichier `.jfaust` ; Enregistrer l'écrit. Avec l'API File System Access (Chromium), le fichier ouvert ou enregistré est retenu pour le document (son handle, dans IndexedDB : `src/documents/FileHandles.ts`) : Enregistrer le réécrit sans rien demander, Enregistrer sous… en choisit un autre, et la scène prend le nom du fichier. Sans elle (Firefox, Safari), Ouvrir lit un fichier choisi et Enregistrer télécharge la scène.
+- **Ouvrir remplace la scène affichée.** Rien n'est perdu : les scènes sont gardées par les documents (enregistrement automatique), celle qu'on quitte est dans Scènes récentes. Une scène enregistrée dans son fichier n'est plus modifiée (le point disparaît).
+- **Les documents restent en dessous** : la scène affichée est enregistrée automatiquement et rouverte à la visite suivante ; leur liste, leur corbeille, Revenir, Dupliquer ne sont plus montrés (le panneau `DocumentsPanel` est gardé pour plus tard). Chromium réserve Cmd/Ctrl-N : Nouvelle scène n'a pas de raccourci.
+:::
+
 - Le **nom du document** est affiché dans l'en-tête, éditable par un clic, avec le point de modification.
 - La **bibliothèque** garde ses colonnes de modules prédéfinis et ajoute une colonne **Mes modules** (modules utilisateur), avec renommer, catégorie, supprimer, versions.
 - **Export** garde l'export en programme Faust et les cibles du service de compilation ; l'export du document rejoint le menu Fichier.

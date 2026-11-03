@@ -1201,3 +1201,19 @@ input.value-input {
 	text-align: right;
 	outline: none;
 }
+
+/* The name of the scene, typed in place (Menu.renameInPlace) */
+input.scene-name-input {
+	width: 14em;
+	font: inherit;
+	color: var(--fp-value);
+	background: var(--fp-panel);
+	border: 1px solid var(--fp-accent);
+	border-radius: 4px;
+	padding: 0 6px;
+	outline: none;
+}
+/* a submenu of a context menu (File: Recent scenes, Examples) */
+.context-menu-item.has-submenu .context-menu-shortcut {
+	font-size: 10px;
+}

@@ -39,9 +39,13 @@ channels.
   point. Shortcuts:
   Ctrl/Cmd-C, X, V (at the pointer), D, A, and Delete. Copied modules are a patch file in the clipboard,
   with the connections between them: they can be pasted in another document or another tab.
-- Two menus: *File* (the open document: New, Save, Save as, Revert, Rename; the documents; the files: open a
-  patch, .json or .jfaust, as a new document, or a Faust file, .dsp, as a module, download the scene as a
-  .jfaust, the examples; the trash) and *Modules* (the library). The Edit and Export menus, and the accelerometer button, are hidden for now.
+- Two menus: *File* and *Modules* (the library). *File* is a dropdown, as in a desktop application: New scene,
+  Open a scene… (Ctrl/Cmd-O), Save (Ctrl/Cmd-S), Save as… (Shift-Ctrl/Cmd-S), Import a Faust file (.dsp)…, Recent
+  scenes, Examples. With the File System Access API (Chrome, Edge), Save writes the file the scene was opened from
+  or saved to, Save as… chooses another one (the scene takes its name); elsewhere, Save downloads a .jfaust. Opening
+  a scene replaces the one shown, which stays in Recent scenes (the scenes are saved automatically in the
+  browser). A click on the name of the scene, at the top right, renames it. The Edit and Export menus, and the
+  accelerometer button, are hidden for now.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),

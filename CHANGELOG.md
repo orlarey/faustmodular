@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.30.0 (2026-11-03)
+
+- **The File menu of a desktop application**: a dropdown, New scene, Open a scene… (Ctrl/Cmd-O), Save (Ctrl/Cmd-S),
+  Save as… (Shift-Ctrl/Cmd-S), Import a Faust file (.dsp)…, Recent scenes ▸ (the 8 last ones), Examples ▸. The panel
+  of the documents (their list, the trash, Revert, Duplicate, the precompiled option) is no longer shown; its code
+  is kept.
+  - With the File System Access API (Chrome, Edge), the file a scene was opened from or saved to is remembered
+    for its document (its handle, in IndexedDB): Save writes it again without asking, Save as… chooses another
+    one, and the scene takes the name of its file. Without it (Firefox, Safari), Open reads a file chosen and
+    Save downloads the scene.
+  - Opening a scene replaces the one shown: it stays in Recent scenes, the scenes being saved automatically in
+    the browser (the documents, underneath). A scene saved to its file is not modified any more (its dot goes).
+  - The name of the scene, at the top right, is renamed by a click (Enter, or a click elsewhere; Escape gives up).
+  - Chromium reserves Ctrl/Cmd-N (a new window): New scene has no shortcut.
+- The context menus have submenus (a command with items, opened on hover or click).
+- Tested with a disk in memory (Playwright cannot drive the pickers of the browser): Save as names the scene
+  after its file, Save writes the same file without a picker, Open replaces the scene and remembers its file;
+  without the API, Save downloads and Open reads a file chosen.
+
 ## 3.29.2 (2026-11-03)
 
 - The − button of the title bar of a module is removed: a module is minimized from its context menu

@@ -103,6 +103,13 @@ export class Resources {
     menuOrbitInterface: string;
     menuClassicInterface: string;
     valueEditHint: string;
+    fileNew: string;
+    fileOpen: string;
+    fileSave: string;
+    fileSaveAs: string;
+    fileRecent: string;
+    fileSaveFailed: string;
+    renameScene: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

@@ -180,8 +180,10 @@ describe("application", () => {
             if (file.endsWith("_Precompile")) {
                 await page.evaluate(async (f) => (globalThis as any).faustPlayground.scene.recallScene(await (await fetch("json/" + f + ".json")).text()), file);
             } else {
+                const labels: Record<string, RegExp> = { Small_Exemple: /^(Small|Petit)/, Big_Exemple: /^(Big|Grand)/, Multichannel_Example: /^(Multichannel|Exemple multicanal)/, Modulation_Example: /^(Modulation|Exemple de modulation)/ };
                 await page.locator("#documentsButtonMenu").click();
-                await page.locator(`li.documentExample[data-example="${file}"]`).click();
+                await page.locator(".context-menu-item", { hasText: /^(Examples|Exemples)/ }).hover();
+                await page.locator(".context-submenu .context-menu-item", { hasText: labels[file] }).click();
             }
             const faust = saved.modules.filter((m: any) => m.kind == "faust");
             await page.waitForFunction((n) => (globalThis as any).faustPlayground.scene.getModules().length == n, faust.length, { timeout: 60_000 });
@@ -1841,32 +1843,23 @@ describe("toolbar, File menu, context menu of the stage", () => {
         await page.close();
     }, 120_000);
 
-    it("File: a patch opens as a new document, a Faust file becomes a module; the scene downloads as a .jfaust", async () => {
+    it("File: a dropdown (New scene, Open, Save, Save as, Import, Recent scenes, Examples); a Faust file opened becomes a module", async () => {
         const { page, errors } = await openApp();
-        const fs = await import("fs");
-        const before = await page.evaluate(() => (globalThis as any).faustPlayground.documents.current.id);
+        await page.addInitScript(() => { delete (window as any).showOpenFilePicker; delete (window as any).showSaveFilePicker; });
+        await page.reload();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
         await page.locator("#documentsButtonMenu").click();
-        // a patch file: a new document
-        const patch = fs.readFileSync(path.resolve(__dirname, "../../public/json/Multichannel_Example.json"));
-        let chooser = page.waitForEvent("filechooser");
-        await page.locator("button.documentOpenFile").click();
-        await (await chooser).setFiles({ name: "Mine.json", mimeType: "application/json", buffer: patch });
-        // (the blank document it replaces is dropped: Documents.importPatch)
-        await page.waitForFunction((id) => { const c = (globalThis as any).faustPlayground.documents.current; return c && c.id != id; }, before, { timeout: 60_000 });
-        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length > 0, null, { timeout: 60_000 });
+        const items = await page.locator(".context-menu > .context-menu-item > span:first-child").allTextContents();
+        expect(items).toEqual(["New scene", "Open a scene…", "Save", "Save as…", "Import a Faust file (.dsp)…", "Recent scenes", "Examples"]);
+        // the panel of the documents is not shown
+        expect(await page.locator("#documentsContainer").isVisible()).toBe(false);
+        await page.keyboard.press("Escape");
         // a Faust file: a module of the scene
-        const modules = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules().length);
-        chooser = page.waitForEvent("filechooser");
-        await page.locator("button.documentOpenFile").click();
+        const chooser = page.waitForEvent("filechooser");
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: "Open a scene" }).click();
         await (await chooser).setFiles({ name: "Hum.dsp", mimeType: "text/plain", buffer: Buffer.from('import("stdfaust.lib"); process = os.osc(100) * 0.1;') });
-        await page.waitForFunction((n) => (globalThis as any).faustPlayground.scene.getModules().length == n + 1, modules, { timeout: 60_000 });
-        // the download
-        const download = page.waitForEvent("download");
-        await page.locator("button.documentDownload").click();
-        const file = await download;
-        expect(file.suggestedFilename()).toMatch(/\.jfaust$/);
-        const saved = JSON.parse(fs.readFileSync((await file.path())!, "utf8"));
-        expect(saved.modules.filter((m: any) => m.kind == "faust").map((m: any) => m.name)).toContain("Hum");
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);
