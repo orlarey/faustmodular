@@ -41,7 +41,7 @@ channels.
   with the connections between them: they can be pasted in another document or another tab.
 - Two menus: *File* (the open document: New, Save, Save as, Revert, Rename; the documents; the files: open a
   patch, .json or .jfaust, as a new document, or a Faust file, .dsp, as a module, download the scene as a
-  .jfaust, the examples; the trash) and *Modules* (the library). The Edit and Export menus are hidden for now.
+  .jfaust, the examples; the trash) and *Modules* (the library). The Edit and Export menus, and the accelerometer button, are hidden for now.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.29.1 (2026-11-03)
+
+- The accelerometer button of the toolbar is hidden for now, as the Edit menu that maps the sliders to the motion
+  of a phone (its code is kept).
+
 ## 3.29.0 (2026-11-03)
 
 - **A value typed in place of the value shown**, as in faustcode: a double click on the value of a slider or a knob

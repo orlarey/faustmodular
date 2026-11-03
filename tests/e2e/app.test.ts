@@ -1828,11 +1828,15 @@ describe("typing the value of a slider or a knob", () => {
 });
 
 describe("toolbar, File menu, context menu of the stage", () => {
-    it("two menus, File and Modules; Load, Save, Edit and Export hidden", async () => {
+    it("two menus, File and Modules; Load, Save, Edit, Export and the accelerometer hidden", async () => {
         const { page, errors } = await openApp();
         const visible = await page.evaluate(() => Array.from(document.querySelectorAll("#buttonsMenu .buttonsMenu"))
             .filter((b) => getComputedStyle(b).display != "none").map((b) => b.id));
         expect(visible).toEqual(["documentsButtonMenu", "libraryButtonMenu"]);
+        // the accelerometer button hidden too; full screen and clear the scene shown
+        const little = await page.evaluate(() => Array.from(document.querySelectorAll("#buttonsMenu .buttonsLittleMenu"))
+            .filter((b) => getComputedStyle(b).display != "none").map((b) => b.id).filter((i) => ["fullScreenButton", "accButton", "cleanButton"].includes(i)));
+        expect(little).toEqual(["fullScreenButton", "cleanButton"]);
         expect(errors).toEqual([]);
         await page.close();
     }, 120_000);

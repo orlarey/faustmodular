@@ -133,6 +133,9 @@ export class MenuView {
             buttonsMenu.appendChild(hidden);
         }
         buttonsMenu.appendChild(fullScreenButton);
+        // the accelerometer (sliders driven by the motion of a phone, [acc:...]): hidden for now, as the Edit menu
+        // that maps them; kept for later
+        accButton.style.display = "none";
         buttonsMenu.appendChild(accButton);
         buttonsMenu.appendChild(cleanButton);
 
