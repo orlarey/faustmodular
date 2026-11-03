@@ -1,6 +1,6 @@
 // What the application does when it opens: no request to another site (no Google API, no export service),
 // no microphone asked for; the microphone is asked for on demand, by a cable drawn from the input module or
-// by a click on it, and the input module shows its state.
+// by a click on it, and the input module shows its state. The search of the Modules menu, from the keyboard.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
@@ -98,4 +98,42 @@ describe("startup", () => {
         expect(errors).toEqual([]);
         await context.close();
     }, 60_000);
+});
+
+describe("search of the modules", () => {
+    it("is ready when the Modules menu opens: typing lists the matches, Enter adds the one chosen, Escape clears", async () => {
+        const { context, page, errors } = await open();
+        await page.getByText("Modules", { exact: true }).first().click();
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe("librarySearch");
+        await page.keyboard.type("moog");
+        const results = () => page.locator("#libraryModules .librarySearchResult a").allTextContents();
+        expect(await results()).toEqual(expect.arrayContaining(["Moog VCF", "Moog Ladder"]));
+        expect(await page.locator("#libraryModules .librarySearchResult .librarySearchFamily").first().textContent()).not.toBe("");
+        // the counts of the families are those of the matches
+        const count = (family: string) => page.locator(`li.libraryFamily[data-family="${family}"] .libraryCount`).textContent();
+        expect(await count("Lib filters")).toBe(String((await results()).length));
+        expect(await page.locator('li.libraryFamily[data-family="Sources"]').getAttribute("class")).toContain("empty");
+        // the second result, chosen by the arrow, described and added by Enter
+        await page.keyboard.press("ArrowDown");
+        const second = (await results())[1];
+        expect(await page.locator("#libraryDescription .libraryName").textContent()).toBe(second);
+        const before = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules().length);
+        await page.keyboard.press("Enter");
+        await page.waitForFunction((n) => (globalThis as any).faustPlayground.scene.getModules().length > n, before, { timeout: 60_000 });
+        expect(await page.evaluate(() => { const ms = (globalThis as any).faustPlayground.scene.getModules(); return ms[ms.length - 1].moduleFaust.getName(); })).toBe(second.replace(/\s+/g, ""));
+        // nothing found: a message; Escape clears the search, and the family chosen comes back
+        await page.locator("#librarySearch").fill("xyzzy");
+        expect(await page.locator("#libraryModules .librarySearchNone").count()).toBe(1);
+        await page.locator("#librarySearch").press("Escape");
+        expect(await page.locator("#librarySearch").inputValue()).toBe("");
+        expect(await page.locator("#libraryModules .librarySearchResult").count()).toBe(0);
+        expect(await page.locator("li.libraryFamily.selected").count()).toBe(1);
+        // a family clicked during a search leaves it
+        await page.locator("#librarySearch").fill("vco");
+        await page.locator('li.libraryFamily[data-family="Timbre"]').click();
+        expect(await page.locator("#librarySearch").inputValue()).toBe("");
+        expect(await page.locator('li.libraryFamily[data-family="Timbre"]').getAttribute("class")).toContain("selected");
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
 });

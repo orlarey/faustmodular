@@ -827,6 +827,64 @@ canvas.display-canvas {
 #libraryModules li a, #userLibrarySelect li a {
 	font-size: 13px;
 }
+/* The search of the modules (Library.setQuery): a field above the list, which takes its height */
+input.librarySearch {
+	box-sizing: border-box;
+	display: block;
+	width: 90%;
+	margin: 8px 5% -4px;
+	padding: 6px 10px 6px 30px;
+	border: 1px solid var(--fp-accent-border);
+	border-radius: 999px;
+	background: var(--fp-value-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cdeef5' stroke-opacity='0.55' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6'/%3E%3Cpath d='M15 15l5 5'/%3E%3C/svg%3E") no-repeat 9px 50% / 15px;
+	color: var(--fp-pill-text);
+	font: 13px var(--fp-sans);
+	outline: none;
+}
+input.librarySearch::placeholder {
+	color: var(--fp-text-quiet);
+}
+input.librarySearch:focus {
+	border-color: var(--fp-accent);
+	box-shadow: 0 0 0 2px rgba(122, 240, 192, 0.18);
+}
+#libraryModulesContent ul.librarySelects {
+	height: calc(100% - 4em - 34px);
+}
+li.librarySearchResult {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+	border-radius: 4px;
+}
+li.librarySearchResult a {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+li.librarySearchResult.active {
+	background: rgba(152, 255, 210, 0.1);
+}
+li.librarySearchResult.active a {
+	color: var(--fp-accent);
+}
+.librarySearchFamily {
+	flex: none;
+	font: 10px var(--fp-sans);
+	letter-spacing: 0.04em;
+	color: var(--fp-text-quiet);
+	white-space: nowrap;
+}
+li.librarySearchNone {
+	color: var(--fp-text-quiet);
+	font-style: italic;
+	font-size: 13px;
+}
+li.libraryFamily.empty {
+	opacity: 0.35;
+}
+
 /* My modules: after the families of the catalog, below a line */
 li.libraryFamily.userFamily {
 	margin-top: 8px;

@@ -12,6 +12,8 @@ export class LibraryView {
     // My modules (the user modules of the documents), shown in place of the modules of the catalog
     userLibrarySelect: HTMLUListElement;
     description: HTMLElement;
+    // the search of the modules (Library.search), above their list
+    search: HTMLInputElement;
 
     initLibraryView(): HTMLElement {
         var libraryContent: HTMLElement = document.createElement("div");
@@ -50,8 +52,17 @@ export class LibraryView {
             Ps.initialize(list, { suppressScrollX: true, theme: 'my-theme-name' });
         }
 
+        this.search = document.createElement("input");
+        this.search.type = "search";
+        this.search.id = "librarySearch";
+        this.search.className = "librarySearch";
+        this.search.placeholder = Utilitary.messageResource.librarySearch;
+        this.search.setAttribute("aria-label", Utilitary.messageResource.librarySearch);
+        this.search.autocomplete = "off";
+        this.search.spellcheck = false;
+
         column("libraryFamiliesContent", Utilitary.messageResource.titleFamilies, this.families);
-        column("libraryModulesContent", Utilitary.messageResource.titleModules, this.modules, this.userLibrarySelect);
+        column("libraryModulesContent", Utilitary.messageResource.titleModules, this.search, this.modules, this.userLibrarySelect);
         column("libraryDescriptionContent", Utilitary.messageResource.titleDescription, this.description);
 
         libraryContent.appendChild(panel);

@@ -154,6 +154,12 @@ driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sl
 their value, "+"), a clock on the *Clock* button of the sequencer, an envelope on the *Gain* of a VCA. A
 slider declaring `[mod:lin]` is modulated linearly ("~"): two *SineVCO* make classic FM.
 
+The field at the top of the modules searches all of them (the families of the catalog and My modules): every
+word typed must be found, ignoring case and accents, in the name of a module, its Faust functions, its family or
+its description; the modules named after the words come first. The families show how many modules match. It is
+ready to type when the Modules menu opens: ↑ ↓ choose a module (it is described), Enter adds it, Escape clears
+the search; a click on a family leaves it (`src/model/LibrarySearch.ts`).
+
 ## Documents
 
 The scene is a document, kept in the browser (OPFS): every change is saved in its working copy, and

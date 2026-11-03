@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.35.0 (2026-11-03)
+
+- **Search in the modules**: a field at the top of the Modules column, ready to type when the Modules menu
+  opens. Every word of the query must be found, ignoring case and accents, in the name of a module, its Faust
+  functions, its family or its description; the results come from all the families (and My modules), each with
+  its family, the modules named after the words first. The families show their numbers of matches (dimmed
+  without). ↑ ↓ choose a result (described on the right), Enter adds it, Escape clears the search; a click on a
+  family leaves it.
+
 ## 3.34.0 (2026-11-03)
 
 - **The microphone on demand**: it is no longer asked for when the application opens, but when a cable leaves

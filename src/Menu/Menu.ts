@@ -246,6 +246,7 @@ export class Menu {
                 this.menuView.libraryButtonMenu.style.backgroundColor = this.menuView.menuColorSelected;
                 this.menuView.libraryButtonMenu.style.zIndex = "1";
                 this.library.initScroll();
+                this.library.focusSearch();
                 break;
             case MenuChoices.library:
                 this.menuView.contentsMenu.style.display = "none";
@@ -260,6 +261,7 @@ export class Menu {
                 this.menuView.libraryButtonMenu.style.zIndex = "1";
                 this.menuView.libraryContent.style.display = "block";
                 this.currentMenuChoices = MenuChoices.library;
+                this.library.focusSearch();
                 break;
         }
     }

@@ -22,6 +22,9 @@ export class Resources {
     errorObjectNotFaustCompatible: string;
     errorLoading: string;
     errorGettingAudioInput: string;
+    librarySearch: string;
+    librarySearchNone: string;
+    librarySearchHint: string;
     microphoneIdle: string;
     microphoneOn: string;
     errorInputAPINotAvailable: string;
