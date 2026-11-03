@@ -28,6 +28,7 @@
     Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
+import { Magnifier } from "./Magnifier";
 import type { ModulationMode } from "../model/Modulation";
 import { defaultDepth, depthRange, hasDepth } from "../model/Modulation";
 import { align, Guide, Rect } from "./Alignment";
@@ -151,6 +152,23 @@ export class PatchView {
 
     private fSelection = new Set<ModuleId>();
     private fBand?: { pointer: number; drag: BandDrag };
+    // the magnifier of the modules when the stage is zoomed out (view/Magnifier.ts)
+    readonly magnifier = new Magnifier({
+        zoom: () => this.zoom,
+        containerAt: (x, y) => {
+            for (const element of document.elementsFromPoint(x, y)) {
+                for (let e: Element | null = element; e; e = e.parentElement) {
+                    if (this.fContainers.has(e as HTMLElement)) return e as HTMLElement;
+                }
+            }
+            return null;
+        },
+        state: () => this.fModuleDrags.size > 0 || this.fDepthDrags.size > 0 || this.fBand ? "frozen" : this.fCableDrags.size > 0 ? "cable" : "free",
+        redraw: (container) => {
+            const id = this.fContainers.get(container);
+            if (id !== undefined) this.redrawModule(id);
+        },
+    });
 
     getSelection(): ModuleId[] {
         return Array.from(this.fSelection);
@@ -400,6 +418,8 @@ export class PatchView {
         const state = this.fPatch.getModule(id);
         if (!view || !state) return;
         const box = view.getModuleContainer().getBoundingClientRect();
+        // screen pixels per pixel of the module: the zoom of the stage, times the magnifier
+        const scale = view.getModuleContainer().offsetWidth > 0 ? box.width / view.getModuleContainer().offsetWidth : this.zoom;
         // the Orbit interface: no widget to stand by; the ports in a column under the title, in their order
         if (view.getModuleContainer().classList.contains("orbit-mode")) {
             const title = view.fTitle.getBoundingClientRect();
@@ -407,7 +427,7 @@ export class PatchView {
                 const port = this.modulationPort(id, modulation.id);
                 if (!port) return;
                 port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
-                port.style.top = ((title.bottom - box.top) / this.zoom + 10 + i * (MODULATION_PORT_SIZE + 6)) + "px";
+                port.style.top = ((title.bottom - box.top) / scale + 10 + i * (MODULATION_PORT_SIZE + 6)) + "px";
             });
             return;
         }
@@ -420,13 +440,13 @@ export class PatchView {
             if (shown && widget!.closest(".ui-row")) {
                 // a widget in a row (hgroup): its port on its top left corner (on the edge, the ports of
                 // the widgets of a row would be on top of one another)
-                port.style.left = ((rect!.left - box.left) / this.zoom - MODULATION_PORT_SIZE / 4) + "px";
-                port.style.top = ((rect!.top - box.top) / this.zoom - MODULATION_PORT_SIZE / 4) + "px";
+                port.style.left = ((rect!.left - box.left) / scale - MODULATION_PORT_SIZE / 4) + "px";
+                port.style.top = ((rect!.top - box.top) / scale - MODULATION_PORT_SIZE / 4) + "px";
                 continue;
             }
             const anchor = shown ? rect! : view.fTitle.getBoundingClientRect();
             port.style.left = (-MODULATION_PORT_SIZE / 2 - 1) + "px";
-            port.style.top = ((anchor.top + anchor.height / 2 - box.top) / this.zoom - MODULATION_PORT_SIZE / 2) + "px";
+            port.style.top = ((anchor.top + anchor.height / 2 - box.top) / scale - MODULATION_PORT_SIZE / 2) + "px";
         }
     }
 
@@ -621,6 +641,8 @@ export class PatchView {
     }
 
     private startModuleDrag(e: PointerEvent, module: ModuleClass): void {
+        // a magnified module is moved at its size on the stage (the point under the pointer stays)
+        this.magnifier.release(true);
         const id = module.moduleId;
         if (e.shiftKey || e.ctrlKey || e.metaKey) {
             // adds the module to the selection or removes it

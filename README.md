@@ -50,6 +50,11 @@ channels.
   accelerometer button, are hidden for now.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
+- Zoomed out under 75 %, the module under the pointer is shown at its real size after 250 ms, above the
+  others, as in the Dock of macOS (the point under the pointer stays, the module is kept inside the window):
+  its widgets work, and it goes back when the pointer leaves it. While a cable is drawn, the module under it is
+  magnified too, so that a widget can be aimed at. Moving a module, zooming or moving the stage ends it
+  (`src/view/Magnifier.ts`).
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 

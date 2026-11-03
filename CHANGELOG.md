@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.38.0 (2026-11-03)
+
+- **The magnifier of the modules**, as the Dock of macOS: when the stage is zoomed out under 75 %, the module
+  under the pointer is shown at its real size (100 % on the screen) after 250 ms, above the others, without
+  moving them; the point under the pointer stays in place, and the module is kept inside the window (made
+  smaller if it does not fit). It is the module itself: its sliders, knobs, value fields and Orbit work, its
+  ports and cables follow it; it goes back when the pointer leaves it (not while a slider is moved).
+- While a cable is drawn, the module under it is magnified: a widget can be aimed at to modulate it, zoomed out.
+- Moving a module ends the magnification at once (it is moved at its size on the stage), as zooming or moving the
+  stage. The modulation ports are placed with the real scale of the module.
+
 ## 3.37.0 (2026-11-03)
 
 - **The alignment of the centres**: while modules are dragged, the horizontal centre of a module is pulled onto

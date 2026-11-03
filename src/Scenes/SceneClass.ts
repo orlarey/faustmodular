@@ -220,6 +220,7 @@ export class Scene {
         // the grid of the background follows
         document.body.style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
         document.body.style.backgroundPosition = `${x}px ${y}px`;
+        this.patchView.magnifier.release(true);
         this.patchView.zoom = zoom;
         this.patchView.redrawAll();
         document.dispatchEvent(new CustomEvent("viewchange"));

@@ -543,6 +543,16 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	opacity: 1;
 }
 
+/* The magnifier (view/Magnifier.ts): the module under the pointer at its real size when the stage is zoomed
+   out, above the others */
+.magnified, .unmagnifying {
+	z-index: 50 !important;
+	transition: transform 120ms ease;
+}
+.magnified {
+	box-shadow: 0 10px 34px rgba(0, 0, 0, 0.7);
+}
+
 /* Selected modules (moved together), and the selection rectangle */
 .moduleFaust.selected {
 	border-color: var(--fp-accent);
