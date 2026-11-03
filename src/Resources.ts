@@ -102,6 +102,7 @@ export class Resources {
     moduleOrbit: string;
     menuOrbitInterface: string;
     menuClassicInterface: string;
+    valueEditHint: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

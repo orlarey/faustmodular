@@ -106,6 +106,7 @@
   "moduleOrbit": "Orbit or classic interface",
   "menuOrbitInterface": "Orbit interface",
   "menuClassicInterface": "Classic interface",
+  "valueEditHint": "Double click: type a value",
   "buttonDocuments": "Documents",
   "untitled": "Untitled",
   "documentCurrent": "Open document",

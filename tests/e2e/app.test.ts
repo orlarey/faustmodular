@@ -1770,6 +1770,63 @@ describe("drums, analyzers, saturators and delays of the Faust libraries", () =>
     }, 120_000);
 });
 
+describe("typing the value of a slider or a knob", () => {
+    it("a double click on the value types it: kept in the range, on the step, exact on a log scale; Escape or a wrong text gives up; undone", async () => {
+        const { page, errors } = await openApp();
+        const id = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            app.uploadUrl(app, null, 400, 120, location.origin + "/faust-modules/modular/VCF.dsp");
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId;
+        });
+        const sel = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, id);
+        const control = (label: string) => page.evaluate(([m, l]) => {
+            const c = (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((k: any) => k.itemParam.label == l);
+            return { value: c.value as string, shown: c.faustInterfaceView.output.textContent as string, position: Number(c.faustInterfaceView.slider.value) };
+        }, [id, label] as [string, string]);
+        const type = async (label: string, text: string, key = "Enter") => {
+            const value = page.locator(`${sel} [data-widget$="/${label}"] .value`);
+            await value.dblclick();
+            const input = page.locator(`${sel} [data-widget$="/${label}"] .value input.value-input`);
+            await input.fill(text);
+            await input.press(key);
+        };
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        // 440 Hz on the logarithmic Cutoff: exactly 440 (the slider could not give it)
+        await type("Cutoff", "440");
+        expect(await control("Cutoff")).toMatchObject({ value: "440", shown: "440 Hz" });
+        await page.evaluate(() => (globalThis as any).faustPlayground.scene.history.flush());
+        // beyond the range: its maximum; a decimal comma; on the step (0.01)
+        await type("Cutoff", "123456");
+        expect((await control("Cutoff")).value).toBe("20000");
+        await type("Resonance", "0,374");
+        expect((await control("Resonance")).value).toBe("0.37");
+        // a wrong text, Escape: nothing changes
+        await type("Resonance", "abc");
+        expect((await control("Resonance")).value).toBe("0.37");
+        await type("Resonance", "0.9", "Escape");
+        expect((await control("Resonance")).value).toBe("0.37");
+        expect(await page.locator(`${sel} input.value-input`).count()).toBe(0);
+        // undone: the Cutoff typed before
+        await page.evaluate(() => { const s = (globalThis as any).faustPlayground.scene; s.history.flush(); return s.undo(); });
+        await page.waitForFunction(([m]) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleControles.find((k: any) => k.itemParam.label == "Cutoff").value == "440", [id]);
+        // a knob
+        const knob = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            const code = 'process = _ * hslider("Level[style:knob]", 0.5, 0, 2, 0.001);';
+            await app.compileFaust({ name: "K", sourceCode: code, x: 100, y: 500, callback: (f: any) => app.createModule(f, "K", code, 100, 500) });
+            while (scene.getModules().length < 2) await new Promise((r) => setTimeout(r, 20));
+            return "#" + scene.getModules()[1].moduleView.fModuleContainer.id;
+        });
+        await page.locator(`${knob} .value`).dblclick();
+        await page.locator(`${knob} input.value-input`).fill("1.234");
+        await page.locator(`${knob} input.value-input`).press("Enter");
+        expect(await page.evaluate((s) => document.querySelector(s + " .value")!.textContent!.trim(), knob)).toBe("1.234");
+        expect(errors).toEqual([]);
+        await page.close();
+    }, 120_000);
+});
+
 describe("toolbar, File menu, context menu of the stage", () => {
     it("two menus, File and Modules; Load, Save, Edit and Export hidden", async () => {
         const { page, errors } = await openApp();

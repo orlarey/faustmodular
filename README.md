@@ -55,7 +55,9 @@ and the groups without label. Sliders (`hslider`, `vslider`) are horizontal, num
 number fields, bargraphs stay in their group; `[tooltip:...]` gives the tooltip of a widget or a section, and
 `[hidden:1]` hides a widget (it keeps its value). An `hgroup` lays out its widgets as a row (wrapped when too
 wide), a `tgroup` as tabs. `[style:knob]` gives a knob: a vertical drag turns it (Shift: finer), a double
-click sets it back to its initial value. Buttons and checkboxes are centered buttons, a checkbox with a LED.
+click sets it back to its initial value. A double click on the value of a slider or a knob types it: Enter (or a click
+elsewhere) sets it, kept in the range of the widget and on the grid of its step, exactly (on a logarithmic scale
+too); Escape gives up. Buttons and checkboxes are centered buttons, a checkbox with a LED.
 See `src/model/UILayout.ts`.
 
 ## Orbit interface

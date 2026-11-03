@@ -343,6 +343,8 @@ export class FaustInterfaceView {
     private fKnob: { value: SVGPathElement; pointer: SVGLineElement } | null = null;
     private fItemParam: Iitem | null = null;
     private fRange: SliderRange | null = null;
+    // a value typed in place of the value shown (a double click on it), set by the module
+    onValueTyped: ((value: number) => void) | null = null;
 
     constructor(type: string) {
         this.type = type;
@@ -393,6 +395,7 @@ export class FaustInterfaceView {
         if (choices) this.addChoices(choices, group, slider, val);
         else if (itemParam.type == "nentry") this.addEntry(group, slider, val, precision);
         else if ((itemParam.meta ?? []).some((m: any) => String(m.style ?? "").trim().toLowerCase() == "knob")) this.addKnob(group, info, lab, val, slider, itemParam);
+        if (!choices && itemParam.type != "nentry") this.editableValue(val);
         // a vslider is shown as an hslider: the modules are laid out as a column of widgets
         return group;
     }
@@ -453,6 +456,49 @@ export class FaustInterfaceView {
         ["mousedown", "touchstart"].forEach((type) => svg.addEventListener(type, (e) => e.stopPropagation()));
         slider.addEventListener("input", () => this.syncChoice());
         this.syncChoice();
+    }
+
+    // The value of a slider or a knob: a double click turns it into a text field; Enter (or a click
+    // elsewhere) sets the value typed, Escape gives up.
+    private editableValue(value: HTMLElement): void {
+        value.classList.add("value-editable");
+        value.title = Utilitary.messageResource?.valueEditHint ?? "";
+        value.addEventListener("dblclick", (e) => {
+            e.stopPropagation();
+            this.editValue(value);
+        });
+    }
+
+    private editValue(value: HTMLElement): void {
+        if (!this.onValueTyped || value.querySelector("input")) return;
+        var unit = value.getAttribute("units") ?? "";
+        var shown = value.textContent ?? "";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.className = "value-input";
+        input.inputMode = "decimal";
+        input.spellcheck = false;
+        input.value = shown.replace(unit, "").trim();
+        value.textContent = "";
+        value.appendChild(input);
+        input.focus();
+        input.select();
+        var done = false;
+        var finish = (commit: boolean) => {
+            if (done) return;
+            done = true;
+            var text = input.value.trim().replace(",", ".");
+            value.textContent = shown;
+            var typed = Number(text);
+            if (commit && text != "" && isFinite(typed)) this.onValueTyped?.(typed);
+        };
+        input.addEventListener("keydown", (e) => {
+            e.stopPropagation();
+            if (e.key == "Enter") finish(true);
+            else if (e.key == "Escape") finish(false);
+        });
+        input.addEventListener("blur", () => finish(true));
+        ["mousedown", "touchstart", "pointerdown", "dblclick"].forEach((type) => input.addEventListener(type, (e) => e.stopPropagation()));
     }
 
     // A number entry: typed values, kept in the range of the widget, set through the hidden slider.

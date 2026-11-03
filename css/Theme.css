@@ -1184,3 +1184,20 @@ li.libraryFamily.selected {
 .orbit-grip {
 	z-index: 2;
 }
+
+/* The value of a slider or a knob: a double click types it (FaustInterfaceView.editValue) */
+.slider-info .value.value-editable, .value.value-editable {
+	cursor: text;
+}
+input.value-input {
+	width: 7em;
+	box-sizing: border-box;
+	font: 11px var(--fp-mono);
+	color: var(--fp-value);
+	background: var(--fp-panel);
+	border: 1px solid var(--fp-accent);
+	border-radius: 4px;
+	padding: 0 4px;
+	text-align: right;
+	outline: none;
+}

@@ -349,6 +349,14 @@ export class ModuleClass {
                 }
             }
             elements.set(faustInterfaceControler.itemParam.address, element);
+            // a value typed in place of the value shown: kept in the range, on the grid of the step, set as
+            // it is (with a logarithmic scale, the position of the slider would not give it exactly)
+            const typed = faustInterfaceControler;
+            typed.faustInterfaceView.onValueTyped = (value) => {
+                setControlerValue(typed, typedValue(typed.itemParam, value), (a, v) => this.moduleFaust.getDSP().setParamValue(a, v));
+                Utilitary.currentScene?.markModified();
+                this.syncOrbit();
+            };
             faustInterfaceControler.interfaceCallback = this.interfaceSliderCallback.bind(this);
             faustInterfaceControler.updateFaustCodeCallback = this.updateCodeFaust.bind(this);
             faustInterfaceControler.setEventListener();
@@ -588,4 +596,12 @@ export class ModuleClass {
     addInterfaceParam(path: string, value: number): void {
         this.fModuleInterfaceParams[path] = value.toString();
     }
+}
+
+// A value typed for a widget: kept in its range, on the grid of its step from its minimum.
+export function typedValue(item: { min: string | number; max: string | number; step: string | number }, value: number): number {
+    var min = Number(item.min), max = Number(item.max), step = Number(item.step);
+    var v = Math.min(max, Math.max(min, value));
+    if (step > 0 && isFinite(step)) v = Math.min(max, min + Math.round((v - min) / step) * step);
+    return v;
 }

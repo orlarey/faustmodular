@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.29.0 (2026-11-03)
+
+- **A value typed in place of the value shown**, as in faustcode: a double click on the value of a slider or a knob
+  turns it into a text field; Enter, or a click elsewhere, sets the value typed (a decimal comma is accepted), kept
+  in the range of the widget and on the grid of its step from its minimum; Escape, or a text that is not a number,
+  gives up. The value is set exactly, not through the position of the slider (on a logarithmic scale, 440 Hz is
+  then 440 Hz), and as a value recalled: sound, saving, undo, and the Orbit when it is shown.
+
 ## 3.28.0 (2026-11-03)
 
 - **The Orbit interface for a module** ([faust-orbit-ui](https://github.com/orlarey/faust-orbit-ui) 0.4.1, as in
