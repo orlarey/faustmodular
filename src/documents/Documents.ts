@@ -49,6 +49,7 @@ export interface DocumentsOptions {
     untitled?: string;                                  // name of a new document
     notify?: (message: string) => void;
     library?: () => Promise<LibraryIndex>;              // the modules of the library
+    starter?: () => string | null;                      // the patch of the first visit (documents/Starter.ts)
     libraryCode?: (path: string) => Promise<string>;    // the code of a module of the library
 }
 
@@ -96,7 +97,8 @@ export class Documents {
         scene.documents = documents;
         const last = store.last && store.get(store.last) && store.get(store.last)!.trashed === undefined ? store.last : store.list()[0]?.id;
         if (last && await documents.open(last)) return documents;
-        await documents.create();
+        // the first visit (no document): the scene to start with, if any
+        await documents.create(store.list().length == 0 ? options.starter?.() ?? undefined : undefined);
         return documents;
     }
 
@@ -232,18 +234,33 @@ export class Documents {
         });
     }
 
-    // A new, empty document.
-    async create(): Promise<DocumentEntry> {
+    // A new, empty document; or, from a starter patch (the first visit), a document that is replaced, as an
+    // empty one, as long as it is not modified.
+    async create(starter?: string): Promise<DocumentEntry> {
         await this.flush();
         return this.serialized(async () => {
             const name = this.store.uniqueName(this.fOptions.untitled ?? "Untitled");
             const empty: PatchFileV2 = { format: PATCH_FORMAT, version: PATCH_VERSION, sceneName: name, modules: [], connections: [] };
             await this.dropIfBlank();
-            await this.replace(JSON.stringify(empty), false);
+            let started = false;
+            if (starter) {
+                try {
+                    const patch = JSON.parse(starter) as PatchFileV2;
+                    started = await this.replace(JSON.stringify({ ...patch, sceneName: name }), false);
+                } catch (e) {
+                    console.warn("documents: starter scene ignored", e);
+                }
+            }
+            if (!started) await this.replace(JSON.stringify(empty), false);
             this.fFaust = this.fEnvironment;
-            return this.adopt(name);
+            const entry = await this.adopt(name);
+            this.fStarter = started ? entry.id : null;
+            return entry;
         });
     }
+
+    // The document of the first visit (create), replaced as an empty one while it is not modified.
+    private fStarter: string | null = null;
 
     // The open document is blank: empty, clean (a new document nobody used). It is replaced, rather
     // than kept, by a new document or a file opened.
@@ -251,7 +268,10 @@ export class Documents {
         const current = this.fCurrent;
         if (!current || this.fDirty) return;
         const { committed, working } = await this.store.read(current.id);
-        if (working || committed.legacy !== undefined || committed.instances.length > 0 || committed.connections.length > 0) return;
+        const starter = current.id == this.fStarter;
+        this.fStarter = null;
+        if (working || committed.legacy !== undefined) return;
+        if (!starter && (committed.instances.length > 0 || committed.connections.length > 0)) return;
         await this.store.setTrashed(current.id, true);
         await this.store.emptyTrashOf(current.id);
         this.fCurrent = null;

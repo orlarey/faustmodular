@@ -162,6 +162,12 @@ the search; a click on a family leaves it (`src/model/LibrarySearch.ts`).
 
 ## Documents
 
+The first visit (no document yet) opens on a SineVCO connected to the left and right outputs: its *gate*
+plays it (*freq*, *gain*, *volume*, as the first program of faustcode with a sine). Not modified, this scene is
+replaced by a new scene or a file opened, as an empty one. Not when faustcode opens faustmodular; `?starter=0` in
+the address opens on an empty scene
+(`src/documents/Starter.ts`).
+
 The scene is a document, kept in the browser (OPFS): every change is saved in its working copy, and
 Cmd/Ctrl-S makes it the committed copy (a dot ● after the name in the header marks the difference;
 Revert goes back to the committed copy). Closing the tab loses nothing. The **Documents** menu creates,

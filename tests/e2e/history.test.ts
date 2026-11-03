@@ -25,7 +25,7 @@ async function openWithPatch(): Promise<{ page: Page; errors: string[] }> {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
+    await page.goto(url + "?starter=0");
     await page.waitForFunction(() => (globalThis as any).faustmodular?.documents?.current, null, { timeout: 60_000 });
     // 2 SOscillator -> 1 Echo -> 3 Volume (2x2) -> output
     const json = await page.evaluate(async () => (await fetch("/tests/fixtures/v1/patch_light.json")).text());

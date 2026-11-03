@@ -34,7 +34,7 @@ async function openApp(options: { hasTouch?: boolean } = {}): Promise<{ page: Pa
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, hasTouch: options.hasTouch });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
+    await page.goto(url + "?starter=0");
     await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { page, errors };
 }

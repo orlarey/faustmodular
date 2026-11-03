@@ -32,7 +32,8 @@ async function openApp(query: string = ""): Promise<{ context: BrowserContext; p
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url + query);
+    // ?starter=0: an empty scene, not the SineVCO of the first visit
+    await page.goto(url + (query ? query + "&" : "?") + "starter=0");
     await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { context, page, errors };
 }
@@ -181,7 +182,7 @@ describe("opening code of faustcode in faustmodular (stub)", () => {
         await context.route(at + "**", (route) => route.fulfill({ contentType: "text/html", body: STUB }));
         const stub = await context.newPage();
         await stub.goto(at);
-        const query = "?link=faustcode&faustcode=" + encodeURIComponent(at);
+        const query = "?link=faustcode&starter=0&faustcode=" + encodeURIComponent(at);
         const [page] = await Promise.all([context.waitForEvent("page"), stub.evaluate(([u, o]) => {
             (window as any).modularOrigin = o;
             (window as any).openModular(u);

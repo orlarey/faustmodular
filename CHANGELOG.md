@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.36.0 (2026-11-03)
+
+- **The scene of the first visit**: a SineVCO connected to the left and right outputs (on a mono device, to the
+  only one), in the middle of the stage, in place of an empty stage. Its *gate* plays it, smoothed (*freq* 440 Hz,
+  *gain* 0.5, *volume* 0.25: the first program of faustcode, with a sine). The document is clean, without an undo
+  step; not modified, it is replaced by a new scene or a file opened, as an empty one; it is not made again at the
+  next visits. Not when faustcode opens faustmodular (its code comes then); `?starter=0` in the address opens on an
+  empty scene (the end-to-end tests use it).
+
 ## 3.35.0 (2026-11-03)
 
 - **Search in the modules**: a field at the top of the Modules column, ready to type when the Modules menu

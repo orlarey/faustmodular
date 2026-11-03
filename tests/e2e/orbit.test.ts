@@ -28,7 +28,7 @@ async function open(context?: BrowserContext): Promise<{ context: BrowserContext
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
+    await page.goto(url + "?starter=0");
     await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { context, page, errors };
 }

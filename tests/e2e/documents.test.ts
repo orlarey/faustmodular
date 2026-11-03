@@ -28,7 +28,7 @@ afterAll(async () => {
 async function open(context: BrowserContext, errors: string[] = []): Promise<Page> {
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
+    await page.goto(url + "?starter=0");
     await page.waitForFunction(() => (globalThis as any).faustmodular?.documents?.current, null, { timeout: 60_000 });
     return page;
 }

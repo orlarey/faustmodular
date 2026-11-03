@@ -2,6 +2,7 @@
     Entry point of the Program
     intefaces used through the app
 */
+import { STARTER_CENTERED, starterPatch, starterWanted } from "./documents/Starter";
 import type { ab2str, FaustCompiler, FaustMonoDspGenerator, FaustPolyDspGenerator, str2ab } from "@grame/faustwasm";
 import type * as faustwasm from "@grame/faustwasm";
 
@@ -96,6 +97,10 @@ export function resumeInit(app: App) {
         notify: (message) => { new Message(message) },
         library: async () => (await fetch("faust-modules/library-index.json")).json(),
         libraryCode: async (path) => (await fetch(path)).text(),
+        // the first visit: a SineVCO to the outputs, in the middle of the stage (not with ?starter=0)
+        starter: () => starterWanted(location.search)
+            ? JSON.stringify(starterPatch(Utilitary.currentScene.describePatch(), STARTER_CENTERED(Utilitary.currentScene.positionDblTapModule())))
+            : null,
     }).then((documents) => {
         access.documents = documents;
         app.menu.setDocuments(documents);

@@ -1,6 +1,8 @@
 // What the application does when it opens: no request to another site (no Google API, no export service),
 // no microphone asked for; the microphone is asked for on demand, by a cable drawn from the input module or
-// by a click on it, and the input module shows its state. The search of the Modules menu, from the keyboard.
+// by a click on it, and the input module shows its state. The scene of the first visit: a SineVCO to the
+// outputs, played by its gate, replaced as an empty scene while it is not modified. The search of the Modules
+// menu, from the keyboard.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
@@ -23,8 +25,8 @@ afterAll(async () => {
 });
 
 // The page, the hosts it asked for, and the number of calls of getUserMedia.
-async function open(): Promise<{ context: BrowserContext; page: Page; hosts: Set<string>; errors: string[] }> {
-    const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+async function open(query = "", reuse?: BrowserContext): Promise<{ context: BrowserContext; page: Page; hosts: Set<string>; errors: string[] }> {
+    const context = reuse ?? await browser.newContext({ viewport: { width: 1400, height: 900 } });
     await context.addInitScript(() => {
         const w = window as any;
         w.__microphone = 0;
@@ -36,7 +38,7 @@ async function open(): Promise<{ context: BrowserContext; page: Page; hosts: Set
     const errors: string[] = [];
     page.on("request", (r) => { const u = new URL(r.url()); if (u.protocol.startsWith("http")) hosts.add(u.host); });
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
+    await page.goto(url + query);
     await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
     return { context, page, hosts, errors };
 }
@@ -136,4 +138,93 @@ describe("search of the modules", () => {
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);
+});
+
+describe("scene of the first visit", () => {
+    const scene = (page: Page) => page.evaluate(() => {
+        const { scene, documents } = (globalThis as any).faustPlayground;
+        return {
+            modules: scene.getModules().map((m: any) => m.moduleFaust.getName()),
+            connections: scene.patch.getConnections().map((c: any) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort(),
+            dirty: documents.dirty as boolean,
+            undo: scene.history.canUndo() as boolean,
+            documents: documents.store.list().length as number,
+        };
+    });
+    const loaded = (page: Page) => page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length > 0, null, { timeout: 60_000 });
+
+    it("is a SineVCO to the left and right outputs, clean, played by its gate", async () => {
+        const { context, page, errors } = await open();
+        await loaded(page);
+        const s = await scene(page);
+        expect(s.modules).toEqual(["SineVCO"]);
+        expect(s.connections).toEqual(["1:0>output:0", "1:0>output:1"]);
+        expect(s).toMatchObject({ dirty: false, undo: false, documents: 1 });
+        // silent until the gate is pressed: gain 0.5 × volume 0.25 then (the gate is smoothed at 1 Hz: 92 % after
+        // 400 ms)
+        await page.evaluate(async () => {
+            const volume = (globalThis as any).faustPlayground.scene.masterVolume;
+            const ctx = volume.node.context as AudioContext;
+            await ctx.resume();
+            const code = `registerProcessor("peak2", class extends AudioWorkletProcessor {
+                constructor() { super(); this.peak = 0; this.port.onmessage = () => { this.port.postMessage(this.peak); this.peak = 0; }; }
+                process(inputs) { for (const ch of inputs[0]) for (const v of ch) this.peak = Math.max(this.peak, Math.abs(v)); return true; }
+            });`;
+            await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+            const tap = new AudioWorkletNode(ctx, "peak2");
+            const sink = ctx.createGain();
+            sink.gain.value = 0;
+            tap.connect(sink).connect(ctx.destination);
+            volume.node.connect(tap);
+            (window as any).__peak = () => new Promise<number>((r) => { tap.port.onmessage = (e) => r(e.data); tap.port.postMessage(0); });
+        });
+        const peak = async () => { await page.evaluate(() => (window as any).__peak()); await page.waitForTimeout(400); return page.evaluate(() => (window as any).__peak()) as Promise<number>; };
+        expect(await peak()).toBeLessThan(1e-3);
+        const gate = (await page.locator("input[type=button][value=gate]").boundingBox())!;
+        await page.mouse.move(gate.x + gate.width / 2, gate.y + gate.height / 2);
+        await page.mouse.down();
+        const played = await peak();
+        expect(played).toBeGreaterThan(0.1);
+        expect(played).toBeLessThanOrEqual(0.1251);
+        await page.mouse.up();
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("is replaced by a new scene when not modified, kept when modified, and not made again", async () => {
+        const { context, page, errors } = await open();
+        await loaded(page);
+        // not modified: a new scene replaces it
+        await page.evaluate(() => (globalThis as any).faustPlayground.documents.create());
+        expect(await scene(page)).toMatchObject({ modules: [], documents: 1 });
+
+        const second = await open();
+        await loaded(second.page);
+        // modified (a value): kept
+        await second.page.evaluate(() => {
+            const { scene } = (globalThis as any).faustPlayground;
+            const module = scene.getModules()[0];
+            const controler = module.moduleControles.find((c: any) => c.itemParam.label == "freq");
+            controler.faustInterfaceView.slider.value = "1000";
+            controler.faustInterfaceView.slider.dispatchEvent(new Event("input"));
+            controler.faustInterfaceView.slider.dispatchEvent(new Event("change"));
+        });
+        await second.page.waitForFunction(() => (globalThis as any).faustPlayground.documents.dirty || (globalThis as any).faustPlayground.scene.history.canUndo());
+        await second.page.evaluate(() => (globalThis as any).faustPlayground.documents.create());
+        expect((await scene(second.page)).documents).toBe(2);
+        // a reload opens the last document, not another starter
+        const again = await open("", second.context);
+        await again.page.waitForTimeout(1000);
+        expect(await scene(again.page)).toMatchObject({ modules: [], documents: 2 });
+        expect([...errors, ...second.errors, ...again.errors]).toEqual([]);
+        await context.close();
+        await second.context.close();
+    }, 120_000);
+
+    it("is empty with ?starter=0", async () => {
+        const { context, page } = await open("?starter=0");
+        await page.waitForTimeout(1000);
+        expect(await scene(page)).toMatchObject({ modules: [], connections: [], documents: 1 });
+        await context.close();
+    }, 60_000);
 });
