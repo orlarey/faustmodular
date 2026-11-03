@@ -34,9 +34,13 @@ channels.
   Ctrl/Cmd-Shift-D leaves out the cables coming from outside. The copies become the selection.
 - Right-click a module for the commands on the selection (the module alone if it is not part of it):
   copy, cut, paste, duplicate, duplicate without the incoming cables, unplug (remove all its cables),
-  minimize or expand, delete; right-click the empty stage to paste there or select all. Shortcuts:
+  minimize or expand, delete; right-click the empty stage to paste there, select all, or import a Faust
+  file (.dsp) as a module at that point. Shortcuts:
   Ctrl/Cmd-C, X, V (at the pointer), D, A, and Delete. Copied modules are a patch file in the clipboard,
   with the connections between them: they can be pasted in another document or another tab.
+- Two menus: *File* (the open document: New, Save, Save as, Revert, Rename; the documents; the files: open a
+  patch, .json or .jfaust, as a new document, or a Faust file, .dsp, as a module, download the scene as a
+  .jfaust, the examples; the trash) and *Modules* (the library). The Edit and Export menus are hidden for now.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
   + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
@@ -55,12 +59,12 @@ See `src/model/UILayout.ts`.
 
 ## Modular library
 
-The *Modular* library (Library menu) holds modules organized by function, as on ModularGrid, with common
+The *Modular* library (Modules menu) holds modules organized by function, as on ModularGrid, with common
 conventions: audio and bipolar CV in [-1, 1], unipolar CV in [0, 1], pitch 0.1 per octave from C4,
 gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer,
 SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
 
-The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
+The Modules menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
 modulations, level and dynamics, spatialization and multichannel, modulation sources), *Faust libraries*
 (reverbs, dynamics, filters, equalizers and crossovers, pedals, saturation and folding, delays and modulation,

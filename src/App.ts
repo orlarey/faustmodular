@@ -156,6 +156,12 @@ export class App {
 
         //custom event to load file from the load menu with the file explorer
         document.addEventListener("fileload", (e: Event) => { this.loadFileEvent(e as CustomEvent<File>) })
+        // a Faust file imported at a point of the stage (the context menu of the stage)
+        document.addEventListener("fileloadat", (e: Event) => {
+            var detail = (e as CustomEvent<{ file: File; x: number; y: number }>).detail;
+            Utilitary.showFullPageLoading();
+            this.loadFile(detail.file, null, detail.x, detail.y);
+        });
 
         //All drog and drop events
         window.ondragover = function () { return false; };

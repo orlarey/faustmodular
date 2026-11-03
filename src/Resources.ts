@@ -84,6 +84,17 @@ export class Resources {
     userModuleDelete: string;
     userModuleVersions: string;
     confirmUserModuleDelete: string;
+    buttonFile: string;
+    documentFiles: string;
+    documentOpenFile: string;
+    documentOpenFileHint: string;
+    documentDownload: string;
+    documentExamples: string;
+    exampleSmall: string;
+    exampleBig: string;
+    exampleMultichannel: string;
+    exampleModulation: string;
+    menuImportDsp: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

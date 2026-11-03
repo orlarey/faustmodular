@@ -890,7 +890,7 @@ export class Scene {
 
     /*********************** CONTEXT MENU, SHORTCUTS ***************************/
     // A right click on a module acts on the selection (the module alone if it is not part of it);
-    // on the empty stage, it pastes there or selects all. The same commands have shortcuts.
+    // on the empty stage, it pastes there, selects all or imports a Faust file there. The same commands have shortcuts.
     private attachCommands(stage: HTMLElement): void {
         var t = () => Utilitary.messageResource;
         var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]");
@@ -904,6 +904,8 @@ export class Scene {
                 showContextMenu(e.clientX, e.clientY, [
                     paste,
                     { label: t().menuSelectAll, shortcut: shortcut("mod+A"), enabled: this.fModuleList.length > 0, action: () => this.selectAll() },
+                    "separator",
+                    { label: t().menuImportDsp, action: () => this.importDsp(at) },
                 ]);
                 return;
             }
@@ -1040,6 +1042,18 @@ export class Scene {
         var modules = ids.map((id) => this.patch.getModule(id)?.kind == "faust" ? this.getModuleById(id) : undefined).filter((m): m is ModuleClass => !!m);
         var expand = modules.every((m) => m.moduleView.fInterfaceContainer.classList.contains("mini"));
         modules.forEach((m) => expand ? m.maxModule() : m.minModule());
+    }
+
+    // A Faust file (.dsp) chosen by the user becomes a module at a point of the stage (App.loadFile, "fileloadat").
+    importDsp(at: { x: number; y: number }): void {
+        var input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".dsp";
+        input.addEventListener("change", () => {
+            var file = input.files?.item(0);
+            if (file) document.dispatchEvent(new CustomEvent("fileloadat", { detail: { file: file, x: at.x, y: at.y } }));
+        });
+        input.click();
     }
 
     selectAll(): void {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.26.0 (2026-11-03)
+
+- **Two menus**: *File* and *Modules* (the library, formerly *Library*). Load and Save are in File; Edit and
+  Export are hidden for now (their code is kept).
+- **File** gathers the open document (New, Save, Save as, Revert, Rename), the documents, the trash, and a
+  column *Files*: open a file (a patch, .json or .jfaust, opens as a new document; a Faust file, .dsp, becomes
+  a module of the scene), download the scene as a .jfaust (precompiled or not), the examples (small, big,
+  multichannel, modulation). Google Drive and the scenes of the former local storage are no longer offered.
+- **The context menu of the stage** imports a Faust file (.dsp) as a module where it was opened.
+
 ## 3.25.0 (2026-11-03)
 
 - **Saturation and folding** (`aanl.lib`), a family of the group *Faust libraries*, with the Cubic Distortion

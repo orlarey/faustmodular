@@ -62,7 +62,7 @@ export class MenuView {
         var documentsButton: HTMLElement = document.createElement("div");
         documentsButton.id = "documentsButtonMenu";
         documentsButton.className = "buttonsMenu";
-        documentsButton.appendChild(document.createTextNode(Utilitary.messageResource.buttonDocuments));
+        documentsButton.appendChild(document.createTextNode(Utilitary.messageResource.buttonFile));
         this.documentsButton = documentsButton;
 
         var libraryButtonMenu: HTMLElement = document.createElement("div");
@@ -124,12 +124,14 @@ export class MenuView {
         appName.appendChild(appVersion);
         buttonsMenu.appendChild(appName);
 
+        // Two menus: File (the documents, opening and downloading files, the examples) and Modules (the library).
+        // Load and Save are in File; Edit and Export are hidden for now, kept for later.
         buttonsMenu.appendChild(documentsButton);
         buttonsMenu.appendChild(libraryButtonMenu);
-        buttonsMenu.appendChild(loadButtonMenu)
-        buttonsMenu.appendChild(editButtonMenu);
-        buttonsMenu.appendChild(saveButtonMenu);
-        buttonsMenu.appendChild(exportButtonMenu);
+        for (var hidden of [loadButtonMenu, editButtonMenu, saveButtonMenu, exportButtonMenu]) {
+            hidden.style.display = "none";
+            buttonsMenu.appendChild(hidden);
+        }
         buttonsMenu.appendChild(fullScreenButton);
         buttonsMenu.appendChild(accButton);
         buttonsMenu.appendChild(cleanButton);

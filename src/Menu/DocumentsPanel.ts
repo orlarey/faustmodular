@@ -1,8 +1,10 @@
 /*				DOCUMENTSPANEL.TS
-    The Documents menu (Documentation/DOCUMENT-SPEC.md, "Les surfaces"): the open document (name,
-    New, Save, Save as, Revert, Duplicate, Delete), the list of the documents, and the trash.
+    The File menu (Documentation/DOCUMENT-SPEC.md, "Les surfaces"): the open document (name, New, Save,
+    Save as, Revert, Rename), the list of the documents, the files (open a patch or a Faust file, download
+    the scene, the examples), and the trash.
 */
 
+import { saveAs } from "file-saver";
 import { Confirm } from "../Messages";
 import { Utilitary } from "../Utilitary";
 import type { Documents } from "../documents/Documents";
@@ -17,6 +19,14 @@ function button(label: string, className: string, action: () => void): HTMLButto
     return b;
 }
 
+// the examples of public/json, opened as new documents
+const EXAMPLES: Array<{ key: "exampleSmall" | "exampleBig" | "exampleMultichannel" | "exampleModulation"; file: string }> = [
+    { key: "exampleSmall", file: "Small_Exemple" },
+    { key: "exampleBig", file: "Big_Exemple" },
+    { key: "exampleMultichannel", file: "Multichannel_Example" },
+    { key: "exampleModulation", file: "Modulation_Example" },
+];
+
 function date(time: number): string {
     return new Date(time).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 }
@@ -29,6 +39,8 @@ export class DocumentsPanel {
     private fList: HTMLElement;
     private fTrash: HTMLElement;
     private fNotice: HTMLElement;
+    private fFileInput: HTMLInputElement;
+    private fPrecompiled: HTMLInputElement;
 
     constructor() {
         const t = Utilitary.messageResource;
@@ -71,6 +83,52 @@ export class DocumentsPanel {
         this.fList.className = "documentsList";
         all.append(listTitle, this.fList);
 
+        // the files: a patch opens as a new document, a Faust file becomes a module (App.loadFile, "fileload")
+        const files = document.createElement("div");
+        files.className = "documentsFiles";
+        const filesTitle = document.createElement("span");
+        filesTitle.className = "exportTitle";
+        filesTitle.textContent = t.documentFiles;
+        this.fFileInput = document.createElement("input");
+        this.fFileInput.type = "file";
+        this.fFileInput.id = "documentFileInput";
+        this.fFileInput.accept = ".json,.jfaust,.dsp";
+        this.fFileInput.style.display = "none";
+        this.fFileInput.addEventListener("change", () => {
+            const file = this.fFileInput.files?.item(0);
+            this.fFileInput.value = "";
+            if (file) document.dispatchEvent(new CustomEvent("fileload", { detail: file }));
+        });
+        const hint = document.createElement("p");
+        hint.className = "documentsNotice documentsHint";
+        hint.textContent = t.documentOpenFileHint;
+        const precompiled = document.createElement("label");
+        precompiled.className = "documentsPrecompiled";
+        this.fPrecompiled = document.createElement("input");
+        this.fPrecompiled.type = "checkbox";
+        this.fPrecompiled.id = "documentPrecompiled";
+        precompiled.append(this.fPrecompiled, document.createTextNode(" " + t.precompileOption));
+        const fileActions = document.createElement("div");
+        fileActions.className = "documentsActions";
+        fileActions.append(
+            button(t.documentOpenFile, "documentOpenFile", () => this.fFileInput.click()),
+            button(t.documentDownload, "documentDownload", () => this.download()),
+        );
+        const examplesTitle = document.createElement("span");
+        examplesTitle.className = "exportTitle documentsExamplesTitle";
+        examplesTitle.textContent = t.documentExamples;
+        const examples = document.createElement("ul");
+        examples.className = "documentsList documentsExamples";
+        for (const example of EXAMPLES) {
+            const li = document.createElement("li");
+            li.className = "documentExample";
+            li.dataset.example = example.file;
+            li.textContent = t[example.key];
+            li.addEventListener("click", () => this.openExample(example.file));
+            examples.append(li);
+        }
+        files.append(filesTitle, fileActions, precompiled, hint, this.fFileInput, examplesTitle, examples);
+
         const trash = document.createElement("div");
         trash.className = "documentsTrash";
         const trashTitle = document.createElement("span");
@@ -80,7 +138,7 @@ export class DocumentsPanel {
         this.fTrash.className = "documentsList";
         trash.append(trashTitle, this.fTrash);
 
-        this.element.append(current, all, trash);
+        this.element.append(current, all, files, trash);
         document.addEventListener("documentchange", () => this.render());
         document.addEventListener("librarychange", () => this.render());
     }
@@ -93,6 +151,20 @@ export class DocumentsPanel {
     private renameCurrent(): void {
         const name = this.fName.value.trim();
         if (name && this.fDocuments) this.fDocuments.rename(name);
+    }
+
+    // the scene as a patch file (.jfaust), precompiled or not
+    private download(): void {
+        const scene = Utilitary.currentScene;
+        const blob = new Blob([scene.saveScene(this.fPrecompiled.checked)], { type: "application/json;charset=utf-8;" });
+        saveAs(blob, scene.sceneName + ".jfaust");
+        scene.markSaved();
+    }
+
+    // an example opened as a new document (Scene.recallScene: Documents.importPatch)
+    private openExample(file: string): void {
+        Utilitary.showFullPageLoading();
+        Utilitary.getXHR("json/" + file + ".json", (json: string) => { Utilitary.currentScene.recallScene(json) }, null as any);
     }
 
     render(): void {
