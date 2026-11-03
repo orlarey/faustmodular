@@ -1,0 +1,11 @@
+/* The icons of the Orbit interface (faust-orbit-ui): Material Symbols Outlined, by Google, Apache License 2.0
+   (css/fonts/LICENSE.md). A subset of the font holding the icons faust-orbit-ui shows, served with the
+   application (scripts/build-icon-font.mjs). The class .material-symbols-outlined is declared by faust-orbit-ui
+   in its shadow root; the @font-face of the page applies there too. */
+@font-face {
+	font-family: 'Material Symbols Outlined';
+	font-style: normal;
+	font-weight: 400 500;
+	font-display: block;
+	src: url("fonts/material-symbols-outlined.woff2") format("woff2");
+}

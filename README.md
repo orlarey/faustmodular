@@ -3,6 +3,7 @@
 faustmodular is a modular synthesizer in the browser, built with [Faust](https://faust.grame.fr): modules
 written in Faust, with one port per audio channel, connected cable by cable, whose widgets can be
 modulated by signals; the code of a module is edited in [faustcode](https://github.com/orlarey/faustcode).
+It runs at https://orlarey.github.io/faustmodular/.
 It started as an extension of [FaustPlayground](https://faustplayground.grame.fr)
 ([GitHub](https://github.com/grame-cncm/faustplayground)), a Web platform designed to teach audio
 programming to children, and was called FaustPlayground (extended) up to version 2.9.0. See the
@@ -77,7 +78,9 @@ of its points, when the document is opened. Its modulation ports are in a column
 dropped on one of its points modulates that setting. The Orbit shows the input widgets of the user (not the depths
 of the modulations, nor the bargraphs). `src/Modules/OrbitPanel.ts` works around two limits of faust-orbit-ui
 0.4.1 with a zoomed stage (the pointer read in screen pixels, the dropdowns placed in screen pixels), until the
-library handles them.
+library handles them. Its icons are a subset of the Material Symbols Outlined font (Apache License 2.0) served
+with the application (`css/fonts/`): after an update of faust-orbit-ui, `npm run icon-font` downloads the subset
+of the icons it shows (a test checks the list).
 
 ## Modular library
 
@@ -204,6 +207,11 @@ Generates output in `dist/`. To view locally, run
 cd dist
 python -m http.server
 ```
+
+### Publishing
+Every push to `main` builds the application and publishes it on GitHub Pages
+(https://orlarey.github.io/faustmodular/, `.github/workflows/main.yml`); it can also be run by hand from the
+Actions tab. The Pages of the repository have *GitHub Actions* as their source.
 
 ### Type check and tests
 ```bash

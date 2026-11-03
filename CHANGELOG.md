@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.31.1 (2026-11-03)
+
+- The icons of the Orbit interface come from a font served with the application, not from Google Fonts: a
+  subset of Material Symbols Outlined (Apache License 2.0) with the 10 icons faust-orbit-ui shows (6.5 kB,
+  `css/fonts/`). `npm run icon-font` makes it again after an update of faust-orbit-ui; a test checks that it
+  holds every icon of faust-orbit-ui and that no page loads Google Fonts.
+- Publishing: every push to `main` builds the application and publishes it on GitHub Pages
+  (https://orlarey.github.io/faustmodular/).
+
 ## 3.31.0 (2026-11-03)
 
 - **The labels of the groups set apart from those of the widgets**: centred above their widgets, between two
