@@ -514,7 +514,7 @@ select.sceneSelect, .selects, .inputExport, #contentsMenu input[type="text"] {
 	height: 52px;
 	transform: translate(-50%, -50%);
 	background: url("../img/ico-speaker.png") no-repeat center;
-	cursor: ns-resize;
+	cursor: move;				/* vertically the volume, horizontally a move of the module */
 	touch-action: none;
 	transition: opacity 60ms;
 }

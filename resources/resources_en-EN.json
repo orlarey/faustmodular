@@ -36,7 +36,7 @@
   "modulationPortHint": "drag vertically to set the depth (Shift: fine), double click to set it back to its default (± 0.5, + and ~ 1)",
   "volume": "Volume",
   "volumeMuted": "muted",
-  "volumeHint": "drag vertically to set the volume of the scene (Shift: fine), double click to mute or unmute; drag the edge of the module to move it",
+  "volumeHint": "drag vertically to set the volume of the scene (Shift: fine), horizontally to move the module; double click to mute or unmute",
   "errorLocalStorage": "Your browser does not support local storage",
   "errorConnectionCloud": "Unable to connect to Google Drive",
   "saveDownload": "Download the scene: ",

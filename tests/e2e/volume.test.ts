@@ -1,7 +1,8 @@
 // The volume of the scene (src/audio/MasterVolume.ts, src/view/VolumeControl.ts) on the icon of the output module:
 // a vertical drag on the icon sets it (Shift: fine), its brightness shows it, the signal sent to the device is
 // scaled by (v / 100)²; it is remembered by the browser after a reload; a double click mutes the scene by the
-// gain (the audio keeps running); the edge of the module still moves it. The safety limiter after it: transparent
+// gain (the audio keeps running); the edge of the module still moves it, as a drag on the speaker that starts
+// horizontally. The safety limiter after it: transparent
 // under −1 dBFS, a peak brought down to −1 dBFS, NaN silenced, its action shown on the speaker.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
@@ -229,6 +230,36 @@ describe("volume of the scene", () => {
         expect(result!.glowing).toBe(true);
         expect(result!.nan).toEqual({ peak: 0, bad: 0 });
         expect(result!.back.peak).toBeCloseTo(0.5, 3);       // the gain came back
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+    it("follows the first direction of a drag on the speaker: vertical, the volume; horizontal, a move", async () => {
+        const { context, page, errors } = await open();
+        const icon = (await page.locator("#moduleOutput .volume-icon").boundingBox())!;
+        const x = icon.x + icon.width / 2, y = icon.y + icon.height / 2;
+        const start = await volume(page);
+        // horizontal first (then anywhere): the module follows, the volume stays
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x - 12, y + 2, { steps: 3 });
+        await page.mouse.move(x - 150, y + 40, { steps: 6 });
+        await page.mouse.up();
+        let v = await volume(page);
+        expect(v.volume).toBe(start.volume);
+        expect(v.x).toBeCloseTo(start.x - 150, 0);
+        const y0 = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getAudioOutput().moduleView.y);
+        // mostly vertical first (a little sideways): the volume, the module stays
+        const moved = (await page.locator("#moduleOutput .volume-icon").boundingBox())!;
+        const mx = moved.x + moved.width / 2, my = moved.y + moved.height / 2;
+        await page.mouse.move(mx, my);
+        await page.mouse.down();
+        await page.mouse.move(mx + 3, my + 8, { steps: 3 });
+        await page.mouse.move(mx + 20, my + 30, { steps: 4 });
+        await page.mouse.up();
+        v = await volume(page);
+        expect(v.volume).toBe(start.volume - 30);
+        expect(v.x).toBeCloseTo(start.x - 150, 0);
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.getAudioOutput().moduleView.y)).toBe(y0);
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

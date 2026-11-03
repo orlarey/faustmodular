@@ -531,7 +531,8 @@ export class Scene {
         this.fAudioOutput.moduleId = OUTPUT_ID;
         // the volume of the scene between the output module and the device, set on its icon
         this.masterVolume = new MasterVolume(Utilitary.audioContext, channels);
-        this.volumeControl = new VolumeControl(this.fAudioOutput.moduleView.fInterfaceContainer, this.masterVolume);
+        this.volumeControl = new VolumeControl(this.fAudioOutput.moduleView.fInterfaceContainer, this.masterVolume,
+            (down, now) => this.patchView.dragModuleFrom(down, OUTPUT_ID, now));
         this.audioGraph.setNode(OUTPUT_ID, this.masterVolume.node);
         this.addMuteOutputListner(this.fAudioOutput);
         this.patchView.addModule(this.fAudioOutput);

@@ -649,6 +649,15 @@ export class PatchView {
         }
     }
 
+    // A drag of a module started elsewhere (the speaker of the output module, a drag that starts horizontally):
+    // from where the press started, to where the pointer is.
+    dragModuleFrom(down: PointerEvent, id: ModuleId, now: PointerEvent): void {
+        const module = this.fLookup(id);
+        if (!module) return;
+        this.startModuleDrag(down, module);
+        this.onPointerMove(now);
+    }
+
     private startModuleDrag(e: PointerEvent, module: ModuleClass): void {
         // a magnified module is moved at its size on the stage (the point under the pointer stays)
         this.magnifier.release(true);

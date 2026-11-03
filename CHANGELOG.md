@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.39.1 (2026-11-03)
+
+- On the speaker of the output module, the first direction of a drag decides: mostly vertical, the volume; mostly
+  horizontal, a move of the module (from where the press started). Undecided until the pointer has moved 4 px.
+  The edge of the module still moves it. The cursor on the speaker is a move cursor.
+
 ## 3.39.0 (2026-11-03)
 
 - **The menu of an output port**: a click on an output (without a drag) or a right click opens it, to send the

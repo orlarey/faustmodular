@@ -66,11 +66,12 @@ channels.
 ## Volume
 
 The volume of the scene is set on the speaker of the physical output module, as the depth of a modulation port:
-drag the speaker vertically (1 % per pixel, 0.1 % with Shift); its brightness shows the volume, and its tooltip
+drag the speaker vertically (1 % per pixel, 0.1 % with Shift; the first direction of the drag decides: a drag that
+starts horizontally moves the module); its brightness shows the volume, and its tooltip
 gives the value. A double click mutes or unmutes the scene (the audio keeps running: analyzers and modulations
 go on). The gain is (v / 100)², as in faustcode: about −12 dB at 50 %, no boost at 100 %. The volume is
-remembered by the browser, not by the scene (`src/audio/MasterVolume.ts`). The output module is moved by its
-edge, around the speaker.
+remembered by the browser, not by the scene (`src/audio/MasterVolume.ts`). The output module is moved by a drag
+of the speaker that starts horizontally, or by its edge.
 
 A safety limiter follows the volume, for the ears and the speakers (a cycle of cables that blows up, a module
 badly set): transparent under −1 dBFS, it brings the peaks down to −1 dBFS at once and lets the gain come back in
