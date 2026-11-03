@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.31.0 (2026-11-03)
+
+- **The labels of the groups set apart from those of the widgets**: centred above their widgets, between two
+  lines, in capitals, bold and in the accent colour; the label of a group inside a group is smaller, lighter,
+  between two short lines. A group of a row (`hgroup`) keeps its label on one line (the column is widened) and
+  the labels of the columns are at the same height. The left border of the groups inside a group is removed.
+- The LED of a checkbox is yellow: dim when off, bright with a glow when on.
+
 ## 3.30.0 (2026-11-03)
 
 - **The File menu of a desktop application**: a dropdown, New scene, Open a scene… (Ctrl/Cmd-O), Save (Ctrl/Cmd-S),

@@ -845,27 +845,39 @@ li.libraryFamily.selected {
 .ui-section:first-child {
 	margin-top: 0;
 }
+/* the label of a group: centred between two lines, in the accent colour, set apart from the labels of the
+   widgets (left, quiet) */
 .ui-group-label {
-	margin-bottom: 6px;
-	padding-bottom: 3px;
-	border-bottom: 1px solid var(--fp-accent-border-soft);
-	color: var(--fp-title);
-	font: 600 10px var(--fp-sans);
-	letter-spacing: 0.1em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	text-align: center;
+	color: var(--fp-accent);
+	font: 700 11px var(--fp-sans);
+	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	opacity: 0.85;
+	white-space: nowrap;		/* on one line: a column of a row (hgroup) is widened to hold it */
 }
-/* a section inside a section: lighter, and set in by a line */
+.ui-group-label::before, .ui-group-label::after {
+	content: "";
+	flex: 1 0 12px;
+	height: 1px;
+	background: var(--fp-accent-border);
+}
+/* a section inside a section: its label smaller and lighter, between two short lines */
 .ui-section .ui-section {
-	margin-top: 8px;
-	padding-left: 8px;
-	border-left: 1px solid var(--fp-accent-border-soft);
+	margin-top: 10px;
 }
 .ui-section .ui-section > .ui-group-label {
-	border-bottom: none;
-	padding-bottom: 0;
-	color: var(--fp-text-quiet);
-	letter-spacing: 0.06em;
+	color: var(--fp-title);
+	font: 600 10px var(--fp-sans);
+	letter-spacing: 0.12em;
+}
+.ui-section .ui-section > .ui-group-label::before, .ui-section .ui-section > .ui-group-label::after {
+	flex: 0 0 14px;
+	background: var(--fp-accent-border-soft);
 }
 
 /* nentry: a number field; the slider, hidden, stays the state of the widget */
@@ -983,17 +995,19 @@ li.libraryFamily.selected {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+/* the LED of a checkbox: yellow, dim when off */
 .control-group.control-checkbox .led {
 	flex: none;
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	background: rgba(255, 255, 255, 0.18);
+	background: rgba(255, 214, 80, 0.16);
+	box-shadow: inset 0 0 0 1px rgba(255, 214, 80, 0.25);
 	transition: background 60ms, box-shadow 60ms;
 }
 .control-group.control-checkbox.lit .led {
-	background: var(--fp-accent);
-	box-shadow: 0 0 6px var(--fp-accent);
+	background: #ffd54a;
+	box-shadow: 0 0 4px #ffd54a, 0 0 10px rgba(255, 213, 74, 0.6);
 }
 /* a button or a checkbox driven by a modulation: no effect by hand, its label dimmed, its light full (the
    value the signal drives it to) */
@@ -1087,6 +1101,10 @@ li.libraryFamily.selected {
 }
 .ui-row > .ui-group {
 	min-width: 130px;
+}
+.ui-row > .ui-section {
+	min-width: min-content;	/* its label on one line, between its lines */
+	margin-top: 0;			/* the labels of the columns at the same height */
 }
 
 /* tgroup: tabs, one page shown */
