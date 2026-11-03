@@ -8,8 +8,9 @@
 // physmodels.lib (pitch: true) gets a Pitch slider, 0.1 per octave from C4, in place of its freq widget (Hz):
 // Faust's widget modulation replaces the widget by the frequency of the pitch, so that a pitch dropped on it
 // (a sequencer) plays in tune, as on the VCO (Documentation/widget-modulation/MODULATION.md, "+ additionner").
-// The filters, equalizers and pedals (faust-filter-modules.mjs), the drums (faust-drum-modules.mjs) and the
-// analyzers (faust-analysis-modules.mjs) are functions whose settings are arguments: their module has its own
+// The filters, equalizers and pedals (faust-filter-modules.mjs), the drums (faust-drum-modules.mjs), the
+// analyzers (faust-analysis-modules.mjs), the saturators (faust-saturation-modules.mjs) and the delays
+// (faust-delay-modules.mjs) are functions whose settings are arguments: their module has its own
 // code (body), an interface made for music around the function.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,9 +20,11 @@ import { FAUST_LIBRARY_MODULES } from "./faust-library-modules.mjs";
 import { FILTER_MODULES } from "./faust-filter-modules.mjs";
 import { DRUM_MODULES } from "./faust-drum-modules.mjs";
 import { ANALYSIS_MODULES } from "./faust-analysis-modules.mjs";
+import { SATURATION_MODULES } from "./faust-saturation-modules.mjs";
+import { DELAY_MODULES } from "./faust-delay-modules.mjs";
 
 // all the modules of the Faust libraries: the demos and instruments, then the modules written around functions
-export const LIBRARY_MODULES = [...FAUST_LIBRARY_MODULES, ...FILTER_MODULES, ...DRUM_MODULES, ...ANALYSIS_MODULES];
+export const LIBRARY_MODULES = [...FAUST_LIBRARY_MODULES, ...FILTER_MODULES, ...DRUM_MODULES, ...ANALYSIS_MODULES, ...SATURATION_MODULES, ...DELAY_MODULES];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dir = path.join(root, "public/faust-modules/faustlib");

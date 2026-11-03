@@ -63,8 +63,8 @@ SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
 The Library menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
 modulations, level and dynamics, spatialization and multichannel, modulation sources), *Faust libraries*
-(reverbs, dynamics, filters, equalizers and crossovers, pedals, effects, oscillators and noises, drums and
-voices, physical models, analysis), then *My modules*; the
+(reverbs, dynamics, filters, equalizers and crossovers, pedals, saturation and folding, delays and modulation,
+effects, oscillators and noises, drums and voices, physical models, analysis), then *My modules*; the
 modules of the family chosen; the description of the module pointed at. Double click or drag a module to add
 it. The catalog (`public/faust-modules/library-catalog.json`) is built by `npm run library-index`: the modular
 modules from their declarations, the FaustPlayground ones from the table of `scripts/library-families.mjs`
@@ -94,6 +94,12 @@ Saw Trombone; `scripts/faust-drum-modules.mjs`) have a *Gate* that a gate drives
 (`scripts/faust-analysis-modules.mjs`): *Pitch Tracker* (a pitch and a gate: a voice plays what it hears),
 *Spectral Centroid* (the brightness, as a pitch), *Zero Crossings* (the noisiness), *RMS Level* (in dB, 0 to 1).
 Measured offline in `tests/library/drums-analysis.test.ts`.
+
+The saturators of `aanl.lib` (*Waveshaper*: nine curves; *Wavefolder*: triangle or sine;
+`scripts/faust-saturation-modules.mjs`) are antialiased by the antiderivative method, of the first or second
+order. The delays and modulation effects (`scripts/faust-delay-modules.mjs`): *Echo*, *Delay* (fractional, it
+glides as a tape), *Flanger*, *Phaser*, *Vibrato* (its depth in cents), *Pitch Shifter*, *Granular*, *Dimension
+Expander*. Measured offline in `tests/library/saturation-delays.test.ts`.
 
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to

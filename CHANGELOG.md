@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.25.0 (2026-11-03)
+
+- **Saturation and folding** (`aanl.lib`), a family of the group *Faust libraries*, with the Cubic Distortion
+  and the Transformer of `demos.lib`:
+  - *Waveshaper*: nine curves (hard clip, cubic, tanh, arctan, sin arctan, hyperbolic, parabolic, quadratic,
+    asinh), computed by the antiderivative method (ADAA) of the first or second order, each kept within
+    [-1, 1] but asinh; Drive (dB), Bias (asymmetry: the value of the curve at Bias removed after it, a high pass
+    overshot by 53% on the flat tops of a clipped 100 Hz), Mix, Level.
+  - *Wavefolder*: triangle or sine, first or second order, with Damping.
+  - Measured: the slopes at 0 (1; 1.5 cubic, 2/pi arctan, 2 quadratic) within 0.05 dB; the aliases of a hard
+    clip of a sine at 4987 Hz driven by 24 dB, -11.1 dB of the power through the curve, -18.1 dB at the first
+    order, -22.3 dB at the second; the folds of a sine of amplitude 3 (6 zero crossings a period).
+  - Measured in the library, in single precision: the antiderivative of `aa.tanh1`, log(cosh(x)), overflows
+    beyond |x| = 89 (driven by 48 dB, a 5 kHz sine came out at 0.58): Drive stops at 36 dB. The second order
+    overshoots at low frequencies when driven hard (at 50 Hz: 1% at 24 dB, 6% at 30 dB, 44% at 36 dB for
+    arctan); the first order stays within [-1, 1].
+- **Delays and modulation**, a family with the Flanger Stereo, the Phaser Stereo and the Tape Stop of
+  `demos.lib`: *Echo* (`ef.echo`), *Delay* (`de.fdelay` with feedback: fractional, it glides when Time moves),
+  *Flanger*, *Phaser* (2, 4 or 8 notches), *Vibrato* (a delay swept so that the pitch rises by Depth cents:
+  D = (2^(c/1200) - 1)/(2 pi f)), *Pitch Shifter*, *Granular*, *Dimension Expander* (stereo).
+  - Measured: the echoes at k Time, Mix x Feedback^k; the fractional delay shared between two samples; the
+    notches of the flanger at odd multiples of 1/(2 Delay) (multiples of 1/Delay inverted); the notches of the
+    phaser (2, 4, 8); the vibrato within 5% of its depth in cents, up and down (2 - 2^(c/1200)); the pitch
+    shifter at its interval within 2 cents, the original more than 120 dB down; the granulator as the delay of
+    Position within 1e-3; the dry sound of each at Mix 0.
+  - Measured in the library: `ef.transpose_windowed` with four taps cancels for good the frequencies at odd
+    multiples of 2 SR / w (with a window of 50 ms, every 80 Hz from 40 Hz: a sine at 440 Hz came out at
+    -119 dB). With two taps none is lost (-3 dB at worst, on average): the Pitch Shifter uses two, the
+    Granular three (its shifted grains are offset in the same way).
+- The family *Effects* keeps the Vocoder.
+
 ## 3.24.0 (2026-11-02)
 
 - **Drums and voices of `synths.lib`**, a family *Drums and voices* of the group *Faust libraries*: Kick, Clap,

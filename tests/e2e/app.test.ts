@@ -1572,7 +1572,7 @@ describe("library", () => {
             "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
-            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
+            "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib saturation", "Lib delays", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
             "My modules",
         ]);
         // a family: its modules; a module pointed at: its description
@@ -1704,14 +1704,18 @@ describe("filters, equalizers and pedals of the Faust libraries", () => {
     }, 120_000);
 });
 
-describe("drums and analyzers of the Faust libraries", () => {
-    it("a clock plays the kick through its Gate (⇐ drive); the pitch tracker gives the pitch of a VCO", async () => {
+describe("drums, analyzers, saturators and delays of the Faust libraries", () => {
+    it("their families; a clock plays the kick through its Gate (⇐ drive); the pitch tracker gives the pitch of a VCO", async () => {
         const { page, errors } = await openApp();
         await page.locator("#libraryButtonMenu").click();
         await page.locator('li.libraryFamily[data-family="Lib drums"]').click();
         expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Kick", "Clap", "Hi-Hat", "Pop Drum", "Comb String"]));
         await page.locator('li.libraryFamily[data-family="Lib analysis"]').click();
         expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Pitch Tracker", "Spectral Centroid", "Zero Crossings", "RMS Level"]));
+        await page.locator('li.libraryFamily[data-family="Lib saturation"]').click();
+        expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Waveshaper", "Wavefolder", "Cubic Distortion", "Transformer"]));
+        await page.locator('li.libraryFamily[data-family="Lib delays"]').click();
+        expect(await page.locator("#libraryModules a").allTextContents()).toEqual(expect.arrayContaining(["Echo", "Delay", "Flanger", "Phaser", "Vibrato", "Pitch Shifter", "Granular", "Dimension Expander", "Flanger Stereo", "Tape Stop"]));
         const result = await page.evaluate(async () => {
             const { app, scene } = (globalThis as any).faustPlayground;
             const add = async (f: string, x: number, y = 80) => {

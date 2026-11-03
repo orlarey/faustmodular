@@ -9,6 +9,8 @@ export const FAUST_LIBRARY_FAMILIES = [
     "Lib filters",
     "Lib equalizers",
     "Lib pedals",
+    "Lib saturation",
+    "Lib delays",
     "Lib effects",
     "Lib oscillators",
     "Lib drums",
@@ -219,7 +221,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib effects",
+        "family": "Lib delays",
         "name": "Flanger Stereo",
         "file": "FlangerStereo",
         "expr": "dm.flanger_demo",
@@ -230,7 +232,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib effects",
+        "family": "Lib delays",
         "name": "Phaser Stereo",
         "file": "PhaserStereo",
         "expr": "dm.phaser2_demo",
@@ -241,7 +243,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib effects",
+        "family": "Lib delays",
         "name": "Tape Stop",
         "file": "TapeStop",
         "expr": "dm.tapeStop_demo",
@@ -252,7 +254,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib effects",
+        "family": "Lib saturation",
         "name": "Cubic Distortion",
         "file": "CubicDistortion",
         "expr": "dm.cubicnl_demo",
@@ -263,7 +265,7 @@ export const FAUST_LIBRARY_MODULES = [
         ]
     },
     {
-        "family": "Lib effects",
+        "family": "Lib saturation",
         "name": "Transformer",
         "file": "Transformer",
         "expr": "dm.ja_transformer_demo",
