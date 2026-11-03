@@ -2,7 +2,10 @@
     Alignment guides while modules are dragged, as in Faust DAW (its clips, on the time axis), in two
     dimensions: the left and right edges of the dragged modules against the left and right edges of the
     other modules (vertical guides), their tops and bottoms against the tops and bottoms (horizontal
-    guides). A left edge may meet a right edge: two modules then sit side by side.
+    guides). A left edge may meet a right edge: two modules then sit side by side. The centres too: the
+    horizontal centre of a module against the horizontal centres of the others (a vertical guide, the modules
+    one above the other, centred), its vertical centre against theirs (a horizontal guide, side by side,
+    centred). A centre meets only a centre; its guide is dashed.
 
     Within a threshold (4 screen pixels), the dragged group is pulled onto the nearest coincidence, on
     each axis independently (magnetism; Alt while dragging leaves the group where the pointer puts it).
@@ -27,6 +30,7 @@ export interface Guide {
     at: number;
     from: number;
     to: number;
+    center?: true;              // a coincidence of centres
 }
 
 export interface Alignment {
@@ -44,8 +48,12 @@ export interface AlignOptions {
 
 const move = (r: Rect, dx: number, dy: number): Rect => ({ left: r.left + dx, right: r.right + dx, top: r.top + dy, bottom: r.bottom + dy });
 
-// The edges of a rectangle along an axis: left and right for x, top and bottom for y.
-const edges = (r: Rect, axis: "x" | "y"): number[] => axis == "x" ? [r.left, r.right] : [r.top, r.bottom];
+// The lines of a rectangle along an axis: its edges (left and right for x, top and bottom for y) and its
+// centre. An edge meets an edge, a centre a centre.
+interface Line { at: number; center: boolean; }
+const edges = (r: Rect, axis: "x" | "y"): Line[] => axis == "x"
+    ? [{ at: r.left, center: false }, { at: r.right, center: false }, { at: (r.left + r.right) / 2, center: true }]
+    : [{ at: r.top, center: false }, { at: r.bottom, center: false }, { at: (r.top + r.bottom) / 2, center: true }];
 // Its extent across: top to bottom for a vertical guide, left to right for a horizontal one.
 const across = (r: Rect, axis: "x" | "y"): [number, number] => axis == "x" ? [r.top, r.bottom] : [r.left, r.right];
 
@@ -57,7 +65,8 @@ function nearest(moving: Rect[], others: Rect[], axis: "x" | "y", threshold: num
         for (const e of edges(r, axis)) {
             for (const o of others) {
                 for (const g of edges(o, axis)) {
-                    const d = g - e;
+                    if (g.center != e.center) continue;
+                    const d = g.at - e.at;
                     if (Math.abs(d) <= threshold && (best === null || Math.abs(d) < Math.abs(best))) best = d;
                 }
             }
@@ -69,15 +78,15 @@ function nearest(moving: Rect[], others: Rect[], axis: "x" | "y", threshold: num
 // The coincidences of `moving` with `others` along an axis, one guide per position, joining all the
 // modules that meet there.
 function guidesAlong(moving: Rect[], others: Rect[], axis: "x" | "y", epsilon: number, extend: number): Guide[] {
-    const lines = new Map<number, { at: number; from: number; to: number }>();
+    const lines = new Map<string, { at: number; from: number; to: number; center: boolean }>();
     for (const r of moving) {
         for (const e of edges(r, axis)) {
             for (const o of others) {
                 for (const g of edges(o, axis)) {
-                    if (Math.abs(g - e) > epsilon) continue;
+                    if (g.center != e.center || Math.abs(g.at - e.at) > epsilon) continue;
                     const [a0, a1] = across(r, axis), [b0, b1] = across(o, axis);
-                    const key = Math.round(g / epsilon);
-                    const line = lines.get(key) ?? { at: g, from: Infinity, to: -Infinity };
+                    const key = (g.center ? "c" : "e") + Math.round(g.at / epsilon);
+                    const line = lines.get(key) ?? { at: g.at, from: Infinity, to: -Infinity, center: g.center };
                     line.from = Math.min(line.from, a0, b0);
                     line.to = Math.max(line.to, a1, b1);
                     lines.set(key, line);
@@ -85,7 +94,7 @@ function guidesAlong(moving: Rect[], others: Rect[], axis: "x" | "y", epsilon: n
             }
         }
     }
-    return Array.from(lines.values()).map((l) => ({ axis, at: l.at, from: l.from - extend, to: l.to + extend }));
+    return Array.from(lines.values()).map((l) => ({ axis, at: l.at, from: l.from - extend, to: l.to + extend, ...(l.center ? { center: true as const } : {}) }));
 }
 
 // Where the dragged modules go for a displacement (dx, dy) of the pointer, and the guides to show.

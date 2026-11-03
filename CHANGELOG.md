@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.37.0 (2026-11-03)
+
+- **The alignment of the centres**: while modules are dragged, the horizontal centre of a module is pulled onto
+  the horizontal centres of the others (centred one above the other) and its vertical centre onto theirs (centred
+  side by side), within 4 pixels as the edges. A centre meets only a centre; its guide is dashed.
+
 ## 3.36.0 (2026-11-03)
 
 - **The scene of the first visit**: a SineVCO connected to the left and right outputs (on a mono device, to the

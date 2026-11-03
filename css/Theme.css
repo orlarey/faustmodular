@@ -1005,6 +1005,9 @@ li.libraryFamily.selected {
 	vector-effect: non-scaling-stroke;
 	pointer-events: none;
 }
+.alignment-guide.center {
+	stroke-dasharray: 4 3;			/* a coincidence of centres */
+}
 
 /* The groups of the code as sections (model/UILayout.ts): a label above their widgets */
 .ui-hidden {

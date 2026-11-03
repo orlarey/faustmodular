@@ -494,7 +494,7 @@ export class PatchView {
         if (this.fGuides.parentNode !== this.fSvg) this.fSvg.appendChild(this.fGuides);
         this.fGuides.replaceChildren(...guides.map((g) => {
             const line = document.createElementNS(SVG_NS, "line");
-            line.setAttribute("class", "alignment-guide");
+            line.setAttribute("class", "alignment-guide" + (g.center ? " center" : ""));
             const [x1, y1, x2, y2] = g.axis == "x" ? [g.at, g.from, g.at, g.to] : [g.from, g.at, g.to, g.at];
             line.setAttribute("x1", String(x1));
             line.setAttribute("y1", String(y1));

@@ -55,3 +55,34 @@ describe("alignment guides", () => {
         expect(b.guides.filter((g) => g.axis == "x" && g.at == 400)).toEqual([{ axis: "x", at: 400, from: 100 - 8, to: 380 + 8 }]);
     });
 });
+
+describe("alignment of the centres", () => {
+    const other = rect(300, 100, 200, 150);         // centre x 400, centre y 175
+    const dragged = rect(0, 0, 100, 80);            // centre (50, 40)
+
+    it("pulls a centre within 4 px onto the centre of another module, with a dashed guide", () => {
+        // one above the other, centred: horizontal centre 402 → 400
+        const a = align([dragged], [other], 352, 400, options);
+        expect(a.dx).toBe(350);
+        expect(a.guides).toEqual([{ axis: "x", at: 400, from: 100 - 8, to: 480 + 8, center: true }]);
+        // side by side, centred: vertical centre 173 → 175
+        const b = align([dragged], [other], 600, 133, options);
+        expect(b.dy).toBe(135);
+        expect(b.guides).toEqual([{ axis: "y", at: 175, from: 300 - 8, to: 700 + 8, center: true }]);
+    });
+
+    it("does not pull a centre onto an edge, nor an edge onto a centre", () => {
+        // centre 301, 1 px from the left edge 300: nothing
+        expect(align([dragged], [other], 251, 400, options)).toEqual({ dx: 251, dy: 400, guides: [] });
+        // a narrower module: left edge 398, 2 px from the centre 400 (its right edge 458, its centre 428): nothing
+        expect(align([rect(0, 0, 60, 80)], [other], 398, 400, options)).toEqual({ dx: 398, dy: 400, guides: [] });
+    });
+
+    it("shows an edge and a centre met at once as two guides, the nearest pulling", () => {
+        // two modules of the same width: their edges and their centres meet together
+        const twin = rect(300, 400, 200, 80);
+        const a = align([twin], [other], 1, 0, options);
+        expect(a.dx).toBe(0);
+        expect(a.guides.filter((g) => g.axis == "x").map((g) => [g.at, !!g.center]).sort()).toEqual([[300, false], [400, true], [500, false]]);
+    });
+});

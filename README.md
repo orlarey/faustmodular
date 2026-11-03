@@ -27,8 +27,9 @@ channels.
 - Shift-click modules, or drag a rectangle on the empty stage, to select several modules and move them
   together.
 - While modules are dragged, their edges are pulled onto the edges of the other modules within 4 pixels
-  (top or bottom on top or bottom, left or right on left or right), and each coincidence is shown as a
-  thin line from the dragged module to the aligned one. Hold Alt to move freely.
+  (top or bottom on top or bottom, left or right on left or right), and their centres onto the centres (a
+  module centred above another, or beside it); each coincidence is shown as a thin line from the dragged module
+  to the aligned one, dashed for the centres. Hold Alt to move freely.
 - ⧉ in the title bar of a module, or Ctrl/Cmd-D on the selection, duplicates modules with their code,
   settings and modulations, the connections between them, and the cables coming from other modules
   (audio inputs, modulation sources), so that a copy is fed as its original; not the cables going out.
