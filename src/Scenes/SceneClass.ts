@@ -23,7 +23,7 @@ import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
 import { MenuItem, shortcut, showContextMenu } from "../view/ContextMenu";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
-import { rewrapModuleCode, unwrapModuleCode, userCode, userError } from "../model/ModuleCode";
+import { rewrapModuleCode, unwrapModuleCode, userCode, userError, wrapModuleCode } from "../model/ModuleCode";
 import { History } from "./History";
 import { storedCode } from "../documents/DocumentFormat";
 import { SceneView } from "./SceneView";
@@ -53,6 +53,13 @@ export interface SceneDocuments {
     updateInstance(id: string): Promise<string | null>;
     moduleCode(id: string): Promise<{ name: string; code: string } | null>;
 }
+
+// The code of a new module (the context menu of the stage), to be written in faustcode.
+const NEW_MODULE_CODE = `import("stdfaust.lib");
+
+// A new module: write it in faustcode, each successful save (Cmd/Ctrl-S) updates it.
+process = _;
+`;
 
 interface ModuleDescription {
     id: ModuleId;
@@ -110,6 +117,7 @@ export class Scene {
             apply: (module, code) => this.editModuleCode(module, code),
             notify: (message) => { new Message(message) },
             libfaust: () => faustWasmEnv.faustCompiler.version(),
+            importModule: (name, code) => this.addModuleFromCode(name, code),
         });
         this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
             allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),
@@ -890,7 +898,8 @@ export class Scene {
 
     /*********************** CONTEXT MENU, SHORTCUTS ***************************/
     // A right click on a module acts on the selection (the module alone if it is not part of it);
-    // on the empty stage, it pastes there, selects all or imports a Faust file there. The same commands have shortcuts.
+    // on the empty stage, it pastes there, selects all, opens the modules, makes a new module (written in faustcode)
+    // or imports a Faust file there. The same commands have shortcuts.
     private attachCommands(stage: HTMLElement): void {
         var t = () => Utilitary.messageResource;
         var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true]");
@@ -905,6 +914,8 @@ export class Scene {
                     paste,
                     { label: t().menuSelectAll, shortcut: shortcut("mod+A"), enabled: this.fModuleList.length > 0, action: () => this.selectAll() },
                     "separator",
+                    { label: t().menuModules, action: () => document.dispatchEvent(new CustomEvent("openmodules")) },
+                    { label: t().menuNewModule, action: () => this.newModule(at) },
                     { label: t().menuImportDsp, action: () => this.importDsp(at) },
                 ]);
                 return;
@@ -1272,6 +1283,24 @@ export class Scene {
 
     editInFaustcode(module: ModuleClass): void {
         this.faustcodeLink.edit(module);
+    }
+
+    // A module made from the code of the user (faustcode, a new module) at a point of the stage (the center
+    // of the window by default); the module, or why it could not be made (the error of the compiler).
+    async addModuleFromCode(name: string, code: string, at?: { x: number; y: number }): Promise<ModuleClass | string> {
+        name = name.replace(/\.dsp$/i, "").trim() || "Module";
+        var position = at ?? this.positionDblTapModule();
+        var wrapped = wrapModuleCode(name, code);
+        var error = "";
+        if (!(await this.compile(name, wrapped, position.x, position.y, (e) => { error = e }))) return error || "the code does not compile";
+        var module = await this.createModule({ id: "", name, code: wrapped, x: position.x, y: position.y, params: {}, acc: [] });
+        return module ?? "the module could not be created";
+    }
+
+    // A new module, at a point of the stage, opened in faustcode to be written.
+    async newModule(at: { x: number; y: number }): Promise<void> {
+        var module = await this.addModuleFromCode(Utilitary.messageResource.newModuleName, NEW_MODULE_CODE, at);
+        if (typeof module != "string") this.faustcodeLink.edit(module);
     }
 
     // Creates a module from its description: precompiled factory if any, otherwise compilation.

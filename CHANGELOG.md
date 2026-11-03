@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.27.0 (2026-11-03)
+
+- **From faustcode to faustmodular**: the *faustmodular* button of faustcode (0.15.0) opens its session here, as a
+  module of the open document, linked to the session: each save that compiles in faustcode updates the module, and
+  its pencil edits it in that faustcode. faustcode opens faustmodular with `?link=faustcode` if needed (or uses the
+  faustmodular that opened it). New messages of the link: `faustcode-link-hello` (faustmodular, opened by faustcode,
+  ready), `faustcode-link-import` (a code to add as a module), `faustcode-link-imported` (its id, or why not).
+  faustmodular takes code this way only from its opener, with the origin of the official faustcode (a
+  `?faustcode=<url>` is accepted here only on localhost: a page of another site could otherwise add modules to the
+  open document).
+- **The context menu of the stage**: *Modules…* opens the Modules menu; *New module (in faustcode)* makes a
+  pass-through module where it was opened and opens it in faustcode to be written.
+- Tested with a stub of faustcode (hello, import, update, the pencil to the faustcode that opened faustmodular, a code
+  with errors, a page of another site refused), and with the real faustcode (`FAUSTCODE_DIR`): its button adds the
+  session as a module, a Ctrl-S updates it, the button again updates the same module.
+
 ## 3.26.0 (2026-11-03)
 
 - **Two menus**: *File* and *Modules* (the library, formerly *Library*). Load and Save are in File; Edit and

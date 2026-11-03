@@ -95,6 +95,10 @@ export class Resources {
     exampleMultichannel: string;
     exampleModulation: string;
     menuImportDsp: string;
+    menuModules: string;
+    menuNewModule: string;
+    newModuleName: string;
+    faustcodeImportFailed: string;
     buttonDocuments: string;
     untitled: string;
     documentCurrent: string;

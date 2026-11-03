@@ -99,6 +99,8 @@ export function resumeInit(app: App) {
     }).then((documents) => {
         access.documents = documents;
         app.menu.setDocuments(documents);
+        // opened by faustcode (?link=faustcode): ready to receive its code (FaustcodeLink)
+        Utilitary.currentScene.faustcodeLink.announce();
     }).catch((e) => {
         console.error("documents unavailable", e);
         new Message(Utilitary.messageResource.documentsUnavailable + " : " + e);

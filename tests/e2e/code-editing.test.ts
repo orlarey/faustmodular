@@ -164,6 +164,120 @@ describe("editing in faustcode (stub)", () => {
     }, 120_000);
 });
 
+describe("opening code of faustcode in faustmodular (stub)", () => {
+    // a local faustcode (trusted), and a page of another site (not trusted)
+    const LOCAL = "http://127.0.0.1:9/faustcode/";
+    const OTHER = "https://other-site.test/";
+    // Opens faustmodular, records its messages; send() writes to it.
+    const STUB = `<!doctype html><title>faustcode stub</title><script>
+        window.received = [];
+        window.addEventListener("message", (e) => { if (e.source === window.modular) window.received.push({ origin: e.origin, data: e.data }); });
+        window.openModular = (u) => { window.modular = window.open(u, "faustmodular-faustcode"); };
+        window.send = (message) => window.modular.postMessage(Object.assign({ protocol: 1 }, message), window.modularOrigin);
+    </script>`;
+
+    async function openStub(at: string) {
+        const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        await context.route(at + "**", (route) => route.fulfill({ contentType: "text/html", body: STUB }));
+        const stub = await context.newPage();
+        await stub.goto(at);
+        const query = "?link=faustcode&faustcode=" + encodeURIComponent(at);
+        const [page] = await Promise.all([context.waitForEvent("page"), stub.evaluate(([u, o]) => {
+            (window as any).modularOrigin = o;
+            (window as any).openModular(u);
+        }, [url + query, new URL(url).origin])]);
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
+        return { context, stub, page, errors };
+    }
+
+    const received = (stub: Page) => stub.evaluate(() => (window as any).received as Array<{ origin: string; data: any }>);
+    const waitReceived = (stub: Page, n: number) => stub.waitForFunction((k) => (window as any).received.length >= k, n, { timeout: 30_000 });
+
+    it("adds the code as a module of the open document, linked to its session: its saves update it, its pencil edits it there", async () => {
+        const { context, stub, page, errors } = await openStub(LOCAL);
+        // ready: faustmodular says hello to its opener, with its libfaust
+        await waitReceived(stub, 1);
+        const [hello] = await received(stub);
+        expect(hello.origin).toBe(new URL(url).origin);
+        expect(hello.data).toMatchObject({ type: "faustcode-link-hello", protocol: 1, libfaust: expect.any(String) });
+        await stub.evaluate((v) => (window as any).send({ type: "faustcode-link-ready", libfaust: v }), hello.data.libfaust);
+
+        // the code of a session: a module, named after it
+        await stub.evaluate((c) => (window as any).send({ type: "faustcode-link-import", ref: "sha-1", name: "Gain", code: c }), USER_CODE);
+        await waitReceived(stub, 2);
+        const imported = (await received(stub))[1].data;
+        expect(imported).toMatchObject({ type: "faustcode-link-imported", protocol: 1, ref: "sha-1", ok: true, name: "Gain", id: expect.any(String) });
+        const module = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules()[0].moduleId);
+        expect((await moduleState(page, module)).source).toBe(MODULE_CODE.replace("environment{", "environment{\n").replace("}.process", "\n}.process"));
+
+        // a save of the session in faustcode: the module updated
+        const stereo = `import("stdfaust.lib");\nprocess = *(hslider("gain", 0.5, 0, 1, 0.01)) <: _, _;`;
+        await stub.evaluate(([i, c]) => (window as any).send({ type: "faustcode-link-code", id: i, code: c }), [imported.id, stereo]);
+        await waitReceived(stub, 3);
+        expect((await received(stub))[2].data).toEqual({ type: "faustcode-link-result", protocol: 1, id: imported.id, ok: true });
+        expect((await moduleState(page, module)).arity).toBe("1x2");
+
+        // its pencil: edited in the faustcode that opened faustmodular, with the same id
+        const sel = "#" + await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.fModuleContainer.id, module);
+        await page.locator(sel + " .edit").click();
+        await waitReceived(stub, 4);
+        expect((await received(stub))[3].data).toMatchObject({ type: "faustcode-link-edit", id: imported.id, name: "Gain", code: stereo });
+        expect(context.pages().length).toBe(2);
+
+        // a code that does not compile: no module, the error sent back
+        await stub.evaluate(() => (window as any).send({ type: "faustcode-link-import", ref: "sha-2", name: "Bad", code: "process = foo;" }));
+        await waitReceived(stub, 5);
+        expect((await received(stub))[4].data).toMatchObject({ type: "faustcode-link-imported", ref: "sha-2", ok: false, error: expect.stringMatching(/foo/) });
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules().length)).toBe(1);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("does not take code from a page of another site", async () => {
+        const { context, stub, page, errors } = await openStub(OTHER);
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.faustcodeLink.openedByFaustcode)).toBe(false);
+        await page.waitForTimeout(1000);
+        expect(await received(stub)).toEqual([]);
+        await stub.evaluate((c) => (window as any).send({ type: "faustcode-link-import", ref: "x", name: "Gain", code: c }), USER_CODE);
+        await page.waitForTimeout(1500);
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules().length)).toBe(0);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+});
+
+describe("the context menu of the stage: Modules, New module", () => {
+    const STUB_ORIGIN = "https://faustcode.test";
+    const STUB = `<!doctype html><title>faustcode stub</title><script>
+        window.received = [];
+        window.addEventListener("message", (e) => { if (e.source === window.opener) window.received.push({ origin: e.origin, data: e.data }); });
+        window.opener.postMessage({ type: "faustcode-link-ready", protocol: 1 }, "*");
+    </script>`;
+
+    it("Modules… opens the Modules menu; New module makes a module there and opens it in faustcode", async () => {
+        const { context, page, errors } = await openApp("?faustcode=" + encodeURIComponent(STUB_ORIGIN + "/"));
+        await context.route(STUB_ORIGIN + "/**", (route) => route.fulfill({ contentType: "text/html", body: STUB }));
+        await page.mouse.click(700, 500, { button: "right" });
+        await page.locator(".context-menu .context-menu-item", { hasText: "Modules" }).click();
+        await page.waitForSelector("#libraryContent", { state: "visible" });
+        await page.locator("#libraryButtonMenu").click();
+
+        await page.mouse.click(600, 450, { button: "right" });
+        const at = await page.evaluate(() => (globalThis as any).faustPlayground.scene.toStage(600, 450));
+        const [stub] = await Promise.all([page.waitForEvent("popup"), page.locator(".context-menu .context-menu-item").nth(3).click()]);
+        await stub.waitForFunction(() => (window as any).received.length >= 1, null, { timeout: 30_000 });
+        const edit = (await stub.evaluate(() => (window as any).received))[0].data;
+        expect(edit).toMatchObject({ type: "faustcode-link-edit", name: "Module", code: expect.stringContaining("process = _;") });
+        const module = await page.evaluate(() => { const m = (globalThis as any).faustPlayground.scene.getModules()[0]; return { x: m.moduleView.x, y: m.moduleView.y }; });
+        expect(module.x).toBeCloseTo(at.x, 0);
+        expect(module.y).toBeCloseTo(at.y, 0);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+});
+
 // The real faustcode, if a checkout is given: FAUSTCODE_DIR=/path/to/faustcode npm test
 const FAUSTCODE_DIR = process.env.FAUSTCODE_DIR;
 
@@ -223,4 +337,36 @@ describe.skipIf(!FAUSTCODE_DIR)("editing in faustcode (real)", () => {
         expect((await moduleState(page, id)).source).toBe(saved);
         await context.close();
     }, 180_000);
+
+    it("opens the session of faustcode in faustmodular (its button), then updates the module at each save", async () => {
+        const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+        const fc = await context.newPage();
+        await fc.goto(faustcodeUrl + "?faustmodular=" + encodeURIComponent(url));
+        await fc.click("#audio-gate-button", { timeout: 60_000 });
+        await fc.waitForFunction(() => !(document.getElementById("modular-btn") as HTMLButtonElement).disabled, null, { timeout: 60_000 });
+        const name = await fc.evaluate(() => document.getElementById("session-label")?.textContent?.split("|").pop()?.trim().replace(/\.dsp$/, ""));
+        const [page] = await Promise.all([context.waitForEvent("page"), fc.click("#modular-btn")]);
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene?.getModules().length == 1, null, { timeout: 60_000 });
+        const module = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules()[0].moduleId);
+        expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getName(), module)).toBe(name);
+        await fc.waitForFunction(() => document.querySelector(".app-notice")?.textContent?.includes("Opened in faustmodular"), null, { timeout: 30_000 });
+
+        // a save in faustcode: the module updated
+        await fc.evaluate(async () => {
+            const select = document.getElementById("view-select") as HTMLSelectElement;
+            select.value = "dsp";
+            select.dispatchEvent(new Event("change"));
+        });
+        await fc.waitForSelector(".cm-content", { timeout: 30_000 });
+        await fc.click(".cm-content");
+        await fc.keyboard.press("Control+End");
+        await fc.keyboard.type(" // from faustcode");
+        await fc.keyboard.press("Control+s");
+        await page.waitForFunction((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getSource().includes("// from faustcode"), module, { timeout: 30_000 });
+        // the button again: the same module, updated (no second module)
+        await fc.click("#modular-btn");
+        await page.waitForTimeout(1000);
+        expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules().length)).toBe(1);
+        await context.close();
+    }, 240_000);
 });

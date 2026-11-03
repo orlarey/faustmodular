@@ -34,8 +34,9 @@ channels.
   Ctrl/Cmd-Shift-D leaves out the cables coming from outside. The copies become the selection.
 - Right-click a module for the commands on the selection (the module alone if it is not part of it):
   copy, cut, paste, duplicate, duplicate without the incoming cables, unplug (remove all its cables),
-  minimize or expand, delete; right-click the empty stage to paste there, select all, or import a Faust
-  file (.dsp) as a module at that point. Shortcuts:
+  minimize or expand, delete; right-click the empty stage to paste there, select all, open the Modules
+  menu, make a new module there (written in faustcode), or import a Faust file (.dsp) as a module at that
+  point. Shortcuts:
   Ctrl/Cmd-C, X, V (at the pointer), D, A, and Delete. Copied modules are a patch file in the clipboard,
   with the connections between them: they can be pasted in another document or another tab.
 - Two menus: *File* (the open document: New, Save, Save as, Revert, Rename; the documents; the files: open a
@@ -144,6 +145,12 @@ The pencil, in the title bar of a module, opens its code in [faustcode](https://
 reused for all the modules: each save that compiles (Cmd/Ctrl-S) updates the module in place, keeping its
 sound, slider values, modulations and connections; a code with errors stays in faustcode. The faustcode URL can be set
 with `?faustcode=<url>` (e.g. a local faustcode).
+
+The other way, the *faustmodular* button of faustcode opens its session here, as a module of the open document
+(faustcode opens faustmodular with `?link=faustcode` if needed): the session is linked to the module, each save
+that compiles updates it, and its pencil edits it in that faustcode. faustmodular takes code this way only from the
+page that opened it, with the origin of the official faustcode (or a local one). A new module (right-click on the
+stage, *New module*) is a pass-through `process = _;` opened in faustcode to be written.
 
 The export generates a single Faust program equivalent to the patch (`src/export/FaustExporter.ts`):
 one instance per module, sums at the inputs, feedback cables delayed by one sample, and only the

@@ -81,6 +81,10 @@ export class Menu {
 
         // the open document: its name, and a dot when it differs from its committed copy
         document.addEventListener("documentchange", () => { this.showSceneName() });
+        // the Modules menu opened from the context menu of the stage
+        document.addEventListener("openmodules", () => {
+            if (this.currentMenuChoices != MenuChoices.library) this.menuHandler(this.newMenuChoices = MenuChoices.library);
+        });
         // Cmd/Ctrl-S: the working copy becomes the committed copy
         document.addEventListener("keydown", (e) => {
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() == "s" && this.documents) {

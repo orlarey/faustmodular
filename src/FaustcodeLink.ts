@@ -15,6 +15,21 @@
         faustmodular → faustcode   faustcode-link-result  { id, ok, error? }       applied or not
         faustmodular → faustcode   faustcode-link-close   { id }                   module removed
 
+    The other way: faustcode opens faustmodular (with ?link=faustcode) to add the code it edits as a
+    module of the open document, then linked to its session, as a module opened from faustmodular:
+
+        faustmodular → faustcode   faustcode-link-hello    { libfaust? }            opened by faustcode, ready
+        faustcode → faustmodular   faustcode-link-ready    { libfaust? }            (as above)
+        faustcode → faustmodular   faustcode-link-import   { ref, name, code }      add this code as a module
+        faustmodular → faustcode   faustcode-link-imported { ref, ok, id?, name?, error? }
+                                                                                   added (its id), or why not
+
+    `ref` designates the session of faustcode. faustcode is then the window of the link: the module's
+    later code comes as above (faustcode-link-code), and so do the modules edited from faustmodular.
+    faustmodular accepts this direction from its opener only, with the origin of FAUSTCODE_URL (a
+    ?faustcode=<url> of the page is accepted here only on localhost: a page of another site could
+    otherwise open faustmodular and add modules to the open document).
+
     `id` designates a module of this page (random, so that a faustcode window kept open does not
     update a module of a patch loaded later); `code` is the user's code, without the group of the
     module (model/ModuleCode). faustcode sends the code of a linked session each time it compiles
@@ -42,6 +57,7 @@ export interface FaustcodeLinkHost<M> {
     apply(module: M, code: string): Promise<string | null>; // null, or why the code was not applied
     notify(message: string): void;
     libfaust?(): string;                                    // version of the libfaust of faustmodular
+    importModule?(name: string, code: string): Promise<M | string>;   // a module from faustcode, or why not
 }
 
 type LinkMessage = { type: string; protocol: number; [key: string]: unknown };
@@ -69,8 +85,25 @@ export class FaustcodeLink<M extends object> {
     private fModules = new Map<string, M>();
     private fIds = new WeakMap<M, string>();
 
-    constructor(private fUrl: string, private fHost: FaustcodeLinkHost<M>) {
+    private fOpened = false;        // faustmodular was opened by faustcode (?link=faustcode)
+
+    constructor(private fUrl: string, private fHost: FaustcodeLinkHost<M>, search: string = location.search, opener: Window | null = window.opener) {
         window.addEventListener("message", (event) => this.onMessage(event));
+        if (opener && new URLSearchParams(search).get("link") == "faustcode" && trustedOpener(this.fUrl)) {
+            this.fWindow = opener;
+            this.fOpened = true;
+        }
+    }
+
+    // Opened by faustcode: tells it that faustmodular is ready to receive code (once the open document
+    // is set: Main).
+    announce(): void {
+        if (!this.fOpened || !this.fWindow || this.fWindow.closed) return;
+        this.post(this.message("faustcode-link-hello", this.fHost.libfaust ? { libfaust: this.fHost.libfaust() } : {}));
+    }
+
+    get openedByFaustcode(): boolean {
+        return this.fOpened;
     }
 
     get origin(): string {
@@ -139,6 +172,20 @@ export class FaustcodeLink<M extends object> {
                 this.fPending.forEach((m) => this.post(m));
                 this.fPending = [];
                 break;
+            case "faustcode-link-import": {
+                if (typeof data.ref != "string" || typeof data.name != "string" || typeof data.code != "string") return;
+                const result = this.fHost.importModule ? await this.fHost.importModule(data.name, data.code) : "faustmodular cannot import modules";
+                if (typeof result == "string") {
+                    this.fHost.notify(this.resource("faustcodeImportFailed").replace("{name}", data.name).replace("{error}", result.split("\n")[0]));
+                    this.post(this.message("faustcode-link-imported", { ref: data.ref, ok: false, error: result }));
+                    return;
+                }
+                const id = randomId();
+                this.fIds.set(result, id);
+                this.fModules.set(id, result);
+                this.post(this.message("faustcode-link-imported", { ref: data.ref, ok: true, id, name: this.fHost.nameOf(result) }));
+                break;
+            }
             case "faustcode-link-code": {
                 if (typeof data.id != "string" || typeof data.code != "string") return;
                 const module = this.fModules.get(data.id);
@@ -179,8 +226,18 @@ export class FaustcodeLink<M extends object> {
         this.fTimer = null;
     }
 
-    private resource(key: "faustcodePopupBlocked" | "faustcodeNoAnswer" | "faustcodeUpdateFailed" | "faustcodeLibfaustMismatch"): string {
+    private resource(key: "faustcodePopupBlocked" | "faustcodeNoAnswer" | "faustcodeUpdateFailed" | "faustcodeLibfaustMismatch" | "faustcodeImportFailed"): string {
         return Utilitary.messageResource[key];
+    }
+}
+
+// Is faustcode, at this URL, trusted to open faustmodular and add modules? Its official URL, or a local one.
+export function trustedOpener(url: string): boolean {
+    try {
+        const u = new URL(url, location.href);
+        return u.origin == new URL(FAUSTCODE_URL).origin || u.hostname == "localhost" || u.hostname == "127.0.0.1";
+    } catch {
+        return false;
     }
 }
 
