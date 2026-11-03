@@ -19,20 +19,17 @@ export class Utilitary {
     static driveApi: DriveAPI;
 
     static errorCallBack(message: string) { }
+    // The veil of a wait: shown at once (it takes the clicks), its spinner after a moment (css/Theme.css), so that
+    // a short wait does not flash.
     static showFullPageLoading() {
-        document.getElementById("loadingPage")!.style.visibility = "visible";
-        //too demanding for mobile firefox...
-        //document.getElementById("Normal").style.filter = "blur(2px)"
-        //document.getElementById("Normal").style.webkitFilter = "blur(2px)"
-        //document.getElementById("menuContainer").style.filter = "blur(2px)"
-        //document.getElementById("menuContainer").style.webkitFilter = "blur(2px)"
+        const page = document.getElementById("loadingPage")!;
+        page.style.visibility = "visible";
+        page.classList.add("shown");
     }
     static hideFullPageLoading() {
-        document.getElementById("loadingPage")!.style.visibility = "hidden";
-        //document.getElementById("Normal").style.filter = "none"
-        //document.getElementById("Normal").style.webkitFilter = "none"
-        //document.getElementById("menuContainer").style.filter = "none"
-        //document.getElementById("menuContainer").style.webkitFilter = "none"
+        const page = document.getElementById("loadingPage")!;
+        page.style.visibility = "hidden";
+        page.classList.remove("shown");
     }
     static isAppPedagogique(): boolean {
         if (window.location.href.indexOf("kids.html") > -1) {
@@ -62,9 +59,8 @@ export class Utilitary {
     static addLoadingLogo(idTarget: string) {
         var loadingDiv = document.createElement("div");
         loadingDiv.className = "loadingDiv";
-        var loadingImg = document.createElement("img");
-        loadingImg.src = Utilitary.baseImg + "logoAnim.gif"
-        loadingImg.id = "loadingImg";
+        var loadingImg = document.createElement("span");
+        loadingImg.className = "loading-spinner";
         var loadingText = document.createElement("span");
         loadingText.textContent = Utilitary.messageResource.loading;
         loadingText.id = "loadingText";

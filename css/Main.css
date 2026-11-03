@@ -202,7 +202,6 @@ div#loadingPage {
     position: absolute;
     background: rgba(0, 0, 255, 0.61);
     z-index:100;
-    background-image:url("../img/logoAnim.gif");
     top: 0;
     background-repeat: no-repeat;
     background-position: 50%;

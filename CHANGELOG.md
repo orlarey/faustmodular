@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.31.2 (2026-11-03)
+
+- A wait no longer shows the animated GRAME logo of FaustPlayground (`logoAnim.gif`, 185 kB, removed) but a ring
+  in the accent colour with the word *Loading*, on a lighter veil; they appear after 300 ms, so that a short wait
+  does not flash (the veil takes the clicks at once).
+
 ## 3.31.1 (2026-11-03)
 
 - The icons of the Orbit interface come from a font served with the application, not from Google Fonts: a
