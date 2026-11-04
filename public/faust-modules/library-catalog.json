@@ -210,6 +210,23 @@
    ]
   },
   {
+   "path": "faust-modules/modular/MidiClock.dsp",
+   "name": "MIDI Clock",
+   "functions": [
+    "Clock Generator",
+    "MIDI"
+   ],
+   "family": "Time",
+   "summary": "MIDI Clock: the clock of an external MIDI device (sequencer, drum machine, DAW) as gates, with its start and its transport",
+   "description": "- Follows the MIDI clock of a device (24 clock messages per quarter note; Web MIDI: Chrome, Edge, Firefox): a sequencer plays in time with it\n- clock: a gate per sixteenth note, eighth note, quarter note or bar (Division), the first one on the downbeat after Start; Width: how long it stays high, as a fraction of its period at the tempo measured\n- reset: a short gate at Start, to set a sequencer back to its first step; run: 1 between Start (or Continue) and Stop\n- Tempo: the tempo measured (0: no clock); without a clock, nothing is played (the Clock module has its own tempo)",
+   "inlets": [],
+   "outlets": [
+    "clock",
+    "reset",
+    "run"
+   ]
+  },
+  {
    "path": "faust-modules/modular/Clock.dsp",
    "name": "Clock",
    "functions": [

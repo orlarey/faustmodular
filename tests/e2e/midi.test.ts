@@ -1,6 +1,7 @@
-// The MIDI keyboards in the application (src/midi/MidiModules.ts), with a fake Web MIDI device: not asked for at
+// The MIDI devices in the application (src/midi/MidiModules.ts), with a fake Web MIDI device: not asked for at
 // load; asked for when a MIDI to CV module is added; its notes set the outputs of the module (pitch, gate,
-// velocity), on its channel only; a browser without Web MIDI says so.
+// velocity), on its channel only; a browser without Web MIDI says so. Its clock drives a MIDI Clock module: a gate
+// per sixteenth note at its tempo, the run, and no clock when it stops.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
@@ -37,7 +38,7 @@ async function open(midi: boolean): Promise<{ context: BrowserContext; page: Pag
             w.__midiRequests++;
             return { inputs: new Map([["fake", input]]), outputs: new Map(), onstatechange: null };
         };
-        w.__midi = (data: number[]) => input.onmidimessage?.({ data: new Uint8Array(data) });
+        w.__midi = (data: number[]) => input.onmidimessage?.({ data: new Uint8Array(data), timeStamp: performance.now() });
     }, midi);
     const page = await context.newPage();
     const errors: string[] = [];
@@ -105,6 +106,57 @@ describe("MIDI to CV in the application", () => {
         [pitch, gate] = await outputs();
         expect(gate).toBe(1);
         expect(pitch).toBeCloseTo(12 / 120, 4);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("follows the MIDI clock with a MIDI Clock module: a gate per sixteenth note, the run, the tempo", async () => {
+        const { context, page, errors } = await open(true);
+        const id = await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            app.uploadUrl(app, null, 300, 150, location.origin + "/faust-modules/modular/MidiClock.dsp");
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            return scene.getModules()[0].moduleId as string;
+        });
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.midi.state == "on");
+        // a probe on the outputs: the rising edges of the clock, the last values (clock, reset, run)
+        await page.evaluate(async (m) => {
+            const node = (globalThis as any).faustPlayground.scene.audioGraph.getNode(m);
+            const ctx = node.context as AudioContext;
+            await ctx.resume();
+            const code = `registerProcessor("edges", class extends AudioWorkletProcessor {
+                constructor() { super(); this.edges = 0; this.prev = 0; this.last = []; this.port.onmessage = () => this.port.postMessage({ edges: this.edges, last: this.last }); }
+                process(inputs) { const c = inputs[0][0]; if (c) for (const v of c) { if (v > 0.5 && this.prev <= 0.5) this.edges++; this.prev = v; } this.last = inputs[0].map((ch) => ch[ch.length - 1]); return true; }
+            });`;
+            await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+            const probe = new AudioWorkletNode(ctx, "edges", { channelCount: 3, channelCountMode: "explicit", channelInterpretation: "discrete" });
+            const sink = ctx.createGain();
+            sink.gain.value = 0;
+            probe.connect(sink).connect(ctx.destination);
+            node.connect(probe);
+            (window as any).__probe = () => new Promise((r) => { probe.port.onmessage = (e) => r(e.data); probe.port.postMessage(0); });
+        }, id);
+        // Start, then 48 clock messages at 120 BPM (two beats: 8 sixteenth notes)
+        await page.evaluate(async () => {
+            const midi = (window as any).__midi;
+            midi([0xfa]);
+            for (let i = 0; i < 48; i++) {
+                midi([0xf8]);
+                await new Promise((r) => setTimeout(r, 60000 / 120 / 24));
+            }
+        });
+        await page.waitForTimeout(100);
+        const playing = await page.evaluate(() => (window as any).__probe()) as { edges: number; last: number[] };
+        expect(playing.edges).toBeGreaterThanOrEqual(7);
+        expect(playing.edges).toBeLessThanOrEqual(8);
+        expect(playing.last[2]).toBe(1);                            // run
+        const tempo = await page.evaluate(() => (globalThis as any).faustPlayground.scene.midi.clock.tempo);
+        expect(Math.abs(tempo - 120)).toBeLessThan(15);             // timers of a loaded page: approximate
+        // Stop: run 0; no more clock: tempo 0
+        await page.evaluate(() => (window as any).__midi([0xfc]));
+        await page.waitForTimeout(200);
+        expect((await page.evaluate(() => (window as any).__probe()) as any).last[2]).toBe(0);
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.midi.clock.tempo == 0, null, { timeout: 5000 });
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

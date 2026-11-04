@@ -53,7 +53,9 @@ shown on the right), **Enter** adds it. Double click or drag a module to add it 
 
 To play from a **MIDI keyboard**, add the **MIDI to CV** module (Chrome, Edge, Firefox): drop its *pitch* on the
 Pitch of a VCO and its *gate* on the Gate of an ADSR. It also gives the velocity, the modulation wheel and the
-aftertouch, and adds the pitch bend; one note at a time, on one channel or all.
+aftertouch, and adds the pitch bend; one note at a time, on one channel or all. To play in time with a drum machine,
+a hardware sequencer or a DAW, the **MIDI Clock** module follows its MIDI clock: a gate per sixteenth note (or
+eighth, quarter, bar) for a Sequencer, a reset at Start, and the tempo it measures.
 
 <p align="center"><img src="Documentation/screenshots/modules.png" alt="The Modules menu, searching for reverb" width="100%"></p>
 

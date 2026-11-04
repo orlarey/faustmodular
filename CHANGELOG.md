@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.42.0 (2026-11-04)
+
+- **MIDI Clock**, a module of the *Modular* library: follows the MIDI clock of a device (a drum machine, a hardware
+  sequencer, a DAW; 24 clock messages per quarter note, Start, Continue, Stop, Song Position Pointer), so that a
+  Sequencer plays in time with it. Outputs: *clock*, a gate per sixteenth note, eighth note, quarter note or bar
+  (*Division*), the first one on the downbeat after Start, high for *Width* of its period at the tempo measured;
+  *reset*, a gate of 2 ms at Start; *run*, 1 between Start (or Continue) and Stop. *Tempo* shows the tempo measured
+  over a quarter note. Without a clock it plays nothing; when the clock stops for two beats, it stops and its tempo
+  goes back to 0. The application counts the clock messages (`src/midi/ClockFollower.ts`) and gives each module a
+  step at the positions that are multiples of its division.
+
 ## 3.41.0 (2026-11-04)
 
 - **MIDI to CV**, a module of the *Modular* library (*Control*): plays the modules from a MIDI keyboard (Web MIDI:

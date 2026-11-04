@@ -125,7 +125,10 @@ gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock,
 SampleHold, and MIDI to CV, which plays them from a MIDI keyboard (Web MIDI: Chrome, Edge, Firefox), one note at a
 time: pitch (the pitch bend added), gate (a new attack falls for a sample, unless Legato), velocity, modulation
 wheel, aftertouch; channel and note priority (last, lowest, highest). The MIDI devices are asked for when the first
-such module is added (see `MODULAR-LIBRARY.md`).
+such module is added. MIDI Clock follows the MIDI clock of a device (24 clock messages per quarter note, Start,
+Continue, Stop, song position): clock (a gate per sixteenth, eighth, quarter note or bar, Width of its period at the
+tempo measured), reset (at Start), run, and the tempo measured; without a clock it plays nothing (see
+`MODULAR-LIBRARY.md`).
 
 The Modules menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,
