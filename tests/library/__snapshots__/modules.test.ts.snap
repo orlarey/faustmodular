@@ -194,6 +194,7 @@ exports[`library modules > all indexed modules compile, with at most 32 inputs a
   "faust-modules/modular/ADSR.dsp": "0x1",
   "faust-modules/modular/Clock.dsp": "0x1",
   "faust-modules/modular/LFO.dsp": "0x1",
+  "faust-modules/modular/MidiCV.dsp": "0x5",
   "faust-modules/modular/Mixer.dsp": "4x1",
   "faust-modules/modular/Noise.dsp": "0x2",
   "faust-modules/modular/Offset.dsp": "1x1",

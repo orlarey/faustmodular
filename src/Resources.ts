@@ -22,6 +22,8 @@ export class Resources {
     errorObjectNotFaustCompatible: string;
     errorLoading: string;
     errorGettingAudioInput: string;
+    midiUnavailable: string;
+    midiRefused: string;
     librarySearch: string;
     librarySearchNone: string;
     librarySearchHint: string;

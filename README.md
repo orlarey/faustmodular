@@ -42,7 +42,7 @@ Then open the **Modules** menu, add a few modules, and connect them.
 The **Modules** menu holds more than 200 modules, in families:
 
 - **Modular**: the building blocks of a modular synthesizer (VCO, VCF, VCA, ADSR, LFO, Clock, Sequencer,
-  Quantizer, Mixer…), with common conventions: audio in [-1, 1], pitch 0.1 per octave, gates 0/1;
+  Quantizer, Mixer, MIDI to CV…), with common conventions: audio in [-1, 1], pitch 0.1 per octave, gates 0/1;
 - **FaustPlayground**: harps, winds, bars and bowls, instruments with reverb, filters, echoes…;
 - **Faust libraries**: reverbs (Zita, JPverb, Greyhole…), compressors, the Moog filter, equalizers, guitar
   pedals, saturation, delays, drums, physical models (flute, violin, bells…), analyzers;
@@ -50,6 +50,10 @@ The **Modules** menu holds more than 200 modules, in families:
 
 **Type to search**: the field is ready as soon as the menu opens. ↑ ↓ choose a module (its description is
 shown on the right), **Enter** adds it. Double click or drag a module to add it too.
+
+To play from a **MIDI keyboard**, add the **MIDI to CV** module (Chrome, Edge, Firefox): drop its *pitch* on the
+Pitch of a VCO and its *gate* on the Gate of an ADSR. It also gives the velocity, the modulation wheel and the
+aftertouch, and adds the pitch bend; one note at a time, on one channel or all.
 
 <p align="center"><img src="Documentation/screenshots/modules.png" alt="The Modules menu, searching for reverb" width="100%"></p>
 

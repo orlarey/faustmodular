@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.40.0",
+ "version": "3.40.1",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -194,6 +194,7 @@
   "faust-modules/modular/ADSR.dsp": "3e37f602351ca327f7f85654d9892c02ae34b22b",
   "faust-modules/modular/Clock.dsp": "ddeceac40a82ad43f883c8a25379590e899593de",
   "faust-modules/modular/LFO.dsp": "dc90e8538bdbdab09d31b8f0abe7f298f2f29819",
+  "faust-modules/modular/MidiCV.dsp": "09d81aa998e6b8c7595c6e618ef51d358c7b5ba0",
   "faust-modules/modular/Mixer.dsp": "c6c7dae465b409fbe0d2abc49e71e00a5d4a3063",
   "faust-modules/modular/Noise.dsp": "4b5a8ebd19c76731846541bf7bcc065ddaade7bf",
   "faust-modules/modular/Offset.dsp": "bbc672d995915564f2e8c873af943f50af77cfb2",

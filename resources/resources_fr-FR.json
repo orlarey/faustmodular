@@ -8,6 +8,8 @@
   "errorObjectNotFaustCompatible": "Le contenu n'est pas compatible avec Faust",
   "errorLoading": "Erreur lors du chargement de la scène",
   "errorGettingAudioInput": "Le micro ou l'entrée son n'ont pas pu être activés",
+  "midiUnavailable": "Le MIDI n'est pas disponible dans ce navigateur : le module MIDI to CV a besoin de Web MIDI (Chrome, Edge, Firefox)",
+  "midiRefused": "L'accès aux appareils MIDI a été refusé : le module MIDI to CV ne jouera pas",
   "librarySearch": "Chercher un module…",
   "librarySearchNone": "Aucun module trouvé",
   "librarySearchHint": "La recherche cherche chaque mot dans le nom des modules, leurs fonctions Faust, leur famille et leur description, sans tenir compte des majuscules ni des accents. ↑ ↓ choisissent un module, Entrée l'ajoute, Échap efface la recherche.",

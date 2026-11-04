@@ -12,6 +12,7 @@ import type { FaustDspFactory } from "@grame/faustwasm";
 import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { MasterVolume } from "../audio/MasterVolume";
+import { MidiModules } from "../midi/MidiModules";
 import { VolumeControl } from "../view/VolumeControl";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
@@ -82,6 +83,12 @@ interface ModuleDescription {
 export class Scene {
     isMute: boolean = false;
     masterVolume: MasterVolume | null = null;
+    // the MIDI keyboards, played by the MIDI to CV modules (asked for when the first one appears)
+    midi = new MidiModules({
+        modules: () => this.fModuleList,
+        notify: (message) => { new Message(message) },
+        messages: () => Utilitary.messageResource,
+    });
     volumeControl: VolumeControl | null = null;
     //-- Patch model and its audio rendering
     patch: Patch = new Patch();
@@ -479,6 +486,7 @@ export class Scene {
         this.audioGraph.setNode(state.id, dsp);
         this.fModuleList.push(module);
         this.patchView.addModule(module);
+        this.midi.moduleAdded(module);          // a MIDI to CV module: the MIDI devices asked for (once)
     }
 
     removeModule(module: ModuleClass): void {

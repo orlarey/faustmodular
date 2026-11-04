@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.41.0 (2026-11-04)
+
+- **MIDI to CV**, a module of the *Modular* library (*Control*): plays the modules from a MIDI keyboard (Web MIDI:
+  Chrome, Edge, Firefox; not Safari), one note at a time. Outputs: *pitch* (0.1 per octave from C4, the pitch bend
+  added, *Bend* its range in semitones), *gate* (falls for one sample at each new attack, so that an envelope starts
+  again even within a block, unless *Legato*), *velocity*, *mod* (the modulation wheel, CC 1), *aftertouch*, from 0
+  to 1. Settings: *Channel* (omni, 1 to 16), *Priority* (the last note, the lowest, the highest); *Note* shows the
+  note that sounds. A note released hands over to a note still held; all notes off releases everything.
+- The MIDI devices are asked for when the first MIDI to CV module is added, not when the application opens; a
+  browser without Web MIDI, or a refusal, is said. The hidden widgets of the module (`[midicv:…]`) are set from the
+  messages in the DSP only: not saved with the scene, nor steps of the history (`src/midi/`).
+
 ## 3.40.1 (2026-11-04)
 
 - **"-ftz 1" kept, after a comparison with "-ftz 2"** (now that libfaust fixed grame-cncm/faust#1371): on the 217

@@ -122,7 +122,10 @@ of the icons it shows (a test checks the list).
 The *Modular* library (Modules menu) holds modules organized by function, as on ModularGrid, with common
 conventions: audio and bipolar CV in [-1, 1], unipolar CV in [0, 1], pitch 0.1 per octave from C4,
 gates 0/1. A first voice: VCO, Noise, VCF, VCA, ADSR, LFO, Mixer, Offset, Clock, Sequencer, Quantizer,
-SampleHold (see `Documentation/MODULAR-LIBRARY.md`).
+SampleHold, and MIDI to CV, which plays them from a MIDI keyboard (Web MIDI: Chrome, Edge, Firefox), one note at a
+time: pitch (the pitch bend added), gate (a new attack falls for a sample, unless Legato), velocity, modulation
+wheel, aftertouch; channel and note priority (last, lowest, highest). The MIDI devices are asked for when the first
+such module is added (see `MODULAR-LIBRARY.md`).
 
 The Modules menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,

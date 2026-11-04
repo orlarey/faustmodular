@@ -192,6 +192,24 @@
    ]
   },
   {
+   "path": "faust-modules/modular/MidiCV.dsp",
+   "name": "MIDI to CV",
+   "functions": [
+    "MIDI"
+   ],
+   "family": "Control",
+   "summary": "MIDI to CV: the notes of a MIDI keyboard as a pitch and a gate, with the velocity, the modulation wheel and the aftertouch",
+   "description": "- Plays the modules from a MIDI keyboard, one note at a time (Web MIDI: Chrome, Edge, Firefox; not Safari)\n- pitch: 0.1 per octave from C4 (MIDI note 60), the pitch bend added; it stays on the last note after its release\n- gate: 1 while a note is held; a new note falls for a sample, so that an envelope starts again (not in Legato)\n- velocity, mod (the modulation wheel, CC 1), aftertouch: from 0 to 1\n- Channel: omni or 1 to 16; Priority: the last note played, the lowest or the highest of the notes held\n- Legato: a note played while another one is held changes the pitch without a new attack\n- Bend: the range of the pitch bend, in semitones; Note: the note that sounds",
+   "inlets": [],
+   "outlets": [
+    "pitch",
+    "gate",
+    "velocity",
+    "mod",
+    "aftertouch"
+   ]
+  },
+  {
    "path": "faust-modules/modular/Clock.dsp",
    "name": "Clock",
    "functions": [

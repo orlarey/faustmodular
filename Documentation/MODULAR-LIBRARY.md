@@ -170,6 +170,7 @@ Clock,→ clock,Tempo · Division · Width · Reset (bouton)
 Sequencer,→ pitch · gate,Clock (bouton) · Reset (bouton) · Step 1 à 8 · Length
 Quantizer,pitch → pitch,Scale · Tonic
 SampleHold,in → out,Trigger (bouton) · Source
+MidiCV,→ pitch · gate · velocity · mod · aftertouch,Channel · Priority · Legato · Bend
 ```
 
 Les tests (`tests/library/modular.test.ts`) rendent les modulations par le code effectif de l'application, avec le mode qu'elle propose pour chaque widget. Ils vérifient :
@@ -181,6 +182,8 @@ Les tests (`tests/library/modular.test.ts`) rendent les modulations par le code 
 - les portes, horloges et déclencheurs pilotés.
 
 Le SineVCO (3.11.0) est l'oscillateur le plus simple : une fréquence en Hz, un gain. Deux SineVCO font de la FM classique : le spectre mesuré suit celui de Chowning, fc ± k·fm avec les amplitudes |J_k(I)|, à moins de 5·10⁻⁴ près pour une amplitude de 0.5, y compris quand la fréquence passe par zéro. Il ne remplace pas le VCO complet : sa fréquence n'a pas d'entrée de hauteur à 0.1 par octave, un séquenceur ne le joue donc pas juste.
+
+Le module MIDI to CV (3.41.0) joue les modules depuis un clavier MIDI (Web MIDI : Chrome, Edge, Firefox ; pas Safari), une note à la fois : *pitch* à 0.1 par octave depuis C4 (note MIDI 60), le *pitch bend* ajouté (*Bend* : son amplitude en demi-tons) ; *gate* à 1 tant qu'une note est tenue, qui retombe pendant un échantillon à chaque nouvelle attaque (sauf en *Legato*), pour relancer une enveloppe même au sein d'un bloc ; *velocity*, *mod* (molette, CC 1) et *aftertouch* de 0 à 1. *Channel* : omni ou 1 à 16 ; *Priority* : la dernière note, la plus grave ou la plus aiguë des notes tenues. L'application demande l'accès MIDI quand le premier module MIDI est ajouté, et règle les widgets cachés du module (`[midicv:…]`) depuis les messages (`src/midi/MidiModules.ts`, la voix dans `src/midi/MonoVoice.ts`) ; ils ne sont ni sauvés avec la scène ni des étapes de l'historique.
 
 Un test de bout en bout joue la voix séquencée : Clock → Clock du Sequencer, pitch → Quantizer → Pitch du VCO, gate → Gate de l'ADSR, enveloppe → Gain du VCA. Elle est juste à moins de 5 cents.
 :::

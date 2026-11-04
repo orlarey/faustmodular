@@ -74,7 +74,7 @@ export const FAMILIES = [
     ["Sources", ["Oscillator", "Noise", "Drum", "Voice", "Synth", "Resonator", "Sampling"]],
     ["Timbre", ["Filter", "Low Pass Gate", "Waveshaper", "Distortion", "Fuzz", "Ring Modulator", "Equalizer", "Phase Shifter", "Pitch Shifter"]],
     ["Level", ["VCA", "Mixer", "Panning", "Dynamics", "Attenuator", "Polarizer", "Precision Adder"]],
-    ["Control", ["Envelope Generator", "Function Generator", "LFO", "Envelope Follower", "Slew Limiter", "CV Modulation"]],
+    ["Control", ["Envelope Generator", "Function Generator", "LFO", "Envelope Follower", "Slew Limiter", "CV Modulation", "MIDI"]],
     ["Time", ["Clock Generator", "Clock Modulator", "Frequency Divider", "Sequencer", "Shift Register", "Logic", "Comparator", "Switch"]],
     ["Random and pitch", ["Random", "Sample and Hold", "Quantizer"]],
     ["Effects", ["Delay", "Reverb", "Looper", "Effect"]],
