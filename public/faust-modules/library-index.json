@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.24.0",
+ "version": "3.40.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -119,7 +119,7 @@
   "faust-modules/faustlib/PhaserStereo.dsp": "21391b5ad76d3209410ca34f600fe1afb8c9166b",
   "faust-modules/faustlib/PinkTrombone.dsp": "54aa8a731523fa177f258969e42812ae86419755",
   "faust-modules/faustlib/PitchShifter.dsp": "556833d7565a058497e44f0efe4b86ceaa333bf0",
-  "faust-modules/faustlib/PitchTracker.dsp": "f61ae38bc3ee361e46e213926dfb73c6cee6b50c",
+  "faust-modules/faustlib/PitchTracker.dsp": "42cc4621164a3d77874559ab84fe181fee0a02e6",
   "faust-modules/faustlib/PopDrum.dsp": "0dd0061a9230cde5cadb9cd1e6028d40da01ccc5",
   "faust-modules/faustlib/ResonantFilter.dsp": "908b9d625d91896a0158e7f1361cbbda3b026c3c",
   "faust-modules/faustlib/ResonatorOscillator.dsp": "0d0d4847458e6d5b5afa4156189c56c14f25d895",
@@ -130,7 +130,7 @@
   "faust-modules/faustlib/SallenKeyFilter.dsp": "2c0f850c78915ecfcfab61792a59d54c8b944dfe",
   "faust-modules/faustlib/SawtoothOscillator.dsp": "0f2b914ed5574c5d577e5e46113f4c2d2aedb8cf",
   "faust-modules/faustlib/SawTrombone.dsp": "657f4acfdb063a7f8ca32c95e201a9f0df123da9",
-  "faust-modules/faustlib/SpectralCentroid.dsp": "bd655115145b9e56f6152e862feb958988c8c6c9",
+  "faust-modules/faustlib/SpectralCentroid.dsp": "9a759f90c3a25b8f77b84f38f915f993b72184b6",
   "faust-modules/faustlib/SpectralLevel.dsp": "edd6f1a406db6dbc6c9859cbb953a4d8297c38fc",
   "faust-modules/faustlib/SpectralTilt.dsp": "c7006ba3a24b5230cd3b9db5353fbde41000f3c8",
   "faust-modules/faustlib/SpringReverb.dsp": "3004da10a2d9ff0c2b0a59a8e5b336566db95bb4",
@@ -393,6 +393,10 @@
    "path": "faust-modules/combined/TibetanBowl.dsp",
    "until": "3.6.0"
   },
+  "bd655115145b9e56f6152e862feb958988c8c6c9": {
+   "path": "faust-modules/faustlib/SpectralCentroid.dsp",
+   "until": "3.40.0"
+  },
   "bd8f1b57205f569ef0f6cecbef9ff2dcf6e63492": {
    "path": "faust-modules/faustlib/FluteModel.dsp",
    "until": "3.21.0"
@@ -452,6 +456,10 @@
   "f48dae84809d72840ec096cd7bd9b7f27554d919": {
    "path": "faust-modules/faustlib/MarimbaModel.dsp",
    "until": "3.21.0"
+  },
+  "f61ae38bc3ee361e46e213926dfb73c6cee6b50c": {
+   "path": "faust-modules/faustlib/PitchTracker.dsp",
+   "until": "3.40.0"
   },
   "f7671b028999a4a8eb09229e20be3939f45e0b62": {
    "path": "faust-modules/display/Scope.dsp",

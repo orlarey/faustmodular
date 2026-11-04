@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.40.1 (2026-11-04)
+
+- **"-ftz 1" kept, after a comparison with "-ftz 2"** (now that libfaust fixed grame-cncm/faust#1371): on the 217
+  library modules, both give the same signals as no flushing, and both remove the cost of the denormals (52
+  modules at least twice as slow without, up to 73 times); "-ftz 2" is 4.6 % faster (geometric mean), but keeps the
+  NaN of the recursions: a single NaN silences a module for ever, where "-ftz 1" flushes it to 0 (one sample).
+  The reasons and the numbers are in `src/FaustOptions.ts`; a test checks that a NaN does not stay in a module.
+- **Pitch Tracker and Spectral Centroid**: a frequency not yet measured (at the start of a note, in silence) gave a
+  pitch of −∞ (the log of 0), which would lose a VCO it drives; the pitch is now taken from 20 Hz. A test checks
+  that no library module outputs a non-finite value, fed with sines or with silence.
+
 ## 3.40.0 (2026-11-03)
 
 - **A README for the users**: a tour of the application with screenshots (first steps, modules and their search,

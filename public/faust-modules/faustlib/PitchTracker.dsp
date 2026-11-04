@@ -37,5 +37,6 @@ with {
 
 tau = hslider("[0]Response[unit:ms][scale:log]", 20, 1, 1000, 0.1) / 1000;
 threshold = hslider("[1]Threshold[unit:dB]", -40, -80, 0, 0.1);
-// a frequency as a pitch, 0.1 per octave from C4
-pitchOf(f) = log(f / 261.6256) / log(2) / 10;
+// a frequency as a pitch, 0.1 per octave from C4; from 20 Hz, so that a frequency not yet measured (0, at the
+// start of a sound, or in silence) gives a low pitch rather than minus infinity (a VCO it drives would be lost)
+pitchOf(f) = log(max(20, f) / 261.6256) / log(2) / 10;
