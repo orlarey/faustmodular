@@ -155,11 +155,15 @@ function members() {
     return list.sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
 }
 
-// δ to a window: the median of its last ten values (samples).
+// δ to a window, predicted now (samples): two windows may count their samples at slightly different rates, δ then
+// drifts; the line of its values over the last 20 s, at the present time (a median of past values lags behind).
 function delta(other) {
     const peer = peers.get(other);
     if (!peer || peer.deltas.length < 3) return null;
-    return median(peer.deltas.slice(-10).map((x) => x.d));
+    const now = epoch();
+    const recent = peer.deltas.filter((x) => x.T > now - 20000);
+    const fit = recent.length >= 8 ? robustFit(recent.map((x) => x.T), recent.map((x) => x.d)) : null;
+    return fit ? at(fit, now + LOOKAHEAD * 500) : median(peer.deltas.slice(-10).map((x) => x.d));
 }
 
 // The clicks of this window, at the frames of the reference: k·period + rank·gap, through δ.
@@ -271,9 +275,11 @@ function report() {
     const residuals = line ? line.residuals.map((r) => r / sr * 1e6) : [];          // µs
     const blocks = used.filter((r) => Math.abs(r.n / 128 - Math.round(r.n / 128)) < 1e-6).length;
     return {
-        lab: 1, id, date: new Date().toISOString(), userAgent: navigator.userAgent,
+        id, date: new Date().toISOString(), userAgent: navigator.userAgent,
         sampleRate: sr, baseLatency: ctx?.baseLatency, outputLatency: ctx?.outputLatency, timerResolutionMs: resolution,
         role: list[0].id == id ? "reference" : "rank " + list.findIndex((m) => m.id == id),
+        lab: 2, deltaModel: "line over 20 s, at now",
+        driftPpm30s: line ? (line.slope * 1000 / sr - 1) * 1e6 : NaN,
         seconds: used.length ? (used[used.length - 1].T - used[0].T) / 1000 : 0,
         readings: {
             count: used.length, outliers: line?.outliers, residualUs: summary(residuals),
@@ -292,9 +298,13 @@ function report() {
             const dTrip = median(fast.map((t) => t.d));
             return {
                 id: other, active: epoch() - peer.heard < ACTIVE, sampleRate: peer.sr,
+                // its own drift against the clock of the system (its line over 30 s)
+                driftPpm: peer.line ? (peer.line.slope * 1000 / peer.sr - 1) * 1e6 : NaN,
+                deltaNow: delta(other),
                 deltaSamples: {
                     ...summary(ds), last20: dAudible, lastMinute: summary(recent.map((x) => x.d)),
-                    driftPerMinute: dl ? dl.slope * 60000 : NaN, residualStd: dl ? summary(dl.residuals).std : NaN,
+                    driftPerMinute: dl ? dl.slope * 60000 : NaN, driftPpm: dl ? dl.slope * 60000 / (60 * sr) * 1e6 : NaN,
+                    residualStd: dl ? summary(dl.residuals).std : NaN,
                 },
                 roundTrip: {
                     rttMs: summary(rtts), deltaSamples: summary(peer.trips.map((t) => t.d)),
@@ -329,14 +339,16 @@ function show() {
         <tr><th>Résolution de performance.now()</th><td>${f(resolution * 1000, 0)} µs</td></tr>
         <tr><th>Lectures de getOutputTimestamp</th><td>${r.readings.count} en ${f(r.seconds, 0)} s; écartées ${r.readings.outliers ?? "—"}; sur un bloc de 128 : ${f(r.readings.onBlocksOf128 * 100, 0)} %</td></tr>
         <tr><th>Bruit des lectures (30 s)</th><td>σ ${f(r.readings.residualUs.std, 0)} µs; 95 % dans [${f(r.readings.residualUs.p05, 0)}, ${f(r.readings.residualUs.p95, 0)}] µs; extrêmes ${f(r.readings.residualUs.min, 0)} / ${f(r.readings.residualUs.max, 0)} µs</td></tr>
-        <tr><th>Dérive carte / horloge système</th><td>${f(r.driftPpm, 1)} ppm (${f(r.driftPpm * 0.06, 2)} ms par minute)</td></tr>
+        <tr><th>Dérive carte / horloge système</th><td>${f(r.driftPpm, 1)} ppm depuis le début (${f(r.driftPpm * 0.06, 2)} ms par minute); ${f(r.driftPpm30s, 1)} ppm sur 30 s</td></tr>
         <tr><th>Avance du calcul sur le haut-parleur</th><td>médiane ${f(r.readings.aheadMs.median, 2)} ms; [${f(r.readings.aheadMs.p05, 2)}, ${f(r.readings.aheadMs.p95, 2)}]</td></tr>`;
-    $("#peers").innerHTML = r.peers.length == 0 ? '<tr><td colspan="7">Aucune autre fenêtre : ouvre cette page dans une seconde fenêtre.</td></tr>' :
+    $("#peers").innerHTML = r.peers.length == 0 ? '<tr><td colspan="9">Aucune autre fenêtre : ouvre cette page dans une seconde fenêtre.</td></tr>' :
         r.peers.map((p) => `<tr class="${p.active ? "" : "gone"}">
             <td>${p.id}${p.sampleRate != sr ? " ⚠ " + p.sampleRate + " Hz" : ""}</td>
             <td>${f(p.deltaSamples.last20, 1)}</td>
             <td>${f(p.deltaSamples.lastMinute.std, 2)} (${p.deltaSamples.lastMinute.n})</td>
-            <td>${f(p.deltaSamples.driftPerMinute, 2)}</td>
+            <td>${f(p.deltaSamples.driftPerMinute, 2)} (${f(p.deltaSamples.driftPpm, 1)} ppm)</td>
+            <td>${f(p.deltaSamples.residualStd, 2)}</td>
+            <td>${f(p.driftPpm, 1)} / ${f(r.driftPpm30s, 1)}</td>
             <td>${f(p.roundTrip.rttMs.median, 2)} / ${f(p.roundTrip.rttMs.min, 2)} / ${f(p.roundTrip.rttMs.p95, 2)}</td>
             <td>${f(p.roundTrip.deltaFastHalf, 1)} (σ ${f(p.roundTrip.deltaSamples.std, 1)})</td>
             <td>${f(p.roundTrip.minusAudibleMs, 2)}</td></tr>`).join("");

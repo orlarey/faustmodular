@@ -34,7 +34,7 @@
     <ol>
         <li>Ouvre cette page dans <b>deux fenêtres côte à côte</b> (pas deux onglets d'une même fenêtre : un onglet caché a ses minuteries ralenties). Clique <b>Démarrer</b> dans chacune.</li>
         <li>Attends une minute : les lignes se remplissent. δ doit rester constant.</li>
-        <li>Clique <b>Clics</b> dans les deux fenêtres : chacune clique deux fois par seconde, la seconde 100 ms après la première, alignées par δ.</li>
+        <li>Clique <b>Clics</b> dans les deux fenêtres : chacune clique deux fois par seconde, la seconde 100 ms après la première, alignées par δ (prédit par la droite de ses valeurs des 20 dernières secondes).</li>
         <li>Dans une fenêtre, <b>Enregistrer</b> : le micro intégré près des haut-parleurs suffit (le trajet acoustique est le même pour les deux clics), ou un bouclage (BlackHole, câble). L'écart mesuré, moins 100 ms, est l'erreur réelle.</li>
         <li><b>Copier le rapport</b> dans chaque fenêtre, et colle-les dans la conversation. Refais-le après une dizaine de minutes.</li>
     </ol>
@@ -52,7 +52,7 @@
     <h2>Les autres fenêtres</h2>
     <p><small>δ = n<sub>autre</sub>(T) − n<sub>cette fenêtre</sub>(T) au même instant commun T, depuis getOutputTimestamp, sans aller-retour ; en échantillons. Aller-retour : méthode du point milieu sur currentTime (échantillons calculés, pas audibles), la moitié des mesures au RTT le plus court ; son écart à δ, en ms, est la différence des avances de calcul des deux fenêtres.</small></p>
     <div class="scroll"><table>
-        <tr><th>Fenêtre</th><th>δ (éch.)</th><th>σ de δ, dernière minute (n)</th><th>dérive de δ, dernière minute (éch./min)</th><th>RTT méd. / min / p95 (ms)</th><th>δ aller-retour (éch.)</th><th>aller-retour − δ (ms)</th></tr>
+        <tr><th>Fenêtre</th><th>δ (éch.)</th><th>σ de δ, dernière minute (n)</th><th>dérive de δ, dernière minute (éch./min)</th><th>σ de δ autour de sa droite (éch.)</th><th>dérive de l'autre / de celle-ci, 30 s (ppm)</th><th>RTT méd. / min / p95 (ms)</th><th>δ aller-retour (éch.)</th><th>aller-retour − δ (ms)</th></tr>
         <tbody id="peers"></tbody>
     </table></div>
 
