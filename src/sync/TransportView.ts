@@ -5,7 +5,6 @@
 */
 
 import type { SharedTimeline } from "./SharedTimeline";
-import { commonNow } from "./SharedTimeline";
 import { barBeat, TEMPO_MAX, TEMPO_MIN } from "./Timeline";
 
 export class TransportView {
@@ -85,14 +84,14 @@ export class TransportView {
         this.fRewind.title = texts.rewind;
         this.fTempo.title = texts.tempo;
         this.fPosition.title = texts.position;
-        this.element.title = texts.transport + (this.fSync && this.fSync.peers.size > 0 ? ` (${this.fSync.peers.size + 1})` : "");
+        this.element.title = texts.transport + (this.fSync && this.fSync.peers.length > 0 ? ` (${this.fSync.peers.length + 1})` : "");
         if (t && document.activeElement !== this.fTempo) this.fTempo.value = String(t.tempo);
     }
 
     private showPosition(): void {
         const sync = this.fSync;
         if (!sync) return;
-        const { bar, beat } = barBeat(sync.positionAt(commonNow()), sync.timeline.meter);
+        const { bar, beat } = barBeat(sync.positionNow(), sync.timeline.meter);
         const text = `${bar}:${beat}`;
         if (text != this.fShown) {
             this.fShown = text;

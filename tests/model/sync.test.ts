@@ -2,46 +2,54 @@
 // later, the most recent revision winning), the Timeline core (the position at every sample, a rule switched exactly
 // at its frame, the start), the reserved inputs of a module (declare sync) and their place after the modulations.
 import { describe, expect, it } from "vitest";
-import { apply, barBeat, beatAt, LEAD, newer, newTimeline, Timeline } from "../../src/sync/Timeline";
+import { apply, barBeat, beatAt, newer, newTimeline, rebase, Timeline } from "../../src/sync/Timeline";
 import { TimelineCore } from "../../src/sync/TimelineCore";
 import { processorSource } from "../../src/sync/SharedTimeline";
 import { syncInputs } from "../../src/sync/SyncInputs";
 import { modulatedCode } from "../../src/model/Modulation";
 
-const playing = (t0: number): Timeline => ({ ...newTimeline(0, "a"), playing: true, anchor: { time: t0, beat: 0 }, revision: { time: t0, origin: "a" } });
+// on the clock "a", playing from 1 s
+const playing = (t0: number): Timeline => ({ ...newTimeline("a"), playing: true, anchor: { clock: "a", time: t0, beat: 0 }, revision: { time: 5, origin: "a" } });
+const position = (t: Timeline) => (time: number) => beatAt(t, time);
 
 describe("timeline", () => {
-    it("gives the position at any time, 2 beats per second at 120", () => {
-        const t = playing(1000);
-        expect(beatAt(t, 1000)).toBe(0);
-        expect(beatAt(t, 3500)).toBe(5);
-        expect(beatAt({ ...t, playing: false }, 9999)).toBe(0);
+    it("gives the position at any time of the clock of its anchor, 2 beats per second at 120", () => {
+        const t = playing(1);
+        expect(beatAt(t, 1)).toBe(0);
+        expect(beatAt(t, 3.5)).toBe(5);
+        expect(beatAt({ ...t, playing: false }, 99)).toBe(0);
         expect(barBeat(5, 4)).toEqual({ bar: 2, beat: 2 });
     });
 
-    it("applies an operation LEAD ms later, without a jump; play from the start, stop, locate", () => {
+    it("applies an operation at its effect on the clock of its author, without a jump; play from the start, stop, locate", () => {
         const t = playing(0);
-        const faster = apply(t, { type: "tempo", tempo: 90 }, 2000, "b");
-        expect(faster.anchor).toEqual({ time: 2000 + LEAD, beat: beatAt(t, 2000 + LEAD) });
+        // b decides at the common time 2000 ms; its clock is 0.3 s behind the clock "a": the effect at 1.72 s of "b"
+        // is 2.02 s of "a"
+        const effect = { clock: "b", time: 1.72 };
+        const faster = apply(t, { type: "tempo", tempo: 90 }, 2000, "b", effect, (time) => beatAt(t, time + 0.3));
+        expect(faster.anchor).toEqual({ clock: "b", time: 1.72, beat: beatAt(t, 2.02) });
         expect(faster.tempo).toBe(90);
         expect(faster.revision).toEqual({ time: 2000, origin: "b" });
-        // continuous at the effect, then at 90
-        expect(beatAt(faster, 2000 + LEAD)).toBeCloseTo(beatAt(t, 2000 + LEAD), 9);
-        expect(beatAt(faster, 2000 + LEAD + 2000)).toBeCloseTo(beatAt(t, 2000 + LEAD) + 3, 9);
-        const stopped = apply(faster, { type: "stop" }, 5000, "a");
+        // on the clock "b", continuous at the effect, then at 90
+        expect(beatAt(faster, 1.72 + 2)).toBeCloseTo(beatAt(t, 2.02) + 3, 9);
+        const back = rebase(faster, "a", -0.3);
+        expect(back.anchor).toEqual({ clock: "a", time: 2.02, beat: faster.anchor.beat });
+        expect(beatAt(back, 4.02)).toBeCloseTo(beatAt(faster, 3.72), 9);
+        const stopped = apply(faster, { type: "stop" }, 5000, "b", { clock: "b", time: 5 }, position(faster));
         expect(stopped.playing).toBe(false);
-        expect(beatAt(stopped, 99999)).toBeCloseTo(beatAt(faster, 5000 + LEAD), 9);
-        expect(apply(stopped, { type: "stop" }, 6000, "a")).toBe(stopped);           // nothing to do
-        expect(apply(stopped, { type: "play", fromStart: true }, 7000, "a").anchor).toEqual({ time: 7000 + LEAD, beat: 0 });
-        expect(apply(stopped, { type: "locate", beat: 8 }, 7000, "a").anchor.beat).toBe(8);
+        expect(beatAt(stopped, 99)).toBeCloseTo(beatAt(faster, 5), 9);
+        expect(apply(stopped, { type: "stop" }, 6000, "a", { clock: "a", time: 6 }, position(stopped))).toBe(stopped);   // nothing to do
+        expect(apply(stopped, { type: "play", fromStart: true }, 7000, "a", { clock: "a", time: 7 }, position(stopped)).anchor).toEqual({ clock: "a", time: 7, beat: 0 });
+        expect(apply(stopped, { type: "locate", beat: 8 }, 7000, "a", { clock: "a", time: 7 }, position(stopped)).anchor.beat).toBe(8);
     });
 
     it("orders the revisions: the later one, then the larger origin", () => {
-        const a = { ...newTimeline(0, "a"), revision: { time: 10, origin: "a" } };
-        const b = { ...newTimeline(0, "b"), revision: { time: 10, origin: "b" } };
+        const a = { ...newTimeline("a"), revision: { time: 10, origin: "a" } };
+        const b = { ...newTimeline("b"), revision: { time: 10, origin: "b" } };
         expect(newer(b, a)).toBe(true);
         expect(newer(a, b)).toBe(false);
         expect(newer({ ...a, revision: { time: 11, origin: "a" } }, b)).toBe(true);
+        expect(newer(a, newTimeline("c"))).toBe(true);           // a new timeline is older than any change
     });
 });
 

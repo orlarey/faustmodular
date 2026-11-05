@@ -3,27 +3,36 @@
     applications of the browser over a BroadcastChannel, and the Timeline node that gives its position at every
     sample of this application's audio context.
 
-    - The protocol (§ 6): `hello` at the opening, answered by every other application with its timeline and a fresh
-      anchor (the position now, on its own audio clock); `state` at every operation; the most recent revision wins.
-    - The translation (§ 7.1): an anchor, in common time, becomes a sample of the context by getOutputTimestamp
-      (the instant that comes out of the speaker): two applications that aim at the same common time aim at the same
-      audible instant. The offset between the two clocks is the median of the last readings.
-    - Then the position advances in samples (§ 7.2, TimelineCore.ts): on one sound card, the tabs count their
-      samples together, without drift.
+    - The clock of the application (§ 7.1, ClockLine.ts): the time of its context that comes out of the speaker, at a
+      time of the common clock, from getOutputTimestamp; published every 500 ms (`clock`).
+    - The differences with the other clocks (§ 7.2, ClockOffset.ts): δ = t_other − t_self at the same common time,
+      measured once both clocks are settled, and frozen. On one sound card, the samples of the applications advance
+      together: δ does not change. Measured again only when a context resumes after a suspension (its time stopped).
+    - The timeline (§ 4): its anchor is on the clock of the application that made the last change; each application
+      translates it into samples of its context by δ, once (and again only when δ is frozen or measured again).
+    - The protocol (§ 6): `hello` at the opening, answered by every other application with its timeline; `state` at
+      every operation; the most recent revision wins.
 */
 
-import { apply, beatAt, newer, newTimeline, Operation, Timeline } from "./Timeline";
+import { ClockLine, ClockLineMessage, lineAt } from "./ClockLine";
+import { ClockOffset } from "./ClockOffset";
+import { apply, ClockTime, LEAD, newer, newTimeline, Operation, rebase, Timeline } from "./Timeline";
 import { TIMELINE_CHANNELS, TimelineCore, TimelineRule } from "./TimelineCore";
 
 export const SYNC_CHANNEL = "faust-sync";
-export const SYNC_VERSION = 1;
-const READINGS = 11;            // getOutputTimestamp readings in the median
-const READ_EVERY = 100;         // ms
-const RETRANSLATE = 1;          // ms: the estimate of the clocks moved that much, the timeline is translated again
+export const SYNC_VERSION = 2;
+const READ_EVERY = 50;          // ms: a reading of getOutputTimestamp
+const CLOCK_EVERY = 500;        // ms: the clock published
+const ACTIVE = 3000;            // ms: an application not heard for longer has left
+const RETRANSLATE = 0.0001;     // s: a value of δ not yet frozen that moves more: the anchor translated again
+
+// The clock of an application, as it publishes it: `epoch` changes when its context resumes after a suspension.
+export interface ClockPayload { epoch: number; sampleRate: number; line: ClockLineMessage | null }
 
 export type SyncMessage =
     | { protocol: "faust-sync"; version: number; type: "hello"; origin: string }
-    | { protocol: "faust-sync"; version: number; type: "state"; origin: string; timeline: Timeline };
+    | { protocol: "faust-sync"; version: number; type: "clock"; origin: string; clock: ClockPayload }
+    | { protocol: "faust-sync"; version: number; type: "state"; origin: string; timeline: Timeline; clock: ClockPayload };
 
 export const commonNow = () => performance.timeOrigin + performance.now();
 
@@ -48,22 +57,23 @@ const PROCESSOR = processorSource(TimelineCore.toString());
 export class SharedTimeline {
     readonly origin: string;
     timeline: Timeline;
-    // the timeline in samples of this context (TimelineCore), for the positions read here
+    readonly clock = new ClockLine();
+    private fEpoch = 0;
+    private fEverReady = false;
+    private fPeers = new Map<string, { offset: ClockOffset; line: ClockLineMessage | null; epoch: number; heard: number }>();
+    // the timeline in samples of this context (TimelineCore), and the δ it was translated with
     private fRule: TimelineRule | null = null;
+    private fTranslated: number | null = null;
     private fNode: AudioWorkletNode | null = null;
     private fSplitter: ChannelSplitterNode | null = null;
     private fChannel: BroadcastChannel | null = null;
-    private fOffsets: number[] = [];            // contextTime·1000 − performanceTime (ms), the last readings
-    private fUsedOffset: number | null = null;  // the estimate the timeline was translated with
     private fListeners: Array<() => void> = [];
-    peers = new Set<string>();                  // the other applications heard from
 
     constructor(private fContext: AudioContext, app: string) {
         const id = typeof crypto != "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random()).slice(2);
         this.origin = `${app}:${id}`;
-        // a fresh timeline: older than any change (revision 0), so that an answer replaces it
-        this.timeline = newTimeline(commonNow(), this.origin);
-        this.timeline.revision.time = 0;
+        // a new timeline: older than any change (revision 0), so that an answer replaces it
+        this.timeline = newTimeline(this.origin);
     }
 
     // The node and the channel; `hello` to the others.
@@ -76,15 +86,23 @@ export class SharedTimeline {
         });
         this.fSplitter = this.fContext.createChannelSplitter(TIMELINE_CHANNELS.length);
         this.fNode.connect(this.fSplitter);
-        this.read();
         setInterval(() => this.read(), READ_EVERY);
-        // after a suspension, the samples did not advance: the timeline is translated again
-        this.fContext.addEventListener("statechange", () => { if (this.fContext.state == "running") this.translate(); });
+        setInterval(() => this.announce(), CLOCK_EVERY);
+        // after a suspension, the time of the context stopped: its clock and the differences are measured again
+        this.fContext.addEventListener("statechange", () => {
+            if (this.fContext.state != "running" || !this.fEverReady) return;
+            this.fEpoch++;
+            this.clock.reset();
+            this.fPeers.forEach((p) => p.offset.reset());
+            this.fTranslated = null;
+            this.announce();
+        });
         this.translate();
         if (typeof BroadcastChannel == "function") {
             this.fChannel = new BroadcastChannel(SYNC_CHANNEL);
             this.fChannel.onmessage = (e) => this.receive(e.data);
             this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "hello", origin: this.origin });
+            this.announce();
         }
     }
 
@@ -93,48 +111,131 @@ export class SharedTimeline {
         return this.fSplitter;
     }
 
+    get peers(): string[] {
+        const now = commonNow();
+        return [...this.fPeers].filter(([, p]) => now - p.heard < ACTIVE).map(([o]) => o);
+    }
+
     onChange(listener: () => void): void {
         this.fListeners.push(listener);
     }
 
-    // An operation of this application (the transport), shared at once.
+    // An operation of this application (the transport), shared at once: anchored on its clock, LEAD ms ahead.
     operate(op: Operation): void {
-        const next = apply(this.timeline, op, commonNow(), this.origin, (time) => this.positionAt(time));
+        const now = commonNow();
+        const effect: ClockTime = { clock: this.origin, time: this.timeAt(now + LEAD) };
+        const next = apply(this.timeline, op, now, this.origin, effect, (time) => this.positionAt(time));
         if (next === this.timeline) return;
         this.adopt(next);
-        this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "state", origin: this.origin, timeline: next });
+        this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "state", origin: this.origin, timeline: next, clock: this.payload() });
     }
 
-    // The position at a common time, as this application plays it (its samples); by the rule before the node.
+    // The time of this clock that comes out of the speaker at a common time (s); before the clock is ready, from the
+    // time of the context.
+    timeAt(T: number): number {
+        if (this.clock.ready) return this.clock.at(T);
+        return this.fContext.currentTime + (T - commonNow()) / 1000;
+    }
+
+    // The position at a time of this clock, as this application plays it (its samples); by the rule before the node.
     positionAt(time: number): number {
-        const rule = this.fRule;
-        if (!rule || !this.mapped()) return beatAt(this.timeline, time);
-        const frame = this.frameOf(time);
+        const rule = this.fRule, t = this.timeline;
+        if (!rule) return t.playing && t.anchor.clock == this.origin ? t.anchor.beat + (time - t.anchor.time) * t.tempo / 60 : t.anchor.beat;
+        const frame = time * this.fContext.sampleRate;
         // a rule not yet in effect: the position it will have
         return rule.playing ? rule.beat + (frame - rule.frame) * rule.tempo / (60 * this.fContext.sampleRate) : rule.beat;
     }
 
-    // The sample of this context that comes out of the speaker at a common time.
-    frameOf(time: number): number {
-        const offset = this.offset();
-        return (time - performance.timeOrigin + offset) / 1000 * this.fContext.sampleRate;
+    // The position that comes out of the speaker now.
+    positionNow(): number {
+        return this.positionAt(this.timeAt(commonNow()));
+    }
+
+    // δ to the clock of another application: t_other − t_self (s); 0 for this one; null if unknown.
+    offsetTo(clock: string): number | null {
+        if (clock == this.origin) return 0;
+        return this.fPeers.get(clock)?.offset.value ?? null;
+    }
+
+    // The differences measured, for the diagnosis.
+    offsets(): Array<{ origin: string; offset: number | null; frozen: boolean; active: boolean }> {
+        const now = commonNow();
+        return [...this.fPeers].map(([origin, p]) => ({ origin, offset: p.offset.value, frozen: p.offset.frozen !== null, active: now - p.heard < ACTIVE }));
     }
 
     /******************** PRIVATE ********************/
 
+    private payload(): ClockPayload {
+        return { epoch: this.fEpoch, sampleRate: this.fContext.sampleRate, line: this.clock.message() };
+    }
+
+    private announce(): void {
+        this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "clock", origin: this.origin, clock: this.payload() });
+    }
+
+    private read(): void {
+        if (this.fContext.state != "running" || typeof this.fContext.getOutputTimestamp != "function") return;
+        const ts = this.fContext.getOutputTimestamp();
+        if (!ts.contextTime || !ts.performanceTime) return;
+        this.clock.add(performance.timeOrigin + ts.performanceTime, ts.contextTime);
+        if (this.clock.ready && !this.fEverReady) {
+            this.fEverReady = true;
+            // the time of this clock now known: an anchor on it translated again (an operation before was estimated)
+            if (this.timeline.anchor.clock == this.origin) this.translate();
+        }
+    }
+
     private receive(message: SyncMessage): void {
         if (!message || message.protocol != "faust-sync" || message.version != SYNC_VERSION || message.origin == this.origin) return;
-        this.peers.add(message.origin);
+        const peer = this.peerOf(message.origin);
+        peer.heard = commonNow();
         if (message.type == "hello") {
-            // the timeline with a fresh anchor: the position now, on this audio clock; the same revision
-            const now = commonNow();
-            const timeline: Timeline = { ...this.timeline, anchor: { time: now, beat: this.positionAt(now) } };
-            this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "state", origin: this.origin, timeline });
+            this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "state", origin: this.origin, timeline: this.answer(), clock: this.payload() });
+            this.announce();
             this.emit();
             return;
         }
-        if (newer(message.timeline, this.timeline)) this.adopt(message.timeline);
-        else this.emit();
+        this.measure(message.origin, message.clock);
+        if (message.type == "state") {
+            if (newer(message.timeline, this.timeline)) this.adopt(message.timeline);
+            else this.emit();
+        }
+    }
+
+    // The timeline for an application that arrives: as is, its anchor on a clock it can measure; anchored on this
+    // clock if the application of the anchor has left.
+    private answer(): Timeline {
+        const t = this.timeline, clock = t.anchor.clock;
+        if (clock == this.origin || this.peers.includes(clock)) return t;
+        const offset = this.offsetTo(clock);
+        return offset === null ? t : rebase(t, this.origin, offset);
+    }
+
+    private peerOf(origin: string) {
+        let peer = this.fPeers.get(origin);
+        if (!peer) {
+            peer = { offset: new ClockOffset(), line: null, epoch: -1, heard: 0 };
+            this.fPeers.set(origin, peer);
+        }
+        return peer;
+    }
+
+    // A value of δ to an application, from its clock and this one at the same common time.
+    private measure(origin: string, payload: ClockPayload): void {
+        const peer = this.peerOf(origin);
+        if (payload.epoch != peer.epoch) {
+            peer.epoch = payload.epoch;
+            peer.offset.reset();
+        }
+        peer.line = payload.line;
+        const own = this.clock.message();
+        if (!own || !peer.line) return;
+        const T = Math.min(own.T, peer.line.T);
+        const frozen = peer.offset.add(T, lineAt(peer.line, T) - this.clock.at(T), own.settled && peer.line.settled);
+        const d = peer.offset.value!;
+        if (this.timeline.anchor.clock == origin && (frozen || this.fTranslated === null || (peer.offset.frozen === null && Math.abs(d - this.fTranslated) > RETRANSLATE))) {
+            this.translate();
+        }
     }
 
     private adopt(timeline: Timeline): void {
@@ -143,11 +244,15 @@ export class SharedTimeline {
         this.emit();
     }
 
-    // The timeline, from common time to samples, to the node.
+    // The timeline, from the clock of its anchor to samples of this context, to the node; not before δ is known.
     private translate(): void {
         const t = this.timeline;
-        this.fUsedOffset = this.mapped() ? this.offset() : null;
-        const rule: TimelineRule = { frame: Math.round(this.frameOf(t.anchor.time)), beat: t.anchor.beat, tempo: t.tempo, meter: t.meter, playing: t.playing };
+        const offset = this.offsetTo(t.anchor.clock);
+        if (offset === null) return;
+        this.fTranslated = t.anchor.clock == this.origin ? null : offset;
+        const rule: TimelineRule = {
+            frame: (t.anchor.time - offset) * this.fContext.sampleRate, beat: t.anchor.beat, tempo: t.tempo, meter: t.meter, playing: t.playing,
+        };
         this.fRule = rule;
         this.fNode?.port.postMessage(rule);
     }
@@ -158,28 +263,5 @@ export class SharedTimeline {
 
     private emit(): void {
         this.fListeners.forEach((l) => l());
-    }
-
-    // A reading of the two clocks: the context time that comes out of the speaker at a performance time.
-    private read(): void {
-        if (this.fContext.state != "running" || typeof this.fContext.getOutputTimestamp != "function") return;
-        const ts = this.fContext.getOutputTimestamp();
-        if (!ts.contextTime || !ts.performanceTime) return;
-        this.fOffsets.push(ts.contextTime * 1000 - ts.performanceTime);
-        if (this.fOffsets.length > READINGS) this.fOffsets.shift();
-        // the estimate of the clocks moved (the first readings after the context starts or resumes are off by
-        // tens of ms; before any, the latency of the output was not known): the timeline translated again
-        if (this.fUsedOffset === null || Math.abs(this.offset() - this.fUsedOffset) > RETRANSLATE) this.translate();
-    }
-
-    private mapped(): boolean {
-        return this.fOffsets.length > 0;
-    }
-
-    // The median of the readings; before any (a context not yet running), the current time of the context.
-    private offset(): number {
-        if (this.fOffsets.length == 0) return this.fContext.currentTime * 1000 - performance.now();
-        const sorted = [...this.fOffsets].sort((a, b) => a - b);
-        return sorted[sorted.length >> 1];
     }
 }

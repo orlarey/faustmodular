@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.44.0 (2026-11-06)
+
+- **faust-sync 0.3** (`Documentation/FAUST-SYNC-SPEC.md`): measured on a Mac with the lab, the sound card and the
+  clock of the system drift apart (−38 ppm), while the audio clocks of two windows keep a constant difference (within
+  half a sample); 3.43 counted the musical time in samples but realigned each window on the clock of the system,
+  hence jumps of 1 ms every few seconds, at different moments in each window.
+- The anchor of the timeline is now on the audio clock of the application that made the last change (the time of its
+  context that comes out of the speaker); each other application translates it by the difference δ between their two
+  clocks, measured once both are settled and **frozen** (`src/sync/ClockOffset.ts`). No reference, no realignment.
+- The clock of an application (`src/sync/ClockLine.ts`): its drift over 30 s, its offset from the median of the last
+  second; a jump of the latency announced by the system (opening a microphone, for one) is followed while the clock
+  settles, then compensated: the sound of an application does not move in a system that works, only the latency it
+  announces. A context that resumes after a suspension measures again (its time stopped).
+- The protocol is version 2 (`clock` messages every 500 ms; the anchor of `state` on a clock): a window of 3.43 and one
+  of 3.44 ignore each other.
+
 ## 3.43.1 (2026-11-05)
 
 - **The transport stayed greyed out in the published application**: the Timeline node did not load. Its script is

@@ -1,33 +1,46 @@
 /*				TIMELINE.TS
-    The shared timeline of faust-sync (Documentation/FAUST-SYNC-SPEC.md, § 4 and 5): a tempo, a meter, a
-    transport, and the rule giving the musical position at any common time (ms, performance.timeOrigin +
-    performance.now(), the same clock for every tab of the browser). Pure: the protocol is SharedTimeline.ts.
+    The shared timeline of faust-sync (Documentation/FAUST-SYNC-SPEC.md, § 4 and 5): a tempo, a meter, a transport,
+    and the rule giving the musical position. Its anchor is on the clock of an application (the time of its audio
+    context that comes out of the speaker, s): the others translate it by the difference of their clocks, measured
+    once and frozen (§ 7.2). Pure: the protocol is SharedTimeline.ts.
 
-    An operation decided at the common time t takes effect at t + LEAD, so that every application receives it
-    before and switches at the same audible sample; the position does not jump, unless asked (play from the
-    start, locate). Its revision is (t, origin): the most recent one wins everywhere (§ 6.2).
+    An operation decided at the common time `now` (ms, performance.timeOrigin + performance.now(), the same clock for
+    every tab) takes effect LEAD ms later, so that every application receives it before and switches at the same
+    audible sample; the position does not jump, unless asked (play from the start, locate). Its revision is
+    (now, origin): the most recent one wins everywhere (§ 6.2).
 */
 
 export const LEAD = 20;                 // ms between an operation and its effect
 export const TEMPO_MIN = 20;
 export const TEMPO_MAX = 999;
 
+// A time on the clock of an application: `clock` its origin, `time` the time of its context (s).
+export interface ClockTime { clock: string; time: number }
+
 export interface Timeline {
     tempo: number;                      // beats (quarter notes) per minute
     meter: number;                      // beats per bar
     playing: boolean;
-    anchor: { time: number; beat: number };     // at the common time `time` (ms), the position was (will be) `beat`
+    anchor: ClockTime & { beat: number };       // at that time of that clock, the position was (will be) `beat`
     revision: { time: number; origin: string };
 }
 
-export function newTimeline(now: number, origin: string): Timeline {
-    return { tempo: 120, meter: 4, playing: false, anchor: { time: now, beat: 0 }, revision: { time: now, origin } };
+// A new timeline, stopped at 0, anchored on the clock of `origin`; `revision`: its time (0, older than any change).
+export function newTimeline(origin: string, revision = 0): Timeline {
+    return { tempo: 120, meter: 4, playing: false, anchor: { clock: origin, time: 0, beat: 0 }, revision: { time: revision, origin } };
 }
 
-// The position at a common time (beats).
+// The position at a time of the clock of its anchor (beats).
 export function beatAt(timeline: Timeline, time: number): number {
     const { anchor } = timeline;
-    return timeline.playing ? anchor.beat + (time - anchor.time) * timeline.tempo / 60000 : anchor.beat;
+    return timeline.playing ? anchor.beat + (time - anchor.time) * timeline.tempo / 60 : anchor.beat;
+}
+
+// The same timeline, anchored on another clock: `offset` = t_clock − t_other, the difference of the two clocks (s).
+// Nothing changes but the reference of the anchor.
+export function rebase(timeline: Timeline, clock: string, offset: number): Timeline {
+    if (timeline.anchor.clock == clock) return timeline;
+    return { ...timeline, anchor: { clock, time: timeline.anchor.time - offset, beat: timeline.anchor.beat } };
 }
 
 // `a` is more recent than `b`: a later revision, then the larger origin (a total order).
@@ -47,25 +60,24 @@ export type Operation =
     | { type: "locate"; beat: number }
     | { type: "meter"; meter: number };
 
-// The timeline after an operation decided at the common time `now` by `origin` (effect at now + LEAD).
-// `position` gives the position at a common time as this application hears it (its audio clock); by default the
-// rule of the timeline.
-export function apply(timeline: Timeline, op: Operation, now: number, origin: string,
-    position: (time: number) => number = (time) => beatAt(timeline, time)): Timeline {
-    const effect = now + LEAD;
+// The timeline after an operation decided at the common time `now` by `origin`. `effect`: the time of its clock at
+// which it takes effect (its time now + LEAD); `position`: the position at a time of that clock, as this application
+// plays it.
+export function apply(timeline: Timeline, op: Operation, now: number, origin: string, effect: ClockTime,
+    position: (time: number) => number): Timeline {
     const revision = { time: now, origin };
-    const here = { time: effect, beat: position(effect) };
+    const at = (beat: number) => ({ clock: effect.clock, time: effect.time, beat });
     switch (op.type) {
         case "tempo":
-            return { ...timeline, tempo: clampTempo(op.tempo), anchor: here, revision };
+            return { ...timeline, tempo: clampTempo(op.tempo), anchor: at(position(effect.time)), revision };
         case "play":
             if (timeline.playing && !op.fromStart) return timeline;
-            return { ...timeline, playing: true, anchor: op.fromStart ? { time: effect, beat: 0 } : here, revision };
+            return { ...timeline, playing: true, anchor: at(op.fromStart ? 0 : position(effect.time)), revision };
         case "stop":
             if (!timeline.playing) return timeline;
-            return { ...timeline, playing: false, anchor: here, revision };
+            return { ...timeline, playing: false, anchor: at(position(effect.time)), revision };
         case "locate":
-            return { ...timeline, anchor: { time: effect, beat: op.beat }, revision };
+            return { ...timeline, anchor: at(op.beat), revision };
         case "meter":
             return { ...timeline, meter: Math.max(1, Math.min(16, Math.round(op.meter))), revision };
     }

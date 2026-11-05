@@ -23,8 +23,8 @@ afterAll(async () => {
     await server?.close();
 });
 
-// A tab with a Sync Clock and a probe of its gates (window.__edges(): the common times of the rising edges since the
-// last call).
+// A tab with a Sync Clock and a probe of its gates (window.__edges(clock): the rising edges since the last call, as
+// times of the clock `clock`, by the difference this tab measured with it).
 async function open(context: BrowserContext): Promise<{ page: Page; errors: string[]; id: string }> {
     const page = await context.newPage();
     const errors: string[] = [];
@@ -49,11 +49,10 @@ async function open(context: BrowserContext): Promise<{ page: Page; errors: stri
         sink.gain.value = 0;
         probe.connect(sink).connect(ac.destination);
         (window as any).__probe = probe;
-        (window as any).__edges = () => new Promise((r) => {
+        (window as any).__edges = (clock: string) => new Promise((r) => {
             probe.port.onmessage = (e) => {
-                const sync = scene.sync, sr = ac.sampleRate;
-                const offset = sync.frameOf(0) / sr * 1000 + performance.timeOrigin;      // frameOf inverted
-                r(e.data.map((f: number) => f / sr * 1000 + performance.timeOrigin - offset));
+                const offset = scene.sync.offsetTo(clock), sr = ac.sampleRate;
+                r(e.data.map((f: number) => (f / sr + offset) * 1000));
             };
             probe.port.postMessage(0);
         });
@@ -67,7 +66,7 @@ async function open(context: BrowserContext): Promise<{ page: Page; errors: stri
 const timeline = (page: Page) => page.evaluate(() => { const t = (globalThis as any).faustPlayground.scene.sync.timeline; return { playing: t.playing, tempo: t.tempo }; });
 
 describe("faust-sync between two faustmodular", () => {
-    it("aligns the gates of a tab opened while the other plays; shares the tempo and the stop", async () => {
+    it("aligns the gates of a tab opened while the other plays, by the frozen difference of their clocks; shares the tempo and the stop", async () => {
         const context = await browser.newContext({ viewport: { width: 1300, height: 800 }, locale: "en-US" });
         const A = await open(context);
         await A.page.waitForTimeout(500);
@@ -76,15 +75,20 @@ describe("faust-sync between two faustmodular", () => {
         await A.page.waitForTimeout(2000);
         const B = await open(context);
         await B.page.waitForFunction(() => (globalThis as any).faustPlayground.scene.sync.timeline.playing, null, { timeout: 5000 });
-        await B.page.waitForTimeout(1500);
-        await A.page.evaluate(() => (window as any).__edges());
-        await B.page.evaluate(() => (window as any).__edges());
+        // B measures its difference with the clock of A, and freezes it once both clocks are settled (about 10 s)
+        const a = await A.page.evaluate(() => (globalThis as any).faustPlayground.scene.sync.origin);
+        await B.page.waitForFunction((o) => (globalThis as any).faustPlayground.scene.sync.offsets().some((x: any) => x.origin == o && x.frozen), a, { timeout: 30_000 });
+        await B.page.waitForTimeout(500);
+        await A.page.evaluate((o) => (window as any).__edges(o), a);
+        await B.page.evaluate((o) => (window as any).__edges(o), a);
         await A.page.waitForTimeout(3000);
-        const [ea, eb] = [await A.page.evaluate(() => (window as any).__edges()), await B.page.evaluate(() => (window as any).__edges())] as number[][];
+        const [ea, eb] = [await A.page.evaluate((o) => (window as any).__edges(o), a), await B.page.evaluate((o) => (window as any).__edges(o), a)] as number[][];
         expect(ea.length).toBeGreaterThanOrEqual(20);                  // 8 sixteenth notes per second at 120
         expect(Math.abs(eb.length - ea.length)).toBeLessThanOrEqual(1);
-        const gaps = eb.map((e) => Math.min(...ea.map((a) => Math.abs(e - a)))).sort((x, y) => x - y);
-        expect(gaps[gaps.length >> 1]).toBeLessThan(2);                // the median gap, ms
+        // the gates of B, on the clock of A by the frozen difference, fall on those of A within a sample (the timeline
+        // is translated exactly; whether the difference itself is right is measured with a sound card, § 10)
+        const gaps = eb.map((e) => Math.min(...ea.map((x) => Math.abs(e - x)))).sort((x, y) => x - y);
+        expect(gaps[gaps.length - 1]).toBeLessThan(0.05);              // ms
         // B's transport shows the playing; B changes the tempo, A follows
         expect(await B.page.locator("#transport").getAttribute("class")).toContain("playing");
         await B.page.locator("#transport .transportTempo").fill("90");
@@ -114,9 +118,10 @@ describe("faust-sync between two faustmodular", () => {
         }, A.id);
         expect(await A.page.evaluate((m) => (globalThis as any).faustPlayground.scene.patch.getModule(m).numInputs, A.id)).toBe(0);
         await A.page.waitForTimeout(500);
-        await A.page.evaluate(() => (window as any).__edges());
+        const a = await A.page.evaluate(() => (globalThis as any).faustPlayground.scene.sync.origin);
+        await A.page.evaluate((o) => (window as any).__edges(o), a);
         await A.page.waitForTimeout(2000);
-        const edges = await A.page.evaluate(() => (window as any).__edges()) as number[];
+        const edges = await A.page.evaluate((o) => (window as any).__edges(o), a) as number[];
         expect(edges.length).toBeGreaterThanOrEqual(14);
         expect(A.errors).toEqual([]);
         await context.close();
