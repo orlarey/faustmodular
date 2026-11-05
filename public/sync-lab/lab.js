@@ -26,7 +26,8 @@ const ANNOUNCE_EVERY = 500;     // ms
 const PING_EVERY = 200;         // ms
 const ACTIVE = 2500;            // ms: a window not heard for longer has left
 const PERIOD = 0.5, GAP = 0.1;  // s: the clicks
-const LOOKAHEAD = 0.3;          // s
+const LOOKAHEAD = 1;            // s: the clicks scheduled that far ahead (the timers of a window may be late by 0.5 s)
+const LAB_VERSION = 3;          // the windows of another version of the page are ignored
 
 const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).slice(0, 8);
 const epoch = () => performance.timeOrigin + performance.now();
@@ -36,6 +37,7 @@ let ctx = null, sr = 0, startedAt = 0;
 const readings = [];            // { T, n, ahead }: the audible frame n at the common time T; ahead: rendered − audible
 let line = null;                // n(T) over the window
 let driftLine = null;           // n(T) over all the readings
+const foreign = new Set();      // the windows of another version (an old page still open)
 const peers = new Map();        // id → { start, sr, line, heard, deltas: [{T, d}], trips: [{T, rtt, d}], pending }
 let channel = null;
 let seq = 0;
@@ -100,7 +102,7 @@ function fits() {
 }
 
 function post(message) {
-    try { channel.postMessage({ ...message, id }); } catch { /* closed */ }
+    try { channel.postMessage({ ...message, id, version: LAB_VERSION }); } catch { /* closed */ }
 }
 
 function announce() {
@@ -124,6 +126,7 @@ function peerOf(other) {
 
 function receive(m) {
     if (!m || m.id == id) return;
+    if (m.version != LAB_VERSION) { foreign.add(m.id); return; }
     if (m.to && m.to != id) return;
     const peer = peerOf(m.id);
     peer.heard = epoch();
@@ -147,11 +150,11 @@ function receive(m) {
     }
 }
 
-// The windows that play, the reference first (the oldest).
+// The windows that measure (a line of their clock), the reference first (the oldest).
 function members() {
     const now = epoch();
-    const list = [{ id, start: startedAt }];
-    for (const [other, peer] of peers) if (now - peer.heard < ACTIVE && peer.start) list.push({ id: other, start: peer.start });
+    const list = line ? [{ id, start: startedAt }] : [];
+    for (const [other, peer] of peers) if (now - peer.heard < ACTIVE && peer.start && peer.line) list.push({ id: other, start: peer.start });
     return list.sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
 }
 
@@ -168,17 +171,22 @@ function delta(other) {
 
 // The clicks of this window, at the frames of the reference: k·period + rank·gap, through δ.
 function schedule() {
-    if (!clicks || !ctx) return;
+    if (!ctx) return;
+    const status = (text) => { $("#clickStatus").textContent = text; };
+    if (!clicks) return status("");
     const list = members();
-    const ref = list[0].id, rank = list.findIndex((m) => m.id == id);
-    if (rank > 3) return;
+    const rank = list.findIndex((m) => m.id == id);
+    if (rank < 0) return status("clics en attente : pas encore de mesure de l'horloge");
+    if (rank > 3) return status("pas de clics : rang " + rank + " (quatre fenêtres au plus)");
+    const ref = list[0].id;
     if (ref != lastRef) { lastRef = ref; lastK = -Infinity; }
     let d = 0;
     if (ref != id) {
-        if (peers.get(ref).sr != sr) return;
+        if (peers.get(ref).sr != sr) return status("pas de clics : la référence n'a pas la même fréquence");
         d = delta(ref);
-        if (d === null) return;
+        if (d === null) return status("clics en attente de δ vers la référence " + ref);
     }
+    status(ref == id ? "clics : référence" : `clics : rang ${rank}, δ vers ${ref} = ${d.toFixed(1)} éch.`);
     // the gap between the ranks: 100 ms to measure (the recording tells the windows apart), 0 to listen (one click if
     // they are aligned, a flam beyond a few ms)
     const P = PERIOD * sr, G = Number($("#gap").value) * sr;
@@ -279,7 +287,7 @@ function report() {
     return {
         id, date: new Date().toISOString(), userAgent: navigator.userAgent,
         sampleRate: sr, baseLatency: ctx?.baseLatency, outputLatency: ctx?.outputLatency, timerResolutionMs: resolution,
-        role: list[0].id == id ? "reference" : "rank " + list.findIndex((m) => m.id == id),
+        role: !list.some((m) => m.id == id) ? "waiting" : list[0].id == id ? "reference" : "rank " + list.findIndex((m) => m.id == id),
         lab: 2, deltaModel: "line over 20 s, at now",
         driftPpm30s: line ? (line.slope * 1000 / sr - 1) * 1e6 : NaN,
         seconds: used.length ? (used[used.length - 1].T - used[0].T) / 1000 : 0,
@@ -289,6 +297,8 @@ function report() {
             aheadMs: summary(used.map((r) => r.ahead / sr * 1000)),
         },
         driftPpm: driftLine ? (driftLine.slope * 1000 / sr - 1) * 1e6 : NaN,
+        driftSlicesPpm: slices(used),
+        foreign: [...foreign],
         peers: [...peers].map(([other, peer]) => {
             const ds = peer.deltas.map((x) => x.d);
             // the last minute: the first values come from lines still short
@@ -318,6 +328,19 @@ function report() {
     };
 }
 
+// The drift against the clock of the system, by slices of 30 s (does it change along the way?).
+function slices(used) {
+    const out = [];
+    if (!used.length) return out;
+    for (let t = used[0].T; ; t += WINDOW) {
+        const part = used.filter((r) => r.T >= t && r.T < t + WINDOW);
+        if (part.length < 100) break;
+        const fit = robustFit(part.map((r) => r.T), part.map((r) => r.n));
+        if (fit) out.push(Math.round((fit.slope * 1000 / sr - 1) * 1e6 * 10) / 10);
+    }
+    return out;
+}
+
 function data() {
     return {
         report: report(),
@@ -336,12 +359,13 @@ function show() {
     const r = report();
     const list = members();
     $("#self").innerHTML = `
-        <tr><th>Fenêtre</th><td>${id} — ${r.role == "reference" ? "<b>référence</b>" : r.role} (${list.length} en tout)</td></tr>
+        <tr><th>Fenêtre</th><td>${id} — ${r.role == "reference" ? "<b>référence</b>" : r.role == "waiting" ? "en attente de mesures" : r.role} (${list.length} en tout)</td></tr>
         <tr><th>Fréquence, latences annoncées</th><td>${sr} Hz — base ${f(r.baseLatency * 1000, 1)} ms, sortie ${f(r.outputLatency * 1000, 1)} ms</td></tr>
         <tr><th>Résolution de performance.now()</th><td>${f(resolution * 1000, 0)} µs</td></tr>
         <tr><th>Lectures de getOutputTimestamp</th><td>${r.readings.count} en ${f(r.seconds, 0)} s; écartées ${r.readings.outliers ?? "—"}; sur un bloc de 128 : ${f(r.readings.onBlocksOf128 * 100, 0)} %</td></tr>
         <tr><th>Bruit des lectures (30 s)</th><td>σ ${f(r.readings.residualUs.std, 0)} µs; 95 % dans [${f(r.readings.residualUs.p05, 0)}, ${f(r.readings.residualUs.p95, 0)}] µs; extrêmes ${f(r.readings.residualUs.min, 0)} / ${f(r.readings.residualUs.max, 0)} µs</td></tr>
-        <tr><th>Dérive carte / horloge système</th><td>${f(r.driftPpm, 1)} ppm depuis le début (${f(r.driftPpm * 0.06, 2)} ms par minute); ${f(r.driftPpm30s, 1)} ppm sur 30 s</td></tr>
+        <tr><th>Dérive carte / horloge système</th><td>${f(r.driftPpm, 1)} ppm depuis le début (${f(r.driftPpm * 0.06, 2)} ms par minute); ${f(r.driftPpm30s, 1)} ppm sur les 30 dernières s<br><small>par tranches de 30 s : ${r.driftSlicesPpm.join(", ") || "—"}</small></td></tr>
+        ${r.foreign.length ? `<tr><th>Fenêtres ignorées</th><td>${r.foreign.join(", ")} : une autre version de la page, encore ouverte. Ferme-les.</td></tr>` : ""}
         <tr><th>Avance du calcul sur le haut-parleur</th><td>médiane ${f(r.readings.aheadMs.median, 2)} ms; [${f(r.readings.aheadMs.p05, 2)}, ${f(r.readings.aheadMs.p95, 2)}]</td></tr>`;
     $("#peers").innerHTML = r.peers.length == 0 ? '<tr><td colspan="9">Aucune autre fenêtre : ouvre cette page dans une seconde fenêtre.</td></tr>' :
         r.peers.map((p) => `<tr class="${p.active ? "" : "gone"}">
