@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.41.0",
+ "version": "3.43.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -203,6 +203,7 @@
   "faust-modules/modular/SampleHold.dsp": "56e8a4776d37c64f5f472237ed864bd5b4d0b3be",
   "faust-modules/modular/Sequencer.dsp": "9461db8f918f0395f29c006e3570eeb2e3229938",
   "faust-modules/modular/SineVCO.dsp": "8f22aa96883b8e877786d948acb9cc673cd52ce2",
+  "faust-modules/modular/SyncClock.dsp": "dca0f9ef3de0282b65b29be64b80558c91efe443",
   "faust-modules/modular/VCA.dsp": "6d840822f0354ec8ed0d2be5324b2c601392a78d",
   "faust-modules/modular/VCF.dsp": "6d1559ec084022db3d1ee3b7e28383d33ff1a767",
   "faust-modules/modular/VCO.dsp": "e4524488c80129123a586b9ee447bf254e2c8dfc",

@@ -250,18 +250,23 @@ export function circuit(spec: ModulationSpec): string {
     }
 }
 
-// Effective code of a module with n audio inputs and the given modulations (base code if none).
-export function modulatedCode(code: string, numInputs: number, modulations: ModulationSpec[]): string {
+// Effective code of a module with n audio inputs and the given modulations (base code if none). `reserved`: the
+// inputs of the process after its audio inputs that are not ports (src/sync/SyncInputs.ts); they come last, after
+// the modulations, so that the ports keep their numbers.
+export function modulatedCode(code: string, numInputs: number, modulations: ModulationSpec[], reserved: number = 0): string {
     const k = modulations.length;
     if (k == 0) {
         return code;
     }
-    // modulation ports n..n+k-1 → Faust inputs 1..k; audio ports 0..n-1 → Faust inputs k+1..k+n
+    // modulation ports n..n+k-1 → Faust inputs 1..k; audio ports 0..n-1 → Faust inputs k+1..k+n; reserved inputs
+    // n+k..n+k+r-1 → Faust inputs k+n+1..k+n+r
     const pairs: string[] = [];
     for (let i = 0; i < k; i++) pairs.push(`(${numInputs + i + 1},${i + 1})`);
     for (let i = 0; i < numInputs; i++) pairs.push(`(${i + 1},${k + i + 1})`);
+    for (let i = 0; i < reserved; i++) pairs.push(`(${numInputs + k + i + 1},${k + numInputs + i + 1})`);
+    const total = numInputs + k + reserved;
     const targets = modulations.map((spec) => `${JSON.stringify(spec.target)} : ${circuit(spec)}`).join(",\n    ");
     return `import("stdfaust.lib");\n`
-        + `process = route(${numInputs + k},${numInputs + k},${pairs.join(",")})\n`
+        + `process = route(${total},${total},${pairs.join(",")})\n`
         + `  : [${targets}\n    -> environment{\n${code}\n}.process];\n`;
 }

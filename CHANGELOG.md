@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.43.0 (2026-11-05)
+
+- **faust-sync**: a timeline shared by the Faust applications open in the browser (`Documentation/FAUST-SYNC-SPEC.md`,
+  `src/sync/`): a tempo, a meter, a transport, exchanged over a `BroadcastChannel`; no master, the most recent
+  change wins; an operation takes effect 20 ms after it is decided, so that every tab switches at the same instant.
+  A tab that opens asks the others for the timeline, answered with the position at that moment.
+- The position is counted in **audio samples**: an AudioWorklet (the Timeline node) gives, at every sample, the
+  position in the bar, run, start, the tempo and the meter, from rules translated into samples of the context by
+  `getOutputTimestamp` (the instant that comes out of the speaker). Two tabs on one sound card count their samples
+  together, without drift. Measured in Chromium without a sound card, the second tab opened during the playing: the
+  gates of the two tabs within 0.8 ms of each other.
+- A **transport** in the toolbar: ⏮ (to the beginning), ▶ / ■, the tempo, *bar:beat*.
+- **Sync Clock**, a module of the *Modular* library: the outputs of the MIDI Clock (*clock* per sixteenth, eighth,
+  quarter note or bar, aligned on the bar; *reset* when the playing starts from the beginning; *run*), from the shared
+  timeline, at the sample.
+- **Reserved inputs**: a module that declares `declare sync "beat; run; start; tempo; meter";` (any subset, in any
+  order) receives these channels of the Timeline node on its last inputs, after its audio and modulation inputs;
+  they are not ports of the patch. An exported patch feeds them with 0.
+
 ## 3.42.0 (2026-11-04)
 
 - **MIDI Clock**, a module of the *Modular* library: follows the MIDI clock of a device (a drum machine, a hardware

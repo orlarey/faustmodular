@@ -127,8 +127,9 @@ time: pitch (the pitch bend added), gate (a new attack falls for a sample, unles
 wheel, aftertouch; channel and note priority (last, lowest, highest). The MIDI devices are asked for when the first
 such module is added. MIDI Clock follows the MIDI clock of a device (24 clock messages per quarter note, Start,
 Continue, Stop, song position): clock (a gate per sixteenth, eighth, quarter note or bar, Width of its period at the
-tempo measured), reset (at Start), run, and the tempo measured; without a clock it plays nothing (see
-`MODULAR-LIBRARY.md`).
+tempo measured), reset (at Start), run, and the tempo measured; without a clock it plays nothing. Sync Clock gives the same outputs from the timeline shared by the
+Faust applications of the browser, driven by the transport of the toolbar (see `MODULAR-LIBRARY.md` and
+`FAUST-SYNC-SPEC.md`).
 
 The Modules menu shows all the modules in one view: the families, grouped (*Modular*, then *FaustPlayground*:
 harps, winds, bars and bowls, noises and oscillators, instruments with reverb, filters, echoes and reverbs,

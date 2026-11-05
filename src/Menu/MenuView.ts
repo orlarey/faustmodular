@@ -4,6 +4,7 @@
 /// <reference path="LoadView.ts"/>
 /// <reference path="SaveView.ts"/>
  
+import { TransportView } from "../sync/TransportView";
 import { AccelerometerEditView } from "./AccelerometerEditView";
 import { LoadView } from "./LoadView";
 import { LibraryView } from "./LibraryView";
@@ -29,6 +30,7 @@ export class MenuView {
     zoomValue: HTMLElement;
     zoomInButton: HTMLElement;
     zoomFitButton: HTMLElement;
+    transport: TransportView;
     accButton: HTMLElement;
     loadButton: HTMLElement;
     saveButton: HTMLElement;
@@ -169,6 +171,13 @@ export class MenuView {
         this.zoomValue = zoomButton("zoomValue", "100%", Utilitary.messageResource.zoomReset);
         this.zoomInButton = zoomButton("zoomInButton", "+", Utilitary.messageResource.zoomIn);
         this.zoomFitButton = zoomButton("zoomFitButton", "\u2922", Utilitary.messageResource.zoomFit);
+
+        // the transport of the timeline shared with the other Faust applications (faust-sync)
+        this.transport = new TransportView(() => {
+            var t = Utilitary.messageResource;
+            return { play: t.transportPlay, stop: t.transportStop, rewind: t.transportRewind, tempo: t.transportTempo, position: t.transportPosition, transport: t.transport };
+        });
+        buttonsMenu.appendChild(this.transport.element);
 
         this.HTMLButtonsMenu.push(documentsButton, libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
 

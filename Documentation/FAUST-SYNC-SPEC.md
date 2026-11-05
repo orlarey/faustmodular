@@ -1,7 +1,8 @@
 # faust-sync — une horloge musicale commune aux applications Faust
 
 *Spécification, version 0.2 (proposition, 2026-11-05). La 0.1 comptait le temps musical en temps du système ; la 0.2
-le compte en échantillons audio, le temps du système ne servant plus que de passerelle (§ 2, § 7).*
+le compte en échantillons audio, le temps du système ne servant plus que de passerelle (§ 2, § 7). Réalisée dans
+faustmodular 3.43.0 (§ 8.1, § 12).*
 
 ## 1. Objet
 
@@ -13,7 +14,7 @@ ouvertes dans le même navigateur : faustmodular, faustcode, faustdaw, et les su
 - une application ouverte en cours de route se cale sur les autres.
 
 Elle fonctionne **sans appareil extérieur**, et seule : une application sans partenaire a sa propre ligne de temps.
-Une horloge MIDI extérieure peut la piloter (§ 9.4), sans être nécessaire.
+Une horloge MIDI extérieure peut la piloter (§ 9), sans être nécessaire.
 
 ### 1.1 Cas d'usage principal, et critère
 
@@ -223,12 +224,21 @@ douceur (en modifiant imperceptiblement leur pas), jamais par un saut.
 
 ### 8.1 faustmodular
 
-- Un **transport** dans la barre d'outils : ▶ / ■, le tempo (modifiable), *mesure:temps*.
-- Le module d'horloge synchronisée (le **MIDI Clock** actuel, généralisé) prend sa source dans un menu : *shared* (la
-  ligne de temps commune, par défaut) ou *MIDI*. Sorties : *clock* (une porte par double croche, croche, noire ou
-  mesure, alignée sur la mesure), *reset* (au départ), *run*. Il lit la position du nœud Timeline par une entrée
-  réservée, que l'application branche elle-même (pas un port du patch) : ses portes tombent donc à l'échantillon où la
-  position franchit la division, le même dans toutes les applications.
+Réalisé en 3.43.0 (`src/sync/`).
+
+- Un **transport** dans la barre d'outils : ⏮ (au début : en lecture, `play({ fromStart: true })`, à l'arrêt,
+  `locate(0)`), ▶ / ■, le tempo (modifiable), *mesure:temps*.
+- Un module à part, **Sync Clock** (le MIDI Clock reste tel quel). Sorties : *clock* (une porte par double croche,
+  croche, noire ou mesure, alignée sur la mesure), *reset* (au départ du début), *run*. Il lit le nœud Timeline par
+  cinq entrées réservées, `declare sync "beat; run; start; tempo; meter";` : les dernières entrées du DSP, après
+  l'audio et les modulations, que l'application branche elle-même (pas des ports du patch). Ses portes tombent donc à
+  l'échantillon où la position franchit la division, le même dans toutes les applications.
+- Le nœud Timeline : un AudioWorklet (`TimelineCore.ts`) qui donne, à chaque échantillon, la position dans la mesure,
+  la marche, le départ (un échantillon), le tempo et la mesure, depuis des règles traduites en échantillons du
+  contexte (`SharedTimeline.ts`). La traduction se refait quand la médiane des lectures de `getOutputTimestamp` bouge
+  de plus de 1 ms (les premières lectures après le démarrage du contexte sont fausses de dizaines de ms).
+- Mesuré dans Chromium sans carte son (Playwright, deux onglets, le second ouvert pendant la lecture) : écart des
+  portes entre les deux onglets de −0,81, 0,02 et 0,67 ms sur trois essais ; à valider sur un vrai ordinateur (§ 10).
 
 ### 8.2 faustcode
 
@@ -283,9 +293,9 @@ Déjà mesuré dans Chromium (Playwright, Linux, sans carte son, machine non cha
 - Suites : entre ordinateurs (un serveur WebSocket, WebRTC, ou un pont vers Ableton Link par une petite application
   locale) ; émettre une horloge MIDI vers des appareils, depuis la ligne de temps.
 
-## 12. Questions ouvertes
+## 12. Décisions (faustmodular, 3.43.0)
 
-1. Pas de maître, le dernier changement l'emporte : est-ce le bon modèle, ou faut-il une application maîtresse ?
-2. `play()` quand tout est arrêté : tout de suite (+20 ms), ou à la mesure suivante ?
-3. Le transport de chaque application : ▶ / ■, tempo, *mesure:temps* ; faut-il un métronome ?
-4. faustmodular : généraliser le MIDI Clock (source *shared* / *MIDI*), ou un module à part ?
+1. Pas de maître : le dernier changement l'emporte.
+2. `play()` quand tout est arrêté : tout de suite (+20 ms).
+3. Le transport : ⏮, ▶ / ■, tempo, *mesure:temps* ; pas de métronome.
+4. Un module à part, Sync Clock ; le MIDI Clock ne pilote pas encore la ligne de temps (§ 9).

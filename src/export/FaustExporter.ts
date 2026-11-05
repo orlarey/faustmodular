@@ -23,6 +23,7 @@
     Every module keeps its own controls: modules with the same name get distinct group labels.
 */
 
+import { syncInputs } from "../sync/SyncInputs";
 import { modulatedCode } from "../model/Modulation";
 import { busPairs, ConnectionId, ModuleId, ModuleState, Patch, totalInputs } from "../model/Patch";
 import { APP_TITLE } from "../Version";
@@ -99,7 +100,11 @@ export function exportFaust(patch: Patch, options: ExportOptions): ExportResult 
         const id = `fp_module${k + 1}`;
         identifier.set(m.id, id);
         // effective code: the widget modulations are part of the module
-        let body = `environment{\n${modulatedCode(m.code, m.numInputs, m.modulations.map((x) => x.spec))}\n}.process`;
+        // its reserved inputs (src/sync/SyncInputs.ts) are fed by 0: the exported program has no shared timeline
+        const reserved = syncInputs(m.code).length;
+        let body = `environment{\n${modulatedCode(m.code, m.numInputs, m.modulations.map((x) => x.spec), reserved)}\n}.process`;
+        const ports = m.numInputs + m.modulations.length;
+        if (reserved > 0) body = `(${ports > 0 ? `par(i, ${ports}, _), ` : ""}par(i, ${reserved}, 0)) : ${body}`;
         if ((names.get(m.name) ?? 0) > 1) {
             const n = (seen.get(m.name) ?? 0) + 1;
             seen.set(m.name, n);

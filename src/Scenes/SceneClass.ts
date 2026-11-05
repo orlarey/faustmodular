@@ -13,6 +13,8 @@ import { AccelerometerHandler, Axis } from "../Accelerometer";
 import { AudioGraph } from "../audio/AudioGraph";
 import { MasterVolume } from "../audio/MasterVolume";
 import { MidiModules } from "../midi/MidiModules";
+import { SharedTimeline } from "../sync/SharedTimeline";
+import { syncInputs } from "../sync/SyncInputs";
 import { VolumeControl } from "../view/VolumeControl";
 import { faustWasmEnv } from "../Main";
 import { Confirm, Message } from "../Messages";
@@ -83,6 +85,9 @@ interface ModuleDescription {
 export class Scene {
     isMute: boolean = false;
     masterVolume: MasterVolume | null = null;
+    // faust-sync: the timeline shared with the other Faust applications of the browser, and its Timeline node
+    // that feeds the reserved inputs of the modules (Documentation/FAUST-SYNC-SPEC.md)
+    sync: SharedTimeline | null = null;
     // the MIDI keyboards, played by the MIDI to CV modules (asked for when the first one appears)
     midi = new MidiModules({
         modules: () => this.fModuleList,
@@ -122,6 +127,7 @@ export class Scene {
         this.sceneView.initNormalScene(this)
         this.integrateSceneInBody();
         this.audioGraph = new AudioGraph(Utilitary.audioContext, this.patch);
+        this.startSync();
         this.patch.subscribe(() => this.markModified());     // modules, connections, positions, code, modulations
         var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
         this.faustcodeLink = new FaustcodeLink<ModuleClass>(faustcodeUrl(), {
@@ -428,6 +434,24 @@ export class Scene {
 
     getSceneContainer(): HTMLDivElement { return this.sceneView.fSceneContainer; }
 
+    // faust-sync: the shared timeline, and the reserved inputs of the modules fed by its Timeline node; the modules
+    // created before the node is ready get their reserved inputs once it is.
+    private startSync(): void {
+        var context = Utilitary.audioContext as AudioContext;
+        if (!context?.audioWorklet) return;
+        var sync = new SharedTimeline(context, "faustmodular");
+        this.audioGraph.setReservedInputs((id) => {
+            var module = this.getModuleById(id);
+            var outputs = module ? syncInputs(module.moduleFaust.getSource()) : [];
+            return outputs.length > 0 && sync.output ? { source: sync.output, outputs } : null;
+        });
+        sync.start().then(() => {
+            this.sync = sync;
+            this.audioGraph.refreshReserved();
+            document.dispatchEvent(new CustomEvent("syncready"));
+        }).catch((e) => console.warn("faust-sync unavailable:", e));
+    }
+
     /*********************** MUTE/UNMUTE SCENE ***************************/
     // By the gain of the volume (audio/MasterVolume.ts): the audio keeps running, the volume is kept.
     muteScene(): void {
@@ -478,13 +502,14 @@ export class Scene {
             code: module.moduleFaust.getSource(),
             x: module.moduleView.x,
             y: module.moduleView.y,
-            numInputs: dsp.getNumInputs() - modulations.length,
+            numInputs: dsp.getNumInputs() - modulations.length - syncInputs(module.moduleFaust.getSource()).length,
             numOutputs: dsp.getNumOutputs(),
             modulations,
         });
         module.moduleId = state.id;
-        this.audioGraph.setNode(state.id, dsp);
+        // in the list before its node: the graph asks for its reserved inputs (startSync)
         this.fModuleList.push(module);
+        this.audioGraph.setNode(state.id, dsp);
         this.patchView.addModule(module);
         this.midi.moduleAdded(module);          // a MIDI to CV module: the MIDI devices asked for (once)
     }
@@ -508,7 +533,8 @@ export class Scene {
         var dsp = module.moduleFaust.getDSP();
         // the DSP is compiled from the effective code: its first inputs are the audio inputs
         var modulations = this.patch.getModule(module.moduleId)!.modulations.length;
-        var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs() - modulations, dsp.getNumOutputs());
+        var reserved = syncInputs(module.moduleFaust.getSource()).length;
+        var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs() - modulations - reserved, dsp.getNumOutputs());
         this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
         this.audioGraph.setNode(module.moduleId, dsp, replaced);
         return removed;
@@ -1360,14 +1386,15 @@ export class Scene {
         var task = async (): Promise<boolean> => {
             var state = this.patch.getModule(id);
             if (!state) return false;
-            var code = modulatedCode(module.moduleFaust.getSource(), state.numInputs, state.modulations.map((m) => m.spec));
+            var reserved = syncInputs(module.moduleFaust.getSource()).length;
+            var code = modulatedCode(module.moduleFaust.getSource(), state.numInputs, state.modulations.map((m) => m.spec), reserved);
             var container = module.moduleView.getModuleContainer();
             container.classList.add("compiling");
             var factory = await this.compile(state.name, code, state.x, state.y);
             container.classList.remove("compiling");
             if (!factory || !this.patch.getModule(id)) return false;
             var inputs = JSON.parse(factory.json).inputs;
-            if (inputs != totalInputs(state)) {
+            if (inputs != totalInputs(state) + reserved) {
                 new Message(Utilitary.messageResource.modulationFailed.replace("{reason}", `${inputs} inputs instead of ${totalInputs(state)}`));
                 return false;
             }
@@ -1413,7 +1440,8 @@ export class Scene {
             new Message(Utilitary.messageResource.modulationsRemoved.replace("{widgets}", dropped.join(", ")));
         }
         if (state.modulations.length == 0) return base;
-        var factory = await this.compile(name, modulatedCode(code, json.inputs, state.modulations.map((m) => m.spec)), module.moduleView.x, module.moduleView.y, onError);
+        var reserved = syncInputs(code).length;
+        var factory = await this.compile(name, modulatedCode(code, json.inputs - reserved, state.modulations.map((m) => m.spec), reserved), module.moduleView.x, module.moduleView.y, onError);
         if (factory && JSON.parse(factory.json).inputs != json.inputs + state.modulations.length) {
             var error = Utilitary.messageResource.modulationFailed.replace("{reason}", "unexpected number of inputs");
             if (onError) onError(error); else new Message(error);
@@ -1506,7 +1534,7 @@ export class Scene {
         var modulations = description.modulations ?? [];
         if (!factory) {
             var code = modulations.length > 0
-                ? modulatedCode(description.code, description.numInputs ?? 0, modulations.map((m) => m.spec))
+                ? modulatedCode(description.code, description.numInputs ?? 0, modulations.map((m) => m.spec), syncInputs(description.code).length)
                 : description.code;
             factory = await this.compile(description.name, code, description.x, description.y);
         }

@@ -72,6 +72,12 @@ export class Resources {
     zoomIn: string;
     zoomReset: string;
     zoomFit: string;
+    transport: string;
+    transportPlay: string;
+    transportStop: string;
+    transportRewind: string;
+    transportTempo: string;
+    transportPosition: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

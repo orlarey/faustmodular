@@ -11,6 +11,9 @@
     by Web Audio. Feedback connections (Patch.analyze) go through a DelayNode, without
     which Web Audio would cut the cycle; its delay is one render quantum (128 samples).
 
+    A module may have reserved inputs (src/sync/SyncInputs.ts): channels of its merger after those of its ports, fed
+    by a source given by the scene (the Timeline node of faust-sync), not by connections.
+
     A merger always receives a silent source (a ConstantSourceNode at 0, shared): a module whose inputs
     are not connected still computes. Without it, Web Audio hands the Faust node an empty input, and
     faustwasm skips the computation of a DSP that has inputs: an oscillator with an unconnected V/oct
@@ -44,9 +47,17 @@ interface Fading {
     retire: () => void;
 }
 
+// The reserved inputs of a module: the outputs of `source` that feed them, in order.
+export interface ReservedInputs {
+    source: AudioNode;
+    outputs: number[];
+}
+
 interface ModulePorts {
     node: AudioNode;
     numInputs: number;
+    reserved: number;                 // reserved inputs, after the ports
+    reservedSource?: AudioNode;       // their source, connected to the merger
     numOutputs: number;
     merger?: ChannelMergerNode;       // feeds the inputs of `node`
     fader?: GainNode;                 // between `node` and the splitter, 1 out of a crossfade
@@ -67,6 +78,12 @@ export class AudioGraph {
     private fWires = new Map<ConnectionId, Wire>();
     private fUnsubscribe: () => void;
     private fSilence: AudioNode | null = null;
+    private fReserved: (id: ModuleId) => ReservedInputs | null = () => null;
+
+    // The reserved inputs of the modules (the scene); to be set before the modules get their nodes.
+    setReservedInputs(provider: (id: ModuleId) => ReservedInputs | null): void {
+        this.fReserved = provider;
+    }
 
     // The silent source feeding every merger (created once).
     private silence(): AudioNode | null {
@@ -91,7 +108,8 @@ export class AudioGraph {
         const ports = this.fPorts.get(id);
         const module = this.fPatch.getModule(id);
         if (node && replaced && ports && module && ports.fader && ports.node !== node
-            && ports.numInputs == totalInputs(module) && ports.numOutputs == module.numOutputs) {
+            && ports.numInputs == totalInputs(module) && ports.numOutputs == module.numOutputs
+            && ports.reserved == (this.fReserved(id)?.outputs.length ?? 0)) {
             this.crossfade(ports, node, replaced);
             return;
         }
@@ -102,8 +120,17 @@ export class AudioGraph {
             if (!module) {
                 throw new Error(`AudioGraph: module ${id} is not in the patch`);
             }
-            this.fPorts.set(id, this.buildPorts(node, totalInputs(module), module.numOutputs));
+            this.fPorts.set(id, this.buildPorts(id, node, totalInputs(module), module.numOutputs));
         }
+        this.reconcile();
+    }
+
+    // The reserved inputs given again (their source is ready, or a code changed them): the mergers rebuilt.
+    refreshReserved(): void {
+        this.fPorts.forEach((ports, id) => {
+            const module = this.fPatch.getModule(id);
+            if (module) this.resizePorts(id, ports, totalInputs(module), module.numOutputs);
+        });
         this.reconcile();
     }
 
@@ -140,7 +167,7 @@ export class AudioGraph {
                 // until the module gets its new DSP (Scene), the merger may have more or fewer
                 // channels than the node: Web Audio then drops or zero-fills them ("discrete")
                 const ports = this.fPorts.get(event.module.id);
-                if (ports) this.resizePorts(ports, totalInputs(event.module), event.module.numOutputs);
+                if (ports) this.resizePorts(event.module.id, ports, totalInputs(event.module), event.module.numOutputs);
                 break;
             }
             case "moduleAdded":
@@ -150,15 +177,23 @@ export class AudioGraph {
         this.reconcile();
     }
 
-    private buildPorts(node: AudioNode, numInputs: number, numOutputs: number): ModulePorts {
-        const ports: ModulePorts = { node, numInputs, numOutputs, fading: [] };
+    // The merger of a module: its ports, then its reserved inputs fed by their source; none without inputs.
+    private merger(numInputs: number, reserved: ReservedInputs | null): ChannelMergerNode | undefined {
+        const count = numInputs + (reserved?.outputs.length ?? 0);
+        if (count == 0) return undefined;
+        const merger = this.fContext.createChannelMerger(count);
+        this.silence()?.connect(merger, 0, 0);
+        reserved?.outputs.forEach((output, r) => reserved.source.connect(merger, output, numInputs + r));
+        return merger;
+    }
+
+    private buildPorts(id: ModuleId, node: AudioNode, numInputs: number, numOutputs: number): ModulePorts {
+        const reserved = this.fReserved(id);
+        const ports: ModulePorts = { node, numInputs, reserved: reserved?.outputs.length ?? 0, reservedSource: reserved?.source, numOutputs, fading: [] };
         // the node may not have the ports yet: a module without audio input gets its first input with
         // a modulation, before its new DSP replaces the node (setNode)
-        if (numInputs > 0) {
-            ports.merger = this.fContext.createChannelMerger(numInputs);
-            this.silence()?.connect(ports.merger, 0, 0);
-            if (node.numberOfInputs > 0) ports.merger.connect(node);
-        }
+        ports.merger = this.merger(numInputs, reserved);
+        if (ports.merger && node.numberOfInputs > 0) ports.merger.connect(node);
         if (numOutputs > 0) {
             ports.splitter = this.fContext.createChannelSplitter(numOutputs);
             ports.fader = this.fader(1);
@@ -172,21 +207,22 @@ export class AudioGraph {
     // leaves the splitter, and so the wires to the other modules, untouched. Rebuilding both sides
     // rewired the downstream modules, and Web Audio could render a quantum between the removal of a
     // wire and its replacement: a quantum of silence downstream.
-    private resizePorts(ports: ModulePorts, numInputs: number, numOutputs: number): void {
-        if (ports.numInputs != numInputs) {
+    private resizePorts(id: ModuleId, ports: ModulePorts, numInputs: number, numOutputs: number): void {
+        const reserved = this.fReserved(id);
+        if (ports.numInputs != numInputs || ports.reserved != (reserved?.outputs.length ?? 0)) {
             if (ports.merger) {
                 const merger = ports.merger;
                 merger.disconnect();
                 if (this.fSilence) safely(() => this.fSilence!.disconnect(merger));
+                if (ports.reservedSource) safely(() => ports.reservedSource!.disconnect(merger));
                 ports.merger = undefined;
             }
-            if (numInputs > 0) {
-                ports.merger = this.fContext.createChannelMerger(numInputs);
-                this.silence()?.connect(ports.merger, 0, 0);
-                if (ports.node.numberOfInputs > 0) ports.merger.connect(ports.node);
-            }
+            ports.merger = this.merger(numInputs, reserved);
+            if (ports.merger && ports.node.numberOfInputs > 0) ports.merger.connect(ports.node);
             ports.fading.forEach((f) => f.merger = undefined);      // they lost their inputs (fading out)
             ports.numInputs = numInputs;
+            ports.reserved = reserved?.outputs.length ?? 0;
+            ports.reservedSource = reserved?.source;
         }
         if (ports.numOutputs != numOutputs) {
             const faders = [ports.fader, ...ports.fading.map((f) => f.fader)].filter((f): f is GainNode => !!f);
@@ -254,6 +290,7 @@ export class AudioGraph {
             ports.merger.disconnect();
             const merger = ports.merger;
             if (this.fSilence) safely(() => this.fSilence!.disconnect(merger));
+            if (ports.reservedSource) safely(() => ports.reservedSource!.disconnect(merger));
         }
         if (ports.fader) {
             if (ports.node.numberOfOutputs > 0) safely(() => ports.node.disconnect(ports.fader!));

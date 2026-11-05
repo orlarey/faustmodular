@@ -88,6 +88,10 @@ export class Menu {
 
         // the open document: its name, and a dot when it differs from its committed copy
         document.addEventListener("documentchange", () => { this.showSceneName() });
+        // the transport, once the shared timeline is ready (Scene.startSync)
+        var attachTransport = () => { var sync = Utilitary.currentScene.sync; if (sync) this.menuView.transport.attach(sync); };
+        if (Utilitary.currentScene.sync) attachTransport();
+        else document.addEventListener("syncready", attachTransport, { once: true });
         // the Modules menu opened from the context menu of the stage
         document.addEventListener("openmodules", () => {
             if (this.currentMenuChoices != MenuChoices.library) this.menuHandler(this.newMenuChoices = MenuChoices.library);

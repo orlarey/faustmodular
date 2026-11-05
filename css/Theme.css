@@ -832,6 +832,70 @@ canvas.display-canvas {
 	min-width: 44px;
 }
 
+/* The transport of the shared timeline (sync/TransportView.ts): back to the start, play / stop, the tempo, bar:beat */
+.transport {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: 14px;
+	padding: 2px 10px 2px 4px;
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 999px;
+	background: var(--fp-value-bg);
+	font: 12px var(--fp-mono);
+	color: var(--fp-value);
+}
+.transport.disabled {
+	opacity: 0.4;
+	pointer-events: none;
+}
+.transportPlay, .transportRewind {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	cursor: pointer;
+	user-select: none;
+	color: var(--fp-pill-text);
+	font-size: 12px;
+}
+.transportPlay:hover, .transportRewind:hover {
+	background: var(--fp-pill-bg-hover);
+}
+.transport.playing .transportPlay {
+	color: var(--fp-accent);
+}
+input.transportTempo {
+	width: 3.6em;
+	padding: 1px 2px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--fp-value);
+	font: inherit;
+	text-align: right;
+	-moz-appearance: textfield;
+}
+input.transportTempo::-webkit-inner-spin-button, input.transportTempo::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+input.transportTempo:focus {
+	outline: 1px solid var(--fp-accent);
+	background: var(--fp-panel);
+}
+.transportUnit {
+	color: var(--fp-text-quiet);
+	font-size: 10px;
+}
+.transportPosition {
+	min-width: 3.5em;
+	text-align: right;
+	color: var(--fp-pill-text);
+}
+
 /* Library, in one view: the families (grouped), the modules of the family chosen, the description */
 #libraryPanel {
 	display: flex;

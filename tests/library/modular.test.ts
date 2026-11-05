@@ -11,6 +11,7 @@ import * as fw from "@grame/faustwasm/dist/esm/index.js";
 import { FAUST_COMPILE_OPTIONS } from "../../src/FaustOptions";
 import { allowedModes, depthWidget, listWidgets, modulatedCode, modulationSpec, ModulationSpec, WidgetDescription } from "../../src/model/Modulation";
 import { getCompiler } from "../helpers/faust";
+import { syncInputs } from "../../src/sync/SyncInputs";
 
 const dir = path.resolve(__dirname, "../../public/faust-modules/modular");
 const SR = 48000;
@@ -102,8 +103,8 @@ const constant = (v: number) => () => v;
 describe("modular library: ports and settings", () => {
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".dsp"));
 
-    it("has the twelve modules of the first voice, the SineVCO, the MIDI to CV and the MIDI Clock", () => {
-        expect(files.sort()).toEqual(["ADSR", "Clock", "LFO", "MidiCV", "MidiClock", "Mixer", "Noise", "Offset", "Quantizer", "SampleHold", "Sequencer", "SineVCO", "VCA", "VCF", "VCO"].map((n) => n + ".dsp"));
+    it("has the twelve modules of the first voice, the SineVCO, the MIDI to CV, the MIDI Clock and the Sync Clock", () => {
+        expect(files.sort()).toEqual(["ADSR", "Clock", "LFO", "MidiCV", "MidiClock", "Mixer", "Noise", "Offset", "Quantizer", "SampleHold", "Sequencer", "SineVCO", "SyncClock", "VCA", "VCF", "VCO"].map((n) => n + ".dsp"));
     });
 
     // The hidden widgets of the MIDI to CV, set by the application from MIDI messages by steps of 1/127 (the
@@ -116,15 +117,17 @@ describe("modular library: ports and settings", () => {
         }
     });
 
+    // the reserved inputs of the shared timeline (declare sync) are not ports
     it("ports only for the signals a module transforms; gates, triggers and pitches are settings", async () => {
         const arity: Record<string, [number, number]> = {};
         for (const f of files) {
-            const { json } = await compiled(fs.readFileSync(path.join(dir, f), "utf8"));
-            arity[f.replace(".dsp", "")] = [json.inputs, json.outputs];
+            const code = fs.readFileSync(path.join(dir, f), "utf8");
+            const { json } = await compiled(code);
+            arity[f.replace(".dsp", "")] = [json.inputs - syncInputs(code).length, json.outputs];
         }
         expect(arity).toEqual({
             ADSR: [0, 1], Clock: [0, 1], LFO: [0, 1], MidiCV: [0, 5], MidiClock: [0, 3], Mixer: [4, 1], Noise: [0, 2], Offset: [1, 1],
-            Quantizer: [1, 1], SampleHold: [1, 1], Sequencer: [0, 2], SineVCO: [0, 1], VCA: [1, 1], VCF: [1, 1], VCO: [0, 4],
+            Quantizer: [1, 1], SampleHold: [1, 1], Sequencer: [0, 2], SineVCO: [0, 1], SyncClock: [0, 3], VCA: [1, 1], VCF: [1, 1], VCO: [0, 4],
         });
     }, 120_000);
 

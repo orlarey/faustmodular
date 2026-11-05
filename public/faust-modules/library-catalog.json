@@ -227,6 +227,22 @@
    ]
   },
   {
+   "path": "faust-modules/modular/SyncClock.dsp",
+   "name": "Sync Clock",
+   "functions": [
+    "Clock Generator"
+   ],
+   "family": "Time",
+   "summary": "Sync Clock: gates on the timeline shared by the Faust applications of the browser (faust-sync), in time with them",
+   "description": "- Follows the timeline shared by the Faust applications open in the browser (faust-sync): two faustmodular, a faustcode, play in time, their gates at the same instant\n- The transport of the toolbar (play, stop, tempo) drives the timeline, in this application and in the others\n- clock: a gate per sixteenth note, eighth note, quarter note or bar (Division), aligned on the bar; Width: how long it stays high, as a fraction of its period\n- reset: a short gate when the playing starts from the beginning; run: 1 while the timeline plays\n- Tempo: the tempo of the timeline",
+   "inlets": [],
+   "outlets": [
+    "clock",
+    "reset",
+    "run"
+   ]
+  },
+  {
    "path": "faust-modules/modular/Clock.dsp",
    "name": "Clock",
    "functions": [

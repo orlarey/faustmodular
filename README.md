@@ -136,6 +136,16 @@ volume. Double click it to mute. A safety limiter protects your ears and speaker
 
 The microphone is only requested when you use it: when you connect a cable from it, or click it.
 
+## Playing in time with other tabs
+
+The **transport** of the toolbar (⏮, ▶ / ■, the tempo, *bar:beat*) drives a timeline shared by the Faust
+applications open in the browser (faust-sync): open faustmodular in two tabs, press ▶ in either, and both play;
+change the tempo in one, the other follows. The **Sync Clock** module (*Modular* library) turns that timeline into
+gates for a Sequencer: a gate per sixteenth note (or eighth, quarter, bar), aligned on the bar, a reset when the
+playing starts from the beginning, and *run*. On one sound card, the gates of the two tabs come out at the same
+sample: the position is counted in audio samples, not with timers (see
+[the specification](Documentation/FAUST-SYNC-SPEC.md)).
+
 ## Scenes and files
 
 Your scene is saved in the browser as you work, and opened again at your next visit. The **File** menu works as
