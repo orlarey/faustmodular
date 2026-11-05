@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratoire faust-sync</title>
+<style>
+    :root { --bg: #14181d; --panel: #1d232a; --text: #dfe5ea; --quiet: #8b96a1; --accent: #e8a33d; --line: #2c343d; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+    main { max-width: 980px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin: 4px 0 2px; }
+    h2 { font-size: 15px; margin: 22px 0 6px; color: var(--accent); }
+    p, li { color: var(--quiet); }
+    ol { padding-left: 20px; }
+    b, th { color: var(--text); }
+    button, select, input { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; }
+    button { cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.on { border-color: var(--accent); color: var(--accent); }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-weight: 500; white-space: nowrap; }
+    #self th { width: 34%; }
+    .gone { opacity: 0.4; }
+    .scroll { overflow-x: auto; }
+    small { color: var(--quiet); }
+</style>
+</head>
+<body>
+<main>
+    <h1>Laboratoire faust-sync</h1>
+    <p>Mesures pour l'algorithme de synchronisation (<a href="https://github.com/orlarey/faustmodular/blob/main/Documentation/FAUST-SYNC-SPEC.md" style="color:var(--accent)">spécification</a>, § 10) : ce que donnent les horloges audio de plusieurs fenêtres du navigateur sur une même carte son.</p>
+    <ol>
+        <li>Ouvre cette page dans <b>deux fenêtres côte à côte</b> (pas deux onglets d'une même fenêtre : un onglet caché a ses minuteries ralenties). Clique <b>Démarrer</b> dans chacune.</li>
+        <li>Attends une minute : les lignes se remplissent. δ doit rester constant.</li>
+        <li>Clique <b>Clics</b> dans les deux fenêtres : chacune clique deux fois par seconde, la seconde 100 ms après la première, alignées par δ.</li>
+        <li>Dans une fenêtre, <b>Enregistrer</b> : le micro intégré près des haut-parleurs suffit (le trajet acoustique est le même pour les deux clics), ou un bouclage (BlackHole, câble). L'écart mesuré, moins 100 ms, est l'erreur réelle.</li>
+        <li><b>Copier le rapport</b> dans chaque fenêtre, et colle-les dans la conversation. Refais-le après une dizaine de minutes.</li>
+    </ol>
+    <div class="bar">
+        <button id="start">Démarrer</button>
+        <button id="clicks" disabled>Clics</button>
+        <button id="copy">Copier le rapport</button>
+        <button id="download">Télécharger les données</button>
+        <small id="copied"></small>
+    </div>
+
+    <h2>Cette fenêtre</h2>
+    <table id="self"><tr><td>Clique Démarrer.</td></tr></table>
+
+    <h2>Les autres fenêtres</h2>
+    <p><small>δ = n<sub>autre</sub>(T) − n<sub>cette fenêtre</sub>(T) au même instant commun T, depuis getOutputTimestamp, sans aller-retour ; en échantillons. Aller-retour : méthode du point milieu sur currentTime (échantillons calculés, pas audibles), la moitié des mesures au RTT le plus court ; son écart à δ, en ms, est la différence des avances de calcul des deux fenêtres.</small></p>
+    <div class="scroll"><table>
+        <tr><th>Fenêtre</th><th>δ (éch.)</th><th>σ de δ, dernière minute (n)</th><th>dérive de δ, dernière minute (éch./min)</th><th>RTT méd. / min / p95 (ms)</th><th>δ aller-retour (éch.)</th><th>aller-retour − δ (ms)</th></tr>
+        <tbody id="peers"></tbody>
+    </table></div>
+
+    <h2>Enregistrement des clics</h2>
+    <div class="bar">
+        <select id="input"><option value="">Entrée par défaut</option></select>
+        <input id="duration" type="number" value="20" min="5" max="120" style="width:5em"> s
+        <button id="record" disabled>Enregistrer</button>
+        <small id="recordStatus"></small>
+    </div>
+    <p><small>Erreur de chaque fenêtre par rapport à la référence (la plus ancienne) : distance entre leurs clics, moins rang × 100 ms. Positive : en retard.</small></p>
+    <div id="result" class="scroll"></div>
+</main>
+<script type="module" src="./lab.js"></script>
+</body>
+</html>

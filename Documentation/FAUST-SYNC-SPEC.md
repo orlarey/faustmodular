@@ -277,6 +277,13 @@ Déjà mesuré dans Chromium (Playwright, Linux, sans carte son, machine non cha
 | Délai d'un message `BroadcastChannel` (200 messages) | médiane 0,3 ms, 95 % sous 0,8 ms, au pire 2 ms |
 | `getOutputTimestamp`, `outputLatency` | disponibles (latence de sortie annoncée : 32 ms) |
 
+Le **laboratoire** (`public/sync-lab/`, servi avec l'application : `…/faustmodular/sync-lab/`) mesure, dans deux
+fenêtres ou plus : le bruit des lectures de `getOutputTimestamp` et la dérive entre la carte et l'horloge du système ;
+l'écart δ entre les échantillons audibles de deux fenêtres au même instant commun, sa stabilité et sa dérive (nulle
+sur une même carte) ; la méthode de l'aller-retour (point milieu) pour comparaison ; et, par un enregistrement de
+clics alignés par δ (micro ou bouclage), l'erreur réelle. Ses calculs sont testés
+(`tests/model/sync-lab.test.ts`).
+
 À mesurer sur un vrai ordinateur (macOS, une carte son), avant de valider le critère (§ 1.1) :
 
 1. **le critère lui-même** : deux faustmodular, un trig par double croche, l'un à gauche, l'autre à droite, la sortie
