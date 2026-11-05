@@ -1,94 +1,111 @@
 # faust-sync — une horloge musicale commune aux applications Faust
 
-*Spécification, version 0.1 (proposition, 2026-11-05).*
+*Spécification, version 0.2 (proposition, 2026-11-05). La 0.1 comptait le temps musical en temps du système ; la 0.2
+le compte en échantillons audio, le temps du système ne servant plus que de passerelle (§ 2, § 7).*
 
 ## 1. Objet
 
 Partager un **tempo**, une **mesure** et un **transport** (lecture, arrêt, position) entre les applications Faust
 ouvertes dans le même navigateur : faustmodular, faustcode, faustdaw, et les suivantes. Ainsi :
 
-- un séquenceur de faustmodular, un programme de faustcode et la lecture de faustdaw jouent en mesure ;
+- deux faustmodular, ou un faustmodular et un faustcode, jouent en mesure ;
 - n'importe quelle application peut lancer la lecture, l'arrêter ou changer le tempo, et les autres suivent ;
 - une application ouverte en cours de route se cale sur les autres.
 
 Elle fonctionne **sans appareil extérieur**, et seule : une application sans partenaire a sa propre ligne de temps.
-Une horloge MIDI extérieure peut la piloter (§ 7.4), sans être nécessaire.
+Une horloge MIDI extérieure peut la piloter (§ 9.4), sans être nécessaire.
+
+### 1.1 Cas d'usage principal, et critère
+
+Le cas d'usage principal est **un seul navigateur, une seule carte son**. La priorité est la synchronisation des
+applications entre elles.
+
+> **Critère d'acceptation.** Deux faustmodular ouverts dans deux onglets, chacun avec un module d'horloge synchronisée
+> qui déclenche un son bref sur chaque double croche : les déclenchements des deux applications sortent du
+> haut-parleur **au même instant**, à moins de 1 ms près, et le restent pendant une heure de lecture ; y compris
+> quand le second onglet est ouvert alors que le premier joue déjà, et après des changements de tempo.
+
+La mesure : l'un des onglets à gauche, l'autre à droite, la sortie enregistrée (une boucle audio, par exemple
+BlackHole sur macOS) ; on mesure l'écart des attaques entre les deux canaux (§ 10).
 
 Hors du champ de cette version : la synchronisation entre ordinateurs (il faudrait un serveur, WebRTC, ou un pont
-vers Ableton Link) et l'émission d'une horloge MIDI vers des appareils (§ 9).
+vers Ableton Link) et l'émission d'une horloge MIDI vers des appareils (§ 11).
 
-## 2. Principe : partager une ligne de temps, pas des impulsions
+## 2. Principe
 
-On ne s'envoie pas des impulsions (« un temps maintenant ») : un message arrive avec un retard variable, et chaque
-impulsion en hériterait. On partage la **règle** qui donne la position musicale à tout instant :
+1. **Une règle, pas des impulsions.** On ne s'envoie pas des impulsions (« un temps maintenant ») : chacune hériterait
+   du retard variable de son message. On partage la règle qui donne la position musicale :
 
-> au temps commun *t₀*, on était au temps musical *b₀*, et l'on avance à *T* temps par minute.
+   > à l'instant *t₀*, on était au temps musical *b₀*, et l'on avance à *T* temps par minute.
 
-Chaque application en déduit elle-même, à l'échantillon près, où elle en est. Un message ne change que la règle, et
-seulement quand elle change (tempo, lecture, arrêt, position) : son retard ne décale rien, puisqu'il porte l'instant
-où la règle prend effet. C'est le principe d'Ableton Link, sur un seul ordinateur.
+   Un message ne change que la règle, et seulement quand elle change (tempo, lecture, arrêt, position).
+
+2. **Le temps musical avance en échantillons.** Dans chaque application, un nœud audio compte les échantillons de son
+   `AudioContext` et en déduit la position musicale à chaque échantillon. Sur une seule carte son, tous les onglets sont
+   cadencés par la même horloge matérielle : leurs échantillons avancent exactement au même rythme, sans dérive.
+
+3. **Le temps commun du navigateur ne sert que de passerelle.** Deux applications n'ont pas de compteur d'échantillons
+   commun (chacune a son contexte, parti à un autre instant, parfois à une autre fréquence). Une ancre voyage donc en
+   temps commun (§ 3), et chaque application la traduit, à son arrivée, en numéro d'échantillon de son contexte (§ 7.1).
+
+4. **Une ancre fraîche, un effet différé.** Une réponse porte toujours la position *à l'instant de la réponse* (pas
+   l'ancre d'origine, qui pourrait dater d'une heure) ; un changement prend effet **20 ms après** avoir été décidé, pour
+   que chaque application le reçoive avant et bascule au même échantillon audible.
 
 ## 3. Le temps commun
 
-Le temps commun est le temps **epoch** du navigateur, en millisecondes, à haute résolution :
+Le temps **epoch** du navigateur, en millisecondes, à haute résolution :
 
 ```js
 const now = () => performance.timeOrigin + performance.now();
 ```
 
-Chaque onglet a son propre `timeOrigin` (le moment où il s'est ouvert), mais leur somme est une même horloge pour
-tous les onglets du navigateur. Mesuré dans Chromium (§ 8) : deux onglets s'accordent à moins de 1 ms, ce qui est
-la précision de la mesure elle-même.
+Chaque onglet a son `timeOrigin` (l'instant où il s'est ouvert), mais la somme est une même horloge pour tous les
+onglets du navigateur (mesuré : § 10).
 
 ## 4. La ligne de temps
 
 ```ts
 interface Timeline {
     tempo: number;              // temps (noires) par minute, de 20 à 999
-    meter: number;              // temps par mesure (4 : 4/4), pour aligner les départs et afficher mesure:temps
+    meter: number;              // temps par mesure (4 : 4/4)
     playing: boolean;
-    anchor: { time: number; beat: number };     // au temps commun `time` (ms), la position était `beat` (en temps)
+    anchor: { time: number; beat: number };     // au temps commun `time` (ms), la position était (ou sera) `beat`
     revision: { time: number; origin: string }; // le changement qui l'a produite : quand, et par qui
 }
 ```
 
-La position musicale au temps commun *t* :
+La position au temps commun *t* (dans les messages) :
 
 ```
-beat(t) = playing ? anchor.beat + (t − anchor.time) × tempo / 60000
-                  : anchor.beat
+beat(t) = playing ? anchor.beat + (t − anchor.time) × tempo / 60000  :  anchor.beat
 ```
 
-- Le temps 0 est le premier temps de la première mesure. *mesure:temps* = `floor(beat / meter) + 1 : floor(beat mod meter) + 1`.
-- Une ligne de temps neuve : `{ tempo: 120, meter: 4, playing: false, anchor: { time: now(), beat: 0 } }`.
+Le temps 0 est le premier temps de la première mesure ; *mesure:temps* = `floor(beat / meter) + 1 : floor(beat mod meter) + 1`.
+Une ligne de temps neuve : `{ tempo: 120, meter: 4, playing: false, anchor: { time: now(), beat: 0 } }`.
 
 ## 5. Les opérations
 
-Une opération crée une nouvelle ligne de temps, **continue** : la position ne saute pas, sauf si on le demande.
-Toutes sont calculées au même instant `t = now()` :
+Une opération décidée à l'instant `t = now()` prend effet à `e = t + L`, **L = 20 ms** (§ 2.4). La nouvelle ligne de
+temps est continue (la position ne saute pas, sauf si on le demande), et sa révision est `{ time: t, origin }` :
 
 | Opération | Nouvelle ligne de temps |
 |---|---|
-| `setTempo(T)` | `anchor = { t, beat(t) }`, `tempo = T` (la phase continue, le tempo change à partir de maintenant) |
-| `play()` | `anchor = { t, beat(t) }`, `playing = true` (repart d'où l'arrêt l'a laissée) |
-| `play({ fromStart: true })` | `anchor = { t, 0 }`, `playing = true` |
-| `stop()` | `anchor = { t, beat(t) }`, `playing = false` |
-| `locate(b)` | `anchor = { t, b }` (en lecture : saut immédiat) |
-| `setMeter(m)` | `meter = m` (la position ne change pas) |
+| `setTempo(T)` | `anchor = { e, beat(e) }`, `tempo = T` |
+| `play()` | `anchor = { e, beat(e) }`, `playing = true` (repart d'où l'arrêt l'a laissée) |
+| `play({ fromStart: true })` | `anchor = { e, 0 }`, `playing = true` |
+| `stop()` | `anchor = { e, beat(e) }`, `playing = false` |
+| `locate(b)` | `anchor = { e, b }` |
+| `setMeter(m)` | `meter = m` |
 
-**Départ quantifié** (proposition) : une application qui lance la lecture alors que d'autres jouent déjà ne crée rien :
-elle suit la ligne de temps commune. Un `play()` alors que tout est arrêté démarre à la mesure suivante du temps
-commun, `anchor.time = t + 50 ms` (le temps de prévenir les autres), pour que toutes démarrent ensemble.
+Une application qui lance la lecture alors que d'autres jouent déjà ne crée rien : elle suit la ligne de temps.
 
 ## 6. Le protocole
 
-### 6.1 Le canal
+### 6.1 Le canal et les messages
 
-Un `BroadcastChannel("faust-sync")`. Il relie tous les onglets et fenêtres de la **même origine** dans le même
-navigateur : `https://orlarey.github.io` pour faustcode, faustmodular et faustdaw. Mesuré dans Chromium (§ 8) :
-0,3 ms en médiane, 2 ms au pire.
-
-### 6.2 Les messages
+Un `BroadcastChannel("faust-sync")` : il relie les onglets et fenêtres de la **même origine** dans le même navigateur
+(`https://orlarey.github.io` pour faustcode, faustmodular et faustdaw).
 
 ```ts
 type SyncMessage =
@@ -96,80 +113,153 @@ type SyncMessage =
     | { protocol: "faust-sync"; version: 1; type: "state"; origin: string; timeline: Timeline }   // la ligne de temps
 ```
 
-- `origin` : un identifiant tiré au hasard par chaque application à son ouverture (`crypto.randomUUID()`), et le nom
-  de l'application pour l'affichage (`"faustmodular:7f3c…"`).
-- Un message d'une autre `version` est ignoré.
+`origin` : le nom de l'application et un identifiant tiré à son ouverture (`"faustmodular:" + crypto.randomUUID()`).
+Un message d'une autre `version` est ignoré.
 
-### 6.3 Les règles
+### 6.2 Les règles
 
-1. **À l'ouverture**, une application envoie `hello`. Chaque autre application répond par sa ligne de temps (`state`).
-   Sans réponse en 200 ms, l'application est seule : elle garde la ligne de temps neuve.
-2. **À chaque opération**, l'application calcule la nouvelle ligne de temps, avec `revision = { time: now(), origin }`,
-   l'adopte et l'envoie (`state`).
-3. **À la réception** d'un `state`, une application l'adopte si sa révision est plus récente que la sienne : temps plus
-   grand, puis, à égalité, `origin` plus grand (ordre total : deux changements simultanés finissent sur la même
-   ligne de temps partout). Sinon, elle l'ignore.
-4. **Pas de maître** : le dernier changement l'emporte, d'où qu'il vienne. Une application qui se ferme ne change
-   rien : la ligne de temps continue chez les autres.
+1. **À l'ouverture**, une application envoie `hello`. Chaque autre application répond par sa ligne de temps (`state`),
+   avec une **ancre fraîche** : `anchor = { now(), beat }`, *beat* lu sur sa propre horloge audio (§ 7.2), et la
+   **révision inchangée** (c'est la même règle, réancrée). Sans réponse en 200 ms, l'application est seule.
+2. **À chaque opération**, l'application calcule la nouvelle ligne de temps (§ 5), l'adopte et l'envoie.
+3. **À la réception** d'un `state`, une application l'adopte si sa révision est plus récente : temps plus grand, puis,
+   à égalité, `origin` plus grand (deux changements simultanés finissent sur la même ligne de temps partout). Une
+   réponse à un `hello` (même révision) est adoptée par l'application qui arrive, et ignorée par les autres.
+4. **Pas de maître** : le dernier changement l'emporte, d'où qu'il vienne. Une application qui se ferme ne change rien.
+
+### 6.3 Le déroulement : deux applications, l'une ouverte avant l'autre
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as A — faustmodular
+    participant C as canal faust-sync
+    participant B as B — faustmodular (2ᵉ onglet)
+
+    Note over A: 0 s — s'ouvre
+    A->>C: hello {A}
+    Note over A: 200 ms sans réponse : seule<br/>ligne de temps neuve :<br/>120 BPM, 4/4, arrêt, temps 0
+
+    Note over A: 5 s — ▶ Lecture
+    A->>C: state {lecture, 120, ancre (E₁ = maintenant + 20 ms, temps 0), rév. (E, A)}
+    Note over A: à E₁ : n₁ = f_A(E₁)<br/>temps(n) =<br/>(n − n₁) · 120 / (60 · sr)
+
+    Note over B: 65 s — s'ouvre
+    B->>C: hello {B}
+    C->>A: hello {B}
+    Note over A: ancre fraîche,<br/>lue sur son horloge audio :<br/>E₂ = maintenant, temps 120,37
+    A->>C: state {lecture, 120, ancre (E₂, temps 120,37), rév. inchangée}
+    C->>B: state
+    Note over B: n₂ = f_B(E₂)<br/>temps(n) = 120,37 +<br/>(n − n₂) · 120 / (60 · sr)<br/>ses trigs tombent<br/>sur ceux de A
+
+    Note over B: 90 s — tempo → 90
+    B->>C: state {90 BPM, ancre (E₃ = maintenant + 20 ms, temps 170,04), rév. (E, B)}
+    C->>A: state
+    Note over A,B: révision plus récente : A l'adopte<br/>les deux passent à 90 BPM au même échantillon audible, f(E₃)
+
+    Note over A: 120 s — ■ Arrêt
+    A->>C: state {arrêt, ancre (E₄ = maintenant + 20 ms, temps 215,0), rév. (E, A)}
+    C->>B: state
+    Note over A,B: les deux s'arrêtent à E₄
+
+    Note over A: 130 s — se ferme : rien à envoyer, la ligne de temps continue chez B
+```
+
+*E* : temps commun (ms) ; *n* : numéro d'échantillon du contexte de chaque application ; *f_X* : la traduction du temps
+commun en échantillons de l'application X (§ 7.1). Les deux applications ont chacune leur *n*, mais le même temps
+musical à chaque instant audible.
+
+### 6.4 Les autres cas
+
+- **B s'ouvre alors que tout est à l'arrêt** : A répond par sa ligne de temps à l'arrêt ; B affiche le même tempo et la
+  même position.
+- **A et B s'ouvrent en même temps** : chacune se croit seule, puis reçoit le `hello` de l'autre et y répond ; la
+  révision la plus récente l'emporte (et le contenu est le même). Elles convergent en quelques millisecondes.
+- **Un message arrive après l'instant d'effet** (onglet très chargé, plus de 20 ms) : l'application l'applique à
+  l'échantillon courant, en rattrapant la position (un saut de la durée du retard) ; c'est le seul cas de saut.
 
 ## 7. Dans chaque application
 
-### 7.1 Du temps commun au temps audio
+### 7.1 Du temps commun aux échantillons
 
-Le son d'une application est calculé sur l'horloge de son `AudioContext` (`currentTime`, en secondes). Le lien entre
-les deux horloges est donné par `getOutputTimestamp()`, qui dit **quel instant du contexte sort du haut-parleur** à quel
-instant de `performance.now()` (la latence de sortie est donc comprise) :
+`getOutputTimestamp()` dit **quel instant du contexte sort du haut-parleur** à quel instant de `performance.now()` :
+la latence de sortie est comprise, et deux applications qui visent le même temps commun visent le même instant
+audible.
 
 ```js
 const ts = context.getOutputTimestamp();
-const contextTimeOf = (t) => ts.contextTime + (t - (performance.timeOrigin + ts.performanceTime)) / 1000;
+const frameOf = (E) => context.sampleRate * (ts.contextTime + (E - performance.timeOrigin - ts.performanceTime) / 1000);
 ```
 
-L'horloge audio (celle de la carte son) et l'horloge du système dérivent l'une par rapport à l'autre (quelques dizaines
-de millionièmes, soit quelques millisecondes par minute). La correspondance est donc **recalculée en continu**
-(toutes les 100 ms), et l'écart est rattrapé en douceur (en accélérant ou ralentissant imperceptiblement), jamais par
-un saut.
+La traduction n'est faite **qu'à l'arrivée d'une ligne de temps** : l'ancre devient un numéro d'échantillon
+`anchorFrame`, et la suite est comptée en échantillons. Une traduction est entachée de l'imprécision de
+`getOutputTimestamp` (à mesurer, § 10) : elle est moyennée sur plusieurs lectures.
 
-### 7.2 La position au rythme de l'échantillon
+### 7.2 Le nœud Timeline
 
-Chaque application crée un nœud **Timeline** (un `AudioWorkletProcessor`) qui reçoit, par son port, la ligne de temps
-traduite en temps du contexte (tempo, lecture, ancre en `contextTime`), et sort à chaque échantillon :
+Chaque application crée un nœud **Timeline** (un `AudioWorkletProcessor`). Il reçoit par son port la ligne de temps
+traduite : `{ tempo, meter, playing, anchorFrame, anchorBeat }`, et calcule, à chaque échantillon *n* de son contexte :
 
-- la **position** en temps (`beat`), la **phase** dans le temps (`beat mod 1`), la **lecture** (0 ou 1).
+```
+beat(n) = playing ? anchorBeat + (n − anchorFrame) × tempo / (60 × sampleRate)  :  anchorBeat
+```
 
-C'est la seule source de temps musical du son : tout ce qui se cale sur la mesure lit ce signal, à l'échantillon près,
-sans dépendre de l'instant où un message arrive.
+- Il sort la **position** (`beat`), la **phase** dans le temps (`beat mod 1`) et la **lecture** (0 ou 1) ; c'est la seule
+  source de temps musical du son de l'application.
+- Une nouvelle ligne de temps prend effet à son `anchorFrame` (dans le futur, § 5) : le nœud la garde en attente
+  jusqu'à cet échantillon, puis bascule, **exactement à l'échantillon**.
+- Il répond à la demande de position (pour une ancre fraîche, § 6.2) : `beat(n)` à l'échantillon *n* qu'il calcule,
+  avec le temps commun correspondant.
 
-### 7.3 faustmodular, faustcode, faustdaw
+Sur une seule carte son, rien d'autre n'est nécessaire : les compteurs d'échantillons des onglets avancent ensemble.
 
-- **faustmodular**
-  - Un **transport** dans la barre d'outils : ▶ / ■, le tempo (modifiable), *mesure:temps*.
-  - Le module d'horloge synchronisée (le **MIDI Clock** actuel, généralisé) prend sa **source** dans un menu :
-    *shared* (la ligne de temps commune, par défaut) ou *MIDI* (une horloge extérieure). Ses sorties ne changent pas :
-    *clock* (une porte par double croche, croche, noire ou mesure, alignée sur la mesure), *reset* (au départ), *run*.
-    Il reçoit la position du nœud Timeline par une entrée réservée, que l'application branche elle-même (pas un port
-    du patch).
-- **faustcode**
-  - Le même transport dans l'en-tête.
-  - Un programme Faust reçoit la ligne de temps par des métadonnées de widgets : `[sync:tempo]`, `[sync:playing]`,
-    `[sync:beat]` (la position, mise à jour à chaque bloc), et, à l'échantillon près, par une entrée réservée
-    (`declare sync "beat"`) branchée sur le nœud Timeline.
-- **faustdaw**
-  - Son transport (lecture, arrêt) pilote la ligne de temps commune et la suit ; le tempo et la mesure deviennent ceux
-    du projet. Il faut d'abord ajouter à faustdaw un tempo et une grille de mesures : sa ligne de temps est
-    aujourd'hui comptée en échantillons.
+### 7.3 Cartes son différentes (hors du cas principal)
 
-### 7.4 Une horloge MIDI extérieure
+Deux cartes son ont des horloges qui dérivent (quelques millisecondes par minute). En option : l'auteur de la dernière
+révision rediffuse, toutes les 5 s en lecture, une ancre fraîche avec la même révision ; les autres corrigent l'écart en
+douceur (en modifiant imperceptiblement leur pas), jamais par un saut.
 
-Une application qui reçoit une horloge MIDI (24 messages par noire, Start, Stop) peut en faire la ligne de temps
-commune : le tempo mesuré, Start → `play({ fromStart: true })`, Stop → `stop()`, le Song Position Pointer →
-`locate`. Toutes les applications suivent alors la boîte à rythmes. C'est une option (le module de faustmodular, source
-*MIDI*, case « piloter la ligne de temps »), pour que deux applications ne pilotent pas la ligne de temps à la fois
-depuis la même horloge.
+## 8. Les applications
 
-## 8. Précision attendue, et mesures
+### 8.1 faustmodular
 
-Mesuré dans Chromium (Playwright, Linux, sans charge), deux onglets de la même origine :
+- Un **transport** dans la barre d'outils : ▶ / ■, le tempo (modifiable), *mesure:temps*.
+- Le module d'horloge synchronisée (le **MIDI Clock** actuel, généralisé) prend sa source dans un menu : *shared* (la
+  ligne de temps commune, par défaut) ou *MIDI*. Sorties : *clock* (une porte par double croche, croche, noire ou
+  mesure, alignée sur la mesure), *reset* (au départ), *run*. Il lit la position du nœud Timeline par une entrée
+  réservée, que l'application branche elle-même (pas un port du patch) : ses portes tombent donc à l'échantillon où la
+  position franchit la division, le même dans toutes les applications.
+
+### 8.2 faustcode
+
+- Le même transport dans l'en-tête.
+- Un programme Faust reçoit la ligne de temps à l'échantillon près par une entrée réservée (`declare sync "beat"`),
+  branchée sur le nœud Timeline, et, au rythme des blocs, par des métadonnées de widgets : `[sync:tempo]`,
+  `[sync:playing]`.
+
+### 8.3 faustdaw
+
+faustdaw compte déjà son temps en échantillons (en unités entières, exactes) et lit à partir d'une ancre
+`{ position sur la timeline, instant audio }`, en programmant ses clips une seconde à l'avance : le modèle de faust-sync.
+Il lui faut :
+
+1. un **tempo et une mesure** dans le projet, avec la position de la mesure 1 sur la timeline : une règle en
+   *mesures:temps*, et le magnétisme des clips sur les temps ;
+2. un **pont** entre son transport et la ligne de temps : sa lecture et son arrêt la publient ; une lecture lancée
+   ailleurs le fait démarrer à l'instant prévu (son ordonnanceur sait programmer un départ dans le futur) ;
+3. la **latence de sortie** prise en compte (`getOutputTimestamp`), comme les autres ;
+4. un choix sur les **changements de tempo** : ses clips audio ne s'étirent pas ; c'est la grille qui bouge par rapport
+   à eux. Proposition : pendant qu'il joue, son tempo est celui de son projet.
+
+## 9. Une horloge MIDI extérieure
+
+Une application qui reçoit une horloge MIDI peut en faire la ligne de temps commune : le tempo mesuré, Start →
+`play({ fromStart: true })`, Stop → `stop()`, le Song Position Pointer → `locate`. C'est une option (le module de
+faustmodular, source *MIDI*, case « piloter la ligne de temps »), pour qu'une seule application à la fois la pilote.
+
+## 10. Mesures
+
+Déjà mesuré dans Chromium (Playwright, Linux, sans carte son, machine non chargée), deux onglets de la même origine :
 
 | Mesure | Résultat |
 |---|---|
@@ -177,25 +267,25 @@ Mesuré dans Chromium (Playwright, Linux, sans charge), deux onglets de la même
 | Délai d'un message `BroadcastChannel` (200 messages) | médiane 0,3 ms, 95 % sous 0,8 ms, au pire 2 ms |
 | `getOutputTimestamp`, `outputLatency` | disponibles (latence de sortie annoncée : 32 ms) |
 
-La précision attendue entre deux applications est de l'ordre de **la milliseconde**, si leurs sons sortent par le même
-périphérique. **À mesurer** sur de vrais ordinateurs, avant de la promettre :
+À mesurer sur un vrai ordinateur (macOS, une carte son), avant de valider le critère (§ 1.1) :
 
-- la dérive entre horloge audio et horloge du système, et la qualité du rattrapage (§ 7.1) ;
-- Firefox et Safari (`getOutputTimestamp`, `BroadcastChannel` : à vérifier) ;
-- les onglets en arrière-plan (leurs minuteries sont ralenties ; le son et les messages, a priori non).
+1. **le critère lui-même** : deux faustmodular, un trig par double croche, l'un à gauche, l'autre à droite, la sortie
+   enregistrée ; l'écart des attaques au départ, après l'ouverture du second en cours de lecture, après des changements
+   de tempo, au bout d'une heure ;
+2. la précision de `getOutputTimestamp` (sa dispersion d'une lecture à l'autre), qui borne celle de la traduction ;
+3. Chrome, puis Firefox et Safari ;
+4. un onglet en arrière-plan (ses minuteries sont ralenties ; le son et les messages, a priori non).
 
-## 9. Limites, et suites possibles
+## 11. Limites, et suites possibles
 
-- **Même navigateur, même origine** : pas entre deux navigateurs, deux profils, deux ordinateurs ; pas entre des
-  serveurs de développement locaux de ports différents.
-- Des sorties audio sur des **périphériques différents** ont des latences différentes : `getOutputTimestamp` les
-  compense en principe, à vérifier.
+- Même navigateur, même origine : pas entre deux navigateurs, deux profils, deux ordinateurs, ni entre des serveurs de
+  développement locaux de ports différents.
 - Suites : entre ordinateurs (un serveur WebSocket, WebRTC, ou un pont vers Ableton Link par une petite application
   locale) ; émettre une horloge MIDI vers des appareils, depuis la ligne de temps.
 
-## 10. Questions ouvertes
+## 12. Questions ouvertes
 
-1. Pas de maître, le dernier changement l'emporte (§ 6.3) : est-ce le bon modèle, ou faut-il une application maîtresse ?
-2. Le départ quantifié à la mesure (§ 5) : à la mesure suivante, ou tout de suite ?
-3. Le transport dans chaque application (§ 7.3) : ▶ / ■, tempo, *mesure:temps* ; faut-il aussi le métronome ?
-4. Le module de faustmodular : généraliser le MIDI Clock (source *shared* / *MIDI*), ou un module à part ?
+1. Pas de maître, le dernier changement l'emporte : est-ce le bon modèle, ou faut-il une application maîtresse ?
+2. `play()` quand tout est arrêté : tout de suite (+20 ms), ou à la mesure suivante ?
+3. Le transport de chaque application : ▶ / ■, tempo, *mesure:temps* ; faut-il un métronome ?
+4. faustmodular : généraliser le MIDI Clock (source *shared* / *MIDI*), ou un module à part ?
