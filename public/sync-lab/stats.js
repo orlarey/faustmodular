@@ -109,11 +109,15 @@ export function groupClicks(onsetSamples, sr, gap) {
     for (const g of groups) sizes[g.length] = (sizes[g.length] ?? 0) + 1;
     const size = Number(Object.entries(sizes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0);
     const errors = Array.from({ length: Math.max(0, size - 1) }, () => []);
+    const times = Array.from({ length: Math.max(0, size - 1) }, () => []);       // the first click of the group (samples)
     for (const g of groups) {
         if (g.length != size) continue;
-        for (let r = 1; r < size; r++) errors[r - 1].push(((g[r] - g[0]) / sr - r * gap) * 1000);
+        for (let r = 1; r < size; r++) {
+            errors[r - 1].push(((g[r] - g[0]) / sr - r * gap) * 1000);
+            times[r - 1].push(g[0]);
+        }
     }
-    return { groups: groups.length, sizes, size, errors };
+    return { groups: groups.length, sizes, size, errors, times };
 }
 
 // A summary of a series: count, median, mean, standard deviation, quantiles, extremes.

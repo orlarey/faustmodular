@@ -32,16 +32,18 @@
     <h1>Laboratoire faust-sync</h1>
     <p>Mesures pour l'algorithme de synchronisation (<a href="https://github.com/orlarey/faustmodular/blob/main/Documentation/FAUST-SYNC-SPEC.md" style="color:var(--accent)">spécification</a>, § 10) : ce que donnent les horloges audio de plusieurs fenêtres du navigateur sur une même carte son.</p>
     <ol>
-        <li>Ferme les fenêtres de ce laboratoire encore ouvertes. Ouvre cette page dans <b>deux fenêtres côte à côte</b> (pas deux onglets d'une même fenêtre : un onglet caché a ses minuteries ralenties). Clique <b>Démarrer</b> dans chacune.</li>
-        <li>Attends une minute : les lignes se remplissent. δ reste constant, ou dérive régulièrement si les deux fenêtres ne comptent pas leurs échantillons à la même vitesse.</li>
-        <li>Clique <b>Clics</b> dans les deux fenêtres : chacune clique deux fois par seconde, la seconde 100 ms après la première (l'écart qui permet à l'enregistrement de les distinguer), alignées par δ (prédit par la droite de ses valeurs des 20 dernières secondes).</li>
-        <li>Dans une fenêtre, <b>Enregistrer</b> : le micro intégré près des haut-parleurs suffit (le trajet acoustique est le même pour les deux clics), ou un bouclage (BlackHole, câble). L'écart mesuré, moins 100 ms, est l'erreur réelle.</li>
-        <li><b>Copier le rapport</b> dans chaque fenêtre, et colle-les dans la conversation. Refais-le après une dizaine de minutes.</li>
+        <li>Ferme les fenêtres de ce laboratoire encore ouvertes. Ouvre cette page dans <b>deux fenêtres côte à côte</b>, toutes deux visibles (pas deux onglets d'une même fenêtre : un onglet caché a ses minuteries ralenties). Clique <b>Démarrer</b> dans chacune.</li>
+        <li>Dans <b>une</b> fenêtre, <b>Ouvrir l'entrée</b> (le micro intégré suffit : le trajet acoustique est le même pour les deux clics ; ou un bouclage, BlackHole, câble). Ouvrir un micro peut changer la latence de sortie : un saut de l'horloge, que la page signale.</li>
+        <li>Clique <b>Clics</b> dans les deux fenêtres : chacune clique deux fois par seconde, la seconde 100 ms après la première (l'écart qui permet à l'enregistrement de les distinguer), alignées par δ.</li>
+        <li>Attends une minute, puis <b>Enregistrer</b> (60 s) dans la fenêtre qui a l'entrée. L'écart mesuré, moins 100 ms, est l'erreur réelle ; le graphique la montre au cours du temps.</li>
+        <li>Recommence l'enregistrement avec <b>δ : figé</b> dans la fenêtre de rang 1 : si l'erreur bouge encore, les sauts de l'horloge sont réels (la latence a vraiment changé) ; sinon, ils viennent de la mesure.</li>
+        <li><b>Copier le rapport</b> dans chaque fenêtre, et colle-les dans la conversation.</li>
         <li>Pour écouter : <b>écart 0</b> dans les deux fenêtres. Alignés, les deux clics n'en font qu'un ; décalés de quelques ms, ils se dédoublent.</li>
     </ol>
     <div class="bar">
         <button id="start">Démarrer</button>
         <button id="clicks" disabled>Clics</button>
+        <select id="deltaMode" title="δ utilisé par les clics"><option value="median">δ : médiane 3 s</option><option value="line">δ : droite 20 s</option><option value="frozen">δ : figé</option></select>
         <select id="gap" title="Écart entre les clics des fenêtres"><option value="0.1">écart 100 ms (mesure)</option><option value="0">écart 0 (écoute)</option></select>
         <button id="copy">Copier le rapport</button>
         <button id="download">Télécharger les données</button>
@@ -61,10 +63,13 @@
         <tbody id="peers"></tbody>
     </table></div>
 
+    <div id="charts"></div>
+
     <h2>Enregistrement des clics</h2>
     <div class="bar">
         <select id="input"><option value="">Entrée par défaut</option></select>
-        <input id="duration" type="number" value="20" min="5" max="120" style="width:5em"> s
+        <input id="duration" type="number" value="60" min="5" max="120" style="width:5em"> s
+        <button id="openInput" disabled>Ouvrir l'entrée</button>
         <button id="record" disabled>Enregistrer</button>
         <small id="recordStatus"></small>
     </div>

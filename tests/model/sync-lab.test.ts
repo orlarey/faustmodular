@@ -60,6 +60,9 @@ describe("sync lab: the clicks", () => {
         expect(Math.abs(summary(groups.errors[0]).median - 0.37)).toBeLessThan(0.02);
         expect(Math.abs(summary(groups.errors[1]).median + 0.81)).toBeLessThan(0.02);
         expect(summary(groups.errors[0]).std).toBeLessThan(0.02);
+        // the time of each group: its first click, every 0.5 s from 12.3 ms
+        expect(groups.times[0].length).toBe(20);
+        expect(Math.abs(groups.times[0][3] / sr - (0.0123 + 1.5))).toBeLessThan(0.001);
     });
 
     it("finds nothing in silence", () => {

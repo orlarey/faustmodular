@@ -3,9 +3,11 @@
     browser on one sound card, what an algorithm of synchronization can rely on.
 
     1. Each window reads its audio clock: getOutputTimestamp gives the frame of the context that comes out of the
-       speaker (n, "audible") at a time of the common clock (T, performance.timeOrigin + performanceTime). The line
-       n(T) over the last 30 s: the noise of the readings (its residuals), the drift between the quartz of the card
-       and the clock of the system (its slope against the sample rate).
+       speaker (n, "audible") at a time of the common clock (T, performance.timeOrigin + performanceTime). Its line
+       n(T): the slope (the drift between the quartz of the card and the clock of the system) over the last 30 s of
+       the current segment, the offset from the median of the last second. The clock may jump (the output latency
+       changes: a microphone opened, another context started): a jump of the last half second against the two
+       before starts a new segment; it is reported. A line over 30 s would turn it into a ramp of 30 s.
     2. The windows publish their lines; each one deduces δ = n_ref(T) − n_self(T) at the same T, without a round
        trip. On one card, δ must be constant: its dispersion and its drift are measured.
     3. For comparison, the round trip with the midpoint (Cristian): ping with the rendered frame (currentTime), the
@@ -27,7 +29,8 @@ const PING_EVERY = 200;         // ms
 const ACTIVE = 2500;            // ms: a window not heard for longer has left
 const PERIOD = 0.5, GAP = 0.1;  // s: the clicks
 const LOOKAHEAD = 1;            // s: the clicks scheduled that far ahead (the timers of a window may be late by 0.5 s)
-const LAB_VERSION = 3;          // the windows of another version of the page are ignored
+const LAB_VERSION = 4;          // the windows of another version of the page are ignored
+const STEP = 0.25;              // ms: a jump of the clock larger than that starts a new segment
 
 const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).slice(0, 8);
 const epoch = () => performance.timeOrigin + performance.now();
@@ -44,6 +47,13 @@ let seq = 0;
 let clicks = false, clickBuffer = null, lastK = -Infinity, lastRef = "";
 let recording = null;           // the result of the last recording
 let lastPerf = -1;
+let lastLatency = null;
+const latencies = [];           // [t, ms]: the changes of the output latency announced by the context
+const events = [];              // [t, what]: microphone opened and closed, clicks, mode of δ
+const frozen = new Map();       // id → δ frozen (mode "frozen")
+// a time in seconds from the start of this window (0.1 s); the report gives the start (t0) to align the windows
+const rel = (T) => Math.round((T - startedAt) / 100) / 10;
+const event = (what) => events.push([rel(epoch()), what]);
 const resolution = timerResolution();
 
 // The smallest step of performance.now() (its precision is reduced outside a cross-origin isolated page).
@@ -76,6 +86,7 @@ async function start() {
     $("#start").disabled = true;
     $("#clicks").disabled = false;
     $("#record").disabled = false;
+    $("#openInput").disabled = false;
     await listInputs();
 }
 
@@ -90,15 +101,53 @@ function read() {
     // the rendered frame at the reading, less the audible frame then (at the slope of the sample rate)
     const ahead = rendered - (n + (now - T) * sr / 1000);
     readings.push({ T, n, ahead });
+    const latency = ctx.outputLatency;
+    if (latency !== undefined && latency !== lastLatency) {
+        latencies.push([rel(T), Math.round(latency * 1e5) / 100]);
+        lastLatency = latency;
+    }
 }
+
+// The line of the clock: the slope over the last 30 s of the segment (since the last jump), the offset from the
+// median of the last second; a jump of the clock starts a new segment.
+let segmentFrom = 0;            // epoch: the start of the current segment
+let slope = null;               // samples per ms
+const steps = [];               // [t, ms]: the jumps of the clock
+let fitted = 0;
 
 function fits() {
     const used = readings.filter((r) => r.T > startedAt + WARMUP);
-    const last = used.length ? used[used.length - 1].T : 0;
-    const recent = used.filter((r) => r.T > last - WINDOW);
-    line = recent.length >= 20 ? robustFit(recent.map((r) => r.T), recent.map((r) => r.n)) : null;
-    if (line) line.Tlast = last;
-    driftLine = used.length >= 20 ? robustFit(used.map((r) => r.T), used.map((r) => r.n)) : null;
+    if (used.length < 20) { line = null; return; }
+    const last = used[used.length - 1].T;
+    if (last == fitted) return;
+    fitted = last;
+    const s = slope ?? sr / 1000;
+    const offset = (r) => r.n - s * (r.T - last);
+    // a jump: the last half second against the two seconds before (in the segment)
+    const now = used.filter((r) => r.T > last - 500), before = used.filter((r) => r.T > Math.max(segmentFrom, last - 2500) && r.T <= last - 500);
+    if (now.length >= 5 && before.length >= 20) {
+        const jump = median(now.map(offset)) - median(before.map(offset));
+        if (Math.abs(jump) > STEP * sr / 1000) {
+            steps.push([rel(last - 500), Math.round(jump / sr * 1e5) / 100]);
+            segmentFrom = last - 500;
+        }
+    }
+    const segment = used.filter((r) => r.T > Math.max(segmentFrom, last - WINDOW));
+    let outliers = 0;
+    if (segment.length >= 40 && segment[segment.length - 1].T - segment[0].T > 5000) {
+        const fit = robustFit(segment.map((r) => r.T), segment.map((r) => r.n));
+        if (fit) { slope = fit.slope; outliers = fit.outliers; }
+    }
+    const k = slope ?? sr / 1000;
+    const recent = used.filter((r) => r.T > Math.max(segmentFrom, last - 1000));
+    const y0 = median(recent.map((r) => r.n - k * (r.T - last)));
+    const residuals = segment.map((r) => r.n - (y0 + k * (r.T - last)));
+    const mid = median(residuals);
+    // the noise without the readings of a jump not yet detected (beyond 5 robust deviations)
+    const mad = median(residuals.map((r) => Math.abs(r - mid))) * 1.4826;
+    const kept = residuals.map((r) => r - mid).filter((r) => Math.abs(r) <= Math.max(5 * mad, 1e-9));
+    line = { x0: last, y0, slope: k, Tlast: last, residuals: kept, outliers: outliers + residuals.length - kept.length };
+    driftLine = robustFit(used.map((r) => r.T), used.map((r) => r.n));
 }
 
 function post(message) {
@@ -158,15 +207,24 @@ function members() {
     return list.sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
 }
 
-// δ to a window, predicted now (samples): two windows may count their samples at slightly different rates, δ then
-// drifts; the line of its values over the last 20 s, at the present time (a median of past values lags behind).
-function delta(other) {
+// δ to a window (samples), as the clicks use it (#deltaMode):
+// - "median": the median of its values over the last 3 s (no overshoot after a jump; lags behind a drift);
+// - "line": the line of its values over the last 20 s, at the present time (follows a drift; after a jump, overshoots
+//   by a quarter of it, then comes back over 20 s);
+// - "frozen": the value when the mode was chosen (a jump of the measure does not move the clicks: if the clicks
+//   still move, the jump is real).
+function delta(other, mode = $("#deltaMode").value) {
     const peer = peers.get(other);
     if (!peer || peer.deltas.length < 3) return null;
+    if (mode == "frozen" && frozen.has(other)) return frozen.get(other);
     const now = epoch();
-    const recent = peer.deltas.filter((x) => x.T > now - 20000);
-    const fit = recent.length >= 8 ? robustFit(recent.map((x) => x.T), recent.map((x) => x.d)) : null;
-    return fit ? at(fit, now + LOOKAHEAD * 500) : median(peer.deltas.slice(-10).map((x) => x.d));
+    if (mode == "line") {
+        const recent = peer.deltas.filter((x) => x.T > now - 20000);
+        const fit = recent.length >= 8 ? robustFit(recent.map((x) => x.T), recent.map((x) => x.d)) : null;
+        if (fit) return at(fit, now + 500);
+    }
+    const recent = peer.deltas.filter((x) => x.T > now - 3000);
+    return median((recent.length >= 3 ? recent : peer.deltas.slice(-10)).map((x) => x.d));
 }
 
 // The clicks of this window, at the frames of the reference: k·period + rank·gap, through δ.
@@ -226,37 +284,62 @@ async function listInputs() {
     } catch { /* no devices */ }
 }
 
+// The input stays open between the recordings: opening a microphone may change the output latency (a jump of the
+// clocks); open it, wait, then record.
+let input = null;               // { stream, source, node, sink, take }
+
+async function openInput() {
+    if (input) return;
+    const deviceId = $("#input").value;
+    $("#recordStatus").textContent = "accès à l'entrée…";
+    const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+    event("microphone opened");
+    await listInputs();
+    const url = URL.createObjectURL(new Blob([RECORDER], { type: "application/javascript" }));
+    await ctx.audioWorklet.addModule(url).catch(() => {});
+    const source = ctx.createMediaStreamSource(stream);
+    const node = new AudioWorkletNode(ctx, "lab-recorder", { numberOfOutputs: 1 });
+    const sink = ctx.createGain();
+    sink.gain.value = 0;
+    source.connect(node).connect(sink).connect(ctx.destination);
+    input = { stream, source, node, sink, take: null };
+    node.port.onmessage = (e) => input?.take?.(e.data);
+    $("#recordStatus").textContent = "entrée ouverte : attends une trentaine de secondes, puis Enregistrer";
+    $("#openInput").textContent = "Fermer l'entrée";
+}
+
+function closeInput() {
+    if (!input) return;
+    input.source.disconnect();
+    input.node.disconnect();
+    input.sink.disconnect();
+    input.stream.getTracks().forEach((t) => t.stop());
+    input = null;
+    event("microphone closed");
+    $("#recordStatus").textContent = "entrée fermée";
+    $("#openInput").textContent = "Ouvrir l'entrée";
+}
+
 async function record() {
     const seconds = Number($("#duration").value) || 20;
-    const deviceId = $("#input").value;
     $("#record").disabled = true;
-    $("#recordStatus").textContent = "accès à l'entrée…";
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-        });
-        await listInputs();
-        const url = URL.createObjectURL(new Blob([RECORDER], { type: "application/javascript" }));
-        await ctx.audioWorklet.addModule(url).catch(() => {});
-        const source = ctx.createMediaStreamSource(stream);
-        const node = new AudioWorkletNode(ctx, "lab-recorder", { numberOfOutputs: 1 });
-        const mute = ctx.createGain();
-        mute.gain.value = 0;
-        source.connect(node).connect(mute).connect(ctx.destination);
+        await openInput();
         const chunks = [];
-        let length = 0;
+        let length = 0, begin = 0;
         const total = Math.round(seconds * sr);
+        event("recording");
         await new Promise((resolve) => {
-            node.port.onmessage = (e) => {
-                chunks.push(e.data);
-                length += e.data.length;
+            input.take = (chunk) => {
+                if (!begin) begin = epoch();
+                chunks.push(chunk);
+                length += chunk.length;
                 $("#recordStatus").textContent = `enregistrement… ${(length / sr).toFixed(1)} / ${seconds} s`;
-                if (length >= total) resolve();
+                if (length >= total) { input.take = null; resolve(); }
             };
         });
-        source.disconnect();
-        node.disconnect();
-        stream.getTracks().forEach((t) => t.stop());
         const x = new Float32Array(length);
         let o = 0;
         for (const c of chunks) { x.set(c, o); o += c.length; }
@@ -265,10 +348,14 @@ async function record() {
         let peak = 0;
         for (const v of x) peak = Math.max(peak, Math.abs(v));
         recording = {
+            // the error of each pair, at its time (s from the start of this window; the beginning of the recording is
+            // known within a block)
+            pairs: groups.errors.map((e, r) => e.map((v, i) => [Math.round((rel(begin) + groups.times[r][i] / sr) * 10) / 10, Math.round(v * 1000) / 1000])),
             seconds, input: $("#input").selectedOptions[0]?.textContent, peak, clicks: found.length, groups: groups.groups,
             sizes: groups.sizes, windows: groups.size, errors: groups.errors.map((e) => ({ ...summary(e), values: e })),
+            deltaMode: $("#deltaMode").value,
         };
-        $("#recordStatus").textContent = "terminé";
+        $("#recordStatus").textContent = "terminé (l'entrée reste ouverte)";
     } catch (e) {
         $("#recordStatus").textContent = "échec : " + e.message;
     }
@@ -288,7 +375,7 @@ function report() {
         id, date: new Date().toISOString(), userAgent: navigator.userAgent,
         sampleRate: sr, baseLatency: ctx?.baseLatency, outputLatency: ctx?.outputLatency, timerResolutionMs: resolution,
         role: !list.some((m) => m.id == id) ? "waiting" : list[0].id == id ? "reference" : "rank " + list.findIndex((m) => m.id == id),
-        lab: 2, deltaModel: "line over 20 s, at now",
+        lab: LAB_VERSION, deltaMode: $("#deltaMode").value, t0: startedAt,
         driftPpm30s: line ? (line.slope * 1000 / sr - 1) * 1e6 : NaN,
         seconds: used.length ? (used[used.length - 1].T - used[0].T) / 1000 : 0,
         readings: {
@@ -299,6 +386,9 @@ function report() {
         driftPpm: driftLine ? (driftLine.slope * 1000 / sr - 1) * 1e6 : NaN,
         driftSlicesPpm: slices(used),
         foreign: [...foreign],
+        events, latencies, steps,
+        // the clock of this window against its line since the start, by 2 s (µs): a jump shows as a step
+        clock: clockSeries(used),
         peers: [...peers].map(([other, peer]) => {
             const ds = peer.deltas.map((x) => x.d);
             // the last minute: the first values come from lines still short
@@ -313,6 +403,8 @@ function report() {
                 // its own drift against the clock of the system (its line over 30 s)
                 driftPpm: peer.line ? (peer.line.slope * 1000 / peer.sr - 1) * 1e6 : NaN,
                 deltaNow: delta(other),
+                // δ by second, less its median (samples), at the times of this window
+                deltaSeries: deltaSeries(peer.deltas),
                 deltaSamples: {
                     ...summary(ds), last20: dAudible, lastMinute: summary(recent.map((x) => x.d)),
                     driftPerMinute: dl ? dl.slope * 60000 : NaN, driftPpm: dl ? dl.slope * 60000 / (60 * sr) * 1e6 : NaN,
@@ -325,7 +417,58 @@ function report() {
             };
         }),
         recording: recording && { ...recording, errors: recording.errors.map(({ values, ...s }) => s) },
+        version: LAB_VERSION,
     };
+}
+
+// The clock against the slope of its line, from its first reading, by 2 s (µs): a jump shows as a step.
+function clockSeries(used) {
+    if (!line || !used.length) return [];
+    const out = [];
+    const first = used[0];
+    let bin = [], start = first.T;
+    for (const r of used) {
+        if (r.T - start >= 2000) {
+            if (bin.length) out.push([rel(start + 1000), Math.round(median(bin))]);
+            bin = [];
+            start = r.T;
+        }
+        bin.push((r.n - first.n - line.slope * (r.T - first.T)) / sr * 1e6);
+    }
+    return out;
+}
+
+function deltaSeries(deltas) {
+    if (!deltas.length) return [];
+    const m = median(deltas.map((x) => x.d));
+    const out = [];
+    let second = -Infinity;
+    for (const x of deltas) {
+        const t = Math.floor(rel(x.T));
+        if (t == second) continue;
+        second = t;
+        out.push([t, Math.round((x.d - m) * 10) / 10]);
+    }
+    return out;
+}
+
+// A small chart: points [t, y], y in its unit.
+function chart(points, unit, title) {
+    if (points.length < 2) return "";
+    const W = 900, H = 140, L = 56, B = 18;
+    const ts = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+    const t0 = Math.min(...ts), t1 = Math.max(...ts);
+    let y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (y1 - y0 < 1e-9) { y0 -= 1; y1 += 1; }
+    const X = (t) => L + (t - t0) / Math.max(1e-9, t1 - t0) * (W - L - 8), Y = (y) => 6 + (1 - (y - y0) / (y1 - y0)) * (H - B - 12);
+    const path = points.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
+    const zero = y0 < 0 && y1 > 0 ? `<line x1="${L}" x2="${W - 8}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)"/>` : "";
+    return `<figure style="margin:8px 0"><figcaption><small>${title}</small></figcaption><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+        ${zero}<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="${L - 6}" y="${Y(y1) + 4}" text-anchor="end" fill="var(--quiet)" font-size="11">${f(y1, 2)} ${unit}</text>
+        <text x="${L - 6}" y="${Y(y0)}" text-anchor="end" fill="var(--quiet)" font-size="11">${f(y0, 2)} ${unit}</text>
+        <text x="${L}" y="${H - 2}" fill="var(--quiet)" font-size="11">${f(t0, 0)} s</text>
+        <text x="${W - 8}" y="${H - 2}" text-anchor="end" fill="var(--quiet)" font-size="11">${f(t1, 0)} s</text></svg></figure>`;
 }
 
 // The drift against the clock of the system, by slices of 30 s (does it change along the way?).
@@ -363,6 +506,7 @@ function show() {
         <tr><th>Fréquence, latences annoncées</th><td>${sr} Hz — base ${f(r.baseLatency * 1000, 1)} ms, sortie ${f(r.outputLatency * 1000, 1)} ms</td></tr>
         <tr><th>Résolution de performance.now()</th><td>${f(resolution * 1000, 0)} µs</td></tr>
         <tr><th>Lectures de getOutputTimestamp</th><td>${r.readings.count} en ${f(r.seconds, 0)} s; écartées ${r.readings.outliers ?? "—"}; sur un bloc de 128 : ${f(r.readings.onBlocksOf128 * 100, 0)} %</td></tr>
+        <tr><th>Sauts de l'horloge</th><td>${r.steps.length ? r.steps.map(([t, ms]) => `${f(t, 1)} s : ${ms > 0 ? "+" : ""}${f(ms, 2)} ms`).join(" ; ") : "aucun"}</td></tr>
         <tr><th>Bruit des lectures (30 s)</th><td>σ ${f(r.readings.residualUs.std, 0)} µs; 95 % dans [${f(r.readings.residualUs.p05, 0)}, ${f(r.readings.residualUs.p95, 0)}] µs; extrêmes ${f(r.readings.residualUs.min, 0)} / ${f(r.readings.residualUs.max, 0)} µs</td></tr>
         <tr><th>Dérive carte / horloge système</th><td>${f(r.driftPpm, 1)} ppm depuis le début (${f(r.driftPpm * 0.06, 2)} ms par minute); ${f(r.driftPpm30s, 1)} ppm sur les 30 dernières s<br><small>par tranches de 30 s : ${r.driftSlicesPpm.join(", ") || "—"}</small></td></tr>
         ${r.foreign.length ? `<tr><th>Fenêtres ignorées</th><td>${r.foreign.join(", ")} : une autre version de la page, encore ouverte. Ferme-les.</td></tr>` : ""}
@@ -378,22 +522,32 @@ function show() {
             <td>${f(p.roundTrip.rttMs.median, 2)} / ${f(p.roundTrip.rttMs.min, 2)} / ${f(p.roundTrip.rttMs.p95, 2)}</td>
             <td>${f(p.roundTrip.deltaFastHalf, 1)} (σ ${f(p.roundTrip.deltaSamples.std, 1)})</td>
             <td>${f(p.roundTrip.minusAudibleMs, 2)}</td></tr>`).join("");
+    $("#charts").innerHTML = chart(r.clock.map(([t, us]) => [t, us / 1000]), "ms", "Horloge de cette fenêtre, sans sa dérive, depuis le début (un saut y fait une marche)") +
+        r.peers.filter((p) => p.active).map((p) => chart(p.deltaSeries.map(([t, d]) => [t, d / sr * 1000]), "ms", `δ vers ${p.id}, moins sa médiane`)).join("");
     const rec = r.recording;
     $("#result").innerHTML = !rec ? "" : `<p>${rec.clicks} clics détectés (crête ${f(rec.peak, 3)}), ${rec.groups} groupes, ${rec.windows} fenêtres par groupe ${JSON.stringify(rec.sizes)}.</p>` +
         (rec.errors.length == 0 ? "<p>Pas de paire : active les clics dans au moins deux fenêtres, avec l'écart de 100 ms, et vérifie que l'entrée les entend.</p>" :
             `<table><tr><th>Rang</th><th>n</th><th>médiane</th><th>moyenne</th><th>σ</th><th>min</th><th>max</th></tr>` +
-            rec.errors.map((e, i) => `<tr><td>${i + 1} − 0</td><td>${e.n}</td><td>${f(e.median, 3)} ms</td><td>${f(e.mean, 3)} ms</td><td>${f(e.std, 3)} ms</td><td>${f(e.min, 3)} ms</td><td>${f(e.max, 3)} ms</td></tr>`).join("") + "</table>");
+            rec.errors.map((e, i) => `<tr><td>${i + 1} − 0</td><td>${e.n}</td><td>${f(e.median, 3)} ms</td><td>${f(e.mean, 3)} ms</td><td>${f(e.std, 3)} ms</td><td>${f(e.min, 3)} ms</td><td>${f(e.max, 3)} ms</td></tr>`).join("") + "</table>" +
+            rec.pairs.map((p, i) => chart(p, "ms", `Erreur du rang ${i + 1} pendant l'enregistrement`)).join(""));
 }
 
 $("#start").onclick = () => start().catch((e) => alert(e.message));
 $("#clicks").onclick = () => {
     clicks = !clicks;
     lastK = -Infinity;
+    event(clicks ? "clicks on" : "clicks off");
     $("#clicks").textContent = clicks ? "Arrêter les clics" : "Clics";
     $("#clicks").classList.toggle("on", clicks);
 };
 $("#record").onclick = () => record();
-$("#gap").onchange = () => { lastK = -Infinity; };
+$("#openInput").onclick = () => (input ? closeInput() : openInput().catch((e) => ($("#recordStatus").textContent = "échec : " + e.message)));
+$("#gap").onchange = () => { lastK = -Infinity; event("gap " + $("#gap").value); };
+$("#deltaMode").onchange = () => {
+    frozen.clear();
+    if ($("#deltaMode").value == "frozen") for (const other of peers.keys()) { const d = delta(other, "median"); if (d !== null) frozen.set(other, d); }
+    event("delta " + $("#deltaMode").value);
+};
 $("#copy").onclick = async () => {
     const text = JSON.stringify(report(), null, 1);
     try { await navigator.clipboard.writeText(text); $("#copied").textContent = "copié"; }
