@@ -179,7 +179,9 @@ function schedule() {
         d = delta(ref);
         if (d === null) return;
     }
-    const P = PERIOD * sr, G = GAP * sr;
+    // the gap between the ranks: 100 ms to measure (the recording tells the windows apart), 0 to listen (one click if
+    // they are aligned, a flam beyond a few ms)
+    const P = PERIOD * sr, G = Number($("#gap").value) * sr;
     const c = ctx.currentTime * sr;
     const first = Math.ceil((c + 0.05 * sr + d - rank * G) / P), last = Math.floor((c + LOOKAHEAD * sr + d - rank * G) / P);
     for (let k = Math.max(first, lastK + 1); k <= last; k++) {
@@ -354,7 +356,7 @@ function show() {
             <td>${f(p.roundTrip.minusAudibleMs, 2)}</td></tr>`).join("");
     const rec = r.recording;
     $("#result").innerHTML = !rec ? "" : `<p>${rec.clicks} clics détectés (crête ${f(rec.peak, 3)}), ${rec.groups} groupes, ${rec.windows} fenêtres par groupe ${JSON.stringify(rec.sizes)}.</p>` +
-        (rec.errors.length == 0 ? "<p>Pas de paire : active les clics dans au moins deux fenêtres, et vérifie que l'entrée les entend.</p>" :
+        (rec.errors.length == 0 ? "<p>Pas de paire : active les clics dans au moins deux fenêtres, avec l'écart de 100 ms, et vérifie que l'entrée les entend.</p>" :
             `<table><tr><th>Rang</th><th>n</th><th>médiane</th><th>moyenne</th><th>σ</th><th>min</th><th>max</th></tr>` +
             rec.errors.map((e, i) => `<tr><td>${i + 1} − 0</td><td>${e.n}</td><td>${f(e.median, 3)} ms</td><td>${f(e.mean, 3)} ms</td><td>${f(e.std, 3)} ms</td><td>${f(e.min, 3)} ms</td><td>${f(e.max, 3)} ms</td></tr>`).join("") + "</table>");
 }
@@ -367,6 +369,7 @@ $("#clicks").onclick = () => {
     $("#clicks").classList.toggle("on", clicks);
 };
 $("#record").onclick = () => record();
+$("#gap").onchange = () => { lastK = -Infinity; };
 $("#copy").onclick = async () => {
     const text = JSON.stringify(report(), null, 1);
     try { await navigator.clipboard.writeText(text); $("#copied").textContent = "copié"; }
