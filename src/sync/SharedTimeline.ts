@@ -27,8 +27,10 @@ export type SyncMessage =
 
 export const commonNow = () => performance.timeOrigin + performance.now();
 
-// The AudioWorkletProcessor: TimelineCore, fed with rules by its port.
-const PROCESSOR = `${TimelineCore.toString()}
+// The AudioWorkletProcessor: TimelineCore, fed with rules by its port. The class is bound to its name by an
+// expression: the production build turns `class TimelineCore {…}` into `var TimelineCore = class {…}`, whose source
+// is an anonymous class, not a statement.
+export const processorSource = (core: string) => `const TimelineCore = (${core});
 registerProcessor("faust-sync-timeline", class extends AudioWorkletProcessor {
     constructor() {
         super();
@@ -41,6 +43,7 @@ registerProcessor("faust-sync-timeline", class extends AudioWorkletProcessor {
         return true;
     }
 });`;
+const PROCESSOR = processorSource(TimelineCore.toString());
 
 export class SharedTimeline {
     readonly origin: string;

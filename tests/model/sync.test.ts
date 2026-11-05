@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { apply, barBeat, beatAt, LEAD, newer, newTimeline, Timeline } from "../../src/sync/Timeline";
 import { TimelineCore } from "../../src/sync/TimelineCore";
+import { processorSource } from "../../src/sync/SharedTimeline";
 import { syncInputs } from "../../src/sync/SyncInputs";
 import { modulatedCode } from "../../src/model/Modulation";
 
@@ -91,5 +92,33 @@ describe("reserved inputs", () => {
         // 1 audio port, 1 modulation port, 2 reserved: route(4, 4, …): the modulation to the widget, the audio and the
         // reserved inputs to the process
         expect(code).toContain("route(4,4,(2,1),(1,2),(3,3),(4,4))");
+    });
+});
+
+// The script of the AudioWorklet, from the source of TimelineCore: named (`class TimelineCore {…}`, the development
+// server) or anonymous (`class {…}`, the production build, where the class is assigned to a variable).
+describe("the Timeline processor", () => {
+    const run = (core: string) => {
+        let Processor: any = null;
+        class AudioWorkletProcessor { port = { onmessage: null as any }; }
+        const register = (_name: string, p: any) => { Processor = p; };
+        new Function("registerProcessor", "AudioWorkletProcessor", "sampleRate", "currentFrame", processorSource(core))(register, AudioWorkletProcessor, 48000, 0);
+        const node = new Processor();
+        node.port.onmessage({ data: { frame: 0, beat: 0, tempo: 120, meter: 4, playing: true } });
+        const out = [0, 1, 2, 3, 4].map(() => new Float32Array(128));
+        expect(node.process([], [out])).toBe(true);
+        return out;
+    };
+
+    it("runs from the source of the class, named or anonymous", () => {
+        const named = TimelineCore.toString();
+        const anonymous = named.replace(/^class\s+TimelineCore\s*/, "class ");
+        expect(anonymous.startsWith("class {")).toBe(true);
+        for (const core of [named, anonymous]) {
+            const out = run(core);
+            expect(out[1][0]).toBe(1);                       // running
+            expect(out[2][0]).toBe(1);                       // the start
+            expect(out[0][127]).toBeCloseTo(127 * 2 / 48000, 9);
+        }
     });
 });

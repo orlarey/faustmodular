@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.43.1 (2026-11-05)
+
+- **The transport stayed greyed out in the published application**: the Timeline node did not load. Its script is
+  made from the source of the TimelineCore class, which the production build turns into an anonymous class
+  (`var TimelineCore = class {…}`); `class {…}` at the head of a script is a syntax error. The class is now bound to
+  its name by an expression, whatever its form; a test runs the script with both forms.
+
 ## 3.43.0 (2026-11-05)
 
 - **faust-sync**: a timeline shared by the Faust applications open in the browser (`Documentation/FAUST-SYNC-SPEC.md`,
