@@ -164,8 +164,9 @@ account:
 
 - in the Modules menu, *Stores*, *Add a store…*: type `owner/repository`. Its modules are in the library, found by the
   search, added like the others; its scenes are in File ▸ Open from a store;
-- a link opens a scene of a store as a new scene:
-  `https://orlarey.github.io/faustmodular/?store=<owner>/<repository>&scene=scenes/<Name>/<Name>.jfaust`.
+- a link opens a scene of a store as a new scene: put the address of its file on GitHub after `?scene=`,
+  `https://orlarey.github.io/faustmodular/?scene=https://github.com/<owner>/<repository>/blob/main/scenes/<Name>/<Name>.jfaust`
+  (or `?store=<owner>/<repository>&scene=scenes/<Name>/<Name>.jfaust`).
 
 Publishing to one's store from faustmodular comes next.
 

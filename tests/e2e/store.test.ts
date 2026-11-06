@@ -35,7 +35,7 @@ async function open(query: string): Promise<{ context: BrowserContext; page: Pag
     const cors = { "access-control-allow-origin": "*" };
     await context.route("https://raw.githubusercontent.com/**", (route) => {
         github.push(route.request().url());
-        const m = /^https:\/\/raw\.githubusercontent\.com\/test\/store\/HEAD\/(.+)$/.exec(route.request().url());
+        const m = /^https:\/\/raw\.githubusercontent\.com\/test\/store\/(?:HEAD|main)\/(.+)$/.exec(route.request().url());
         const file = m && path.join(STORE, decodeURIComponent(m[1]));
         if (file && file.startsWith(STORE) && fs.existsSync(file)) route.fulfill({ status: 200, headers: cors, body: fs.readFileSync(file) });
         else route.fulfill({ status: 404, headers: cors, body: "404: Not Found" });
@@ -63,6 +63,18 @@ describe("store, read", () => {
         await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
         expect(await modules(page)).toEqual(["Drone"]);
         expect(await page.evaluate(() => (globalThis as any).faustPlayground.scene.patch.getConnections().length)).toBe(2);
+        expect(await page.evaluate(() => location.search)).toBe("?starter=0");
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("opens a scene from the address of its file on GitHub, put in the address of faustmodular", async () => {
+        const file = "https://github.com/test/store/blob/main/scenes/Nappe/Nappe.jfaust";
+        const { context, page, errors, github } = await open("?starter=0&scene=" + encodeURIComponent(file));
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.documents.current?.name == "Nappe", null, { timeout: 60_000 });
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
+        expect(await modules(page)).toEqual(["Drone"]);
+        expect(github).toContain("https://raw.githubusercontent.com/test/store/main/scenes/Nappe/Nappe.jfaust");
         expect(await page.evaluate(() => location.search)).toBe("?starter=0");
         expect(errors).toEqual([]);
         await context.close();

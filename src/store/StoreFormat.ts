@@ -33,6 +33,27 @@ export function parseStoreRef(text: string): StoreRef | null {
     return { owner, repo, ref };
 }
 
+// The address of a file of a store on GitHub, as GitHub shows it (github.com/<owner>/<repo>/blob/<ref>/<path>) or
+// raw (raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>): the store at that ref, and the path. A ref with a
+// "/" is not recognized (ambiguous with the path).
+export function parseFileUrl(text: string): { ref: StoreRef; path: string } | null {
+    let url: URL;
+    try { url = new URL((text ?? "").trim()); } catch { return null; }
+    if (url.protocol != "https:") return null;
+    let parts: string[];
+    try { parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent); } catch { return null; }
+    let owner: string, repo: string, at: string, rest: string[];
+    if (url.hostname == "github.com" || url.hostname == "www.github.com") {
+        if (parts[2] != "blob" && parts[2] != "raw") return null;
+        [owner, repo, , at, ...rest] = parts;
+    } else if (url.hostname == "raw.githubusercontent.com") {
+        [owner, repo, at, ...rest] = parts;
+    } else return null;
+    const ref = parseStoreRef(`${owner}/${repo}@${at}`);
+    const path = rest.join("/");
+    return ref && ref.ref && safePath(path) ? { ref, path } : null;
+}
+
 export const storeKey = (r: StoreRef) => `${r.owner}/${r.repo}` + (r.ref ? "@" + r.ref : "");
 
 // A path of the repository, relative, without going up or into a hidden folder.

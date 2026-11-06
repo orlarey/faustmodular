@@ -1,7 +1,8 @@
 // The store (Documentation/STORE-SPEC.md): its reference, its manifest and its index checked, a module described
 // from its code, the repository read with its index or without (rebuilt from git/trees), the stores followed.
 import { describe, expect, it } from "vitest";
-import { contentsOf, moduleEntry, parseIndex, parseManifest, parseStoreRef, safePath, storeKey } from "../../src/store/StoreFormat";
+import { contentsOf, moduleEntry, parseFileUrl, parseIndex, parseManifest, parseStoreRef, safePath, storeKey } from "../../src/store/StoreFormat";
+import { storeLink } from "../../src/store/StoreLink";
 import { StoreError, StoreReader } from "../../src/store/StoreReader";
 import { Stores } from "../../src/store/Stores";
 
@@ -84,6 +85,28 @@ describe("store: references and formats", () => {
     it("finds the modules and the scenes of a repository", () => {
         expect(contentsOf(["README.md", "modules/Drone/Drone.dsp", "scenes/Nappe/Nappe.jfaust", "scenes/Nappe/preview.png", "other/x.dsp", ".github/x.dsp"]))
             .toEqual({ modules: ["modules/Drone/Drone.dsp"], scenes: ["scenes/Nappe/Nappe.jfaust"] });
+    });
+});
+
+describe("store: links", () => {
+    it("reads the address of a file of a store, as GitHub shows it or raw", () => {
+        expect(parseFileUrl("https://github.com/orlarey/faust-store/blob/main/scenes/Nappe/Nappe.jfaust"))
+            .toEqual({ ref: { owner: "orlarey", repo: "faust-store", ref: "main" }, path: "scenes/Nappe/Nappe.jfaust" });
+        expect(parseFileUrl("https://raw.githubusercontent.com/orlarey/faust-store/3f2a9c1/scenes/Ma%20sc%C3%A8ne/Ma%20sc%C3%A8ne.jfaust"))
+            .toEqual({ ref: { owner: "orlarey", repo: "faust-store", ref: "3f2a9c1" }, path: "scenes/Ma scène/Ma scène.jfaust" });
+        for (const bad of ["http://github.com/o/r/blob/main/x.jfaust", "https://github.com/o/r/tree/main/x", "https://example.com/o/r/main/x.jfaust",
+            "https://github.com/o/r/blob/main/../x.jfaust", "https://github.com/o/r/blob/main", "not a url"]) expect(parseFileUrl(bad), bad).toBeNull();
+    });
+
+    it("opens a scene from the address of its file in the address of faustmodular, encoded or not", () => {
+        const file = "https://github.com/orlarey/faust-store/blob/main/scenes/Nappe/Nappe.jfaust";
+        const expected = { store: "orlarey/faust-store@main", scene: "scenes/Nappe/Nappe.jfaust" };
+        expect(storeLink("?scene=" + file)).toEqual(expected);
+        expect(storeLink("?starter=0&scene=" + encodeURIComponent(file))).toEqual(expected);
+        expect(storeLink("?store=o/r&scene=scenes/A/A.jfaust&ref=abc")).toEqual({ store: "o/r@abc", scene: "scenes/A/A.jfaust" });
+        expect(storeLink("?store=o/r")).toEqual({ store: "o/r", scene: undefined });
+        expect(storeLink("?scene=scenes/A/A.jfaust")).toBeNull();
+        expect(storeLink("?starter=0")).toBeNull();
     });
 });
 

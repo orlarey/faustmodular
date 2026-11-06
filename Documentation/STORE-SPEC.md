@@ -294,7 +294,22 @@ Un module se publie depuis la colonne *Mes modules* ou depuis le menu d'un modul
 - **Réglages : Mes magasins.** *Mon magasin* (le dépôt où je publie, avec son jeton) ; les **magasins suivis**, en lecture (on en ajoute par `propriétaire/dépôt`, ou depuis la découverte, \ref{sec:decouvrir}) ; on peut en suivre plusieurs, et n'en avoir qu'un où publier.
 - **La bibliothèque** (menu Modules) : une famille **Magasins**, un groupe par magasin suivi ; la recherche les couvre ; placer un module d'un magasin, c'est comme placer un module livré. L'instance retient sa **provenance** (magasin, chemin, empreinte), pour l'affichage et pour la mise à jour.
 - **Le menu Fichier** : *Ouvrir depuis un magasin…* (les scènes, avec leur aperçu ; une scène ouverte devient un **nouveau** document, comme un import) ; *Publier dans mon magasin…*.
-- **Les liens** : `…/faustmodular/?store=<propriétaire>/<dépôt>&scene=<chemin>` ouvre une scène publiée, sans compte ; `&ref=<commit>` l'ouvre dans une version précise. `?store=<propriétaire>/<dépôt>` seul ouvre la bibliothèque sur ce magasin. Un lien se copie depuis la scène ou le module.
+- **Les liens** : `…/faustmodular/?store=<propriétaire>/<dépôt>&scene=<chemin>` ouvre une scène publiée, sans compte ; `&ref=<commit>` l'ouvre dans une version précise. `?store=<propriétaire>/<dépôt>` seul ouvre la bibliothèque sur ce magasin. Un lien se copie depuis la scène ou le module (\ref{sec:partager}).
+
+## Partager une scène par son adresse \label{sec:partager}
+
+La façon la plus simple de partager une scène : mettre **l'adresse de son fichier** dans celle de faustmodular.
+
+```
+https://orlarey.github.io/faustmodular/?scene=https://github.com/orlarey/faust-store/blob/main/scenes/Nappe/Nappe.jfaust
+```
+
+- L'adresse est celle que GitHub montre quand on ouvre le fichier (`github.com/<propriétaire>/<dépôt>/blob/<ref>/<chemin>`), ou celle du fichier brut (`raw.githubusercontent.com/<propriétaire>/<dépôt>/<ref>/<chemin>`) : on la copie dans le navigateur, on la colle après `?scene=`. Elle peut aussi s'écrire encodée (`encodeURIComponent`), comme toute valeur d'une adresse.
+- faustmodular en tire le magasin, la version (`<ref>` : une branche, une étiquette ou un commit) et le chemin : c'est le lien `?store=<propriétaire>/<dépôt>&scene=<chemin>&ref=<ref>`. La scène s'ouvre comme une nouvelle scène, sans compte, et sa provenance est connue (le magasin, le chemin, la version).
+- Avec un commit, le lien désigne cette version pour toujours, même si la scène est publiée de nouveau ; avec une branche, la dernière version publiée.
+- Une branche dont le nom contient `/` n'est pas reconnue dans l'adresse de GitHub (elle y est ambiguë avec le chemin) : la forme `?store=…&scene=…&ref=…` la permet.
+- faustmodular **fabriquera le lien** (phase 2) : après une publication, et pour une scène d'un magasin, *Copier le lien de partage* le mettra dans le presse-papiers, avec le commit de la version publiée.
+- Seules les adresses de GitHub sont reconnues : un fichier ailleurs n'a ni magasin ni provenance, et son serveur doit permettre la lecture depuis une autre origine (CORS) ; il reste possible plus tard.
 - **faustcode** : `…/faustcode/?store=<propriétaire>/<dépôt>&file=<chemin>` ouvre un module d'un magasin ; le même magasin, le même jeton (même origine), et *Publier* fait une nouvelle version.
 
 # Découvrir et contribuer \label{sec:decouvrir}
@@ -347,7 +362,7 @@ Points ouverts :
 Chaque phase est utile seule.
 
 ::: note [État]
-Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`propriétaire/dépôt`, ou son adresse sur GitHub), ses modules dans la famille *Magasins* de la bibliothèque et dans la recherche, ses scènes dans Fichier ▸ Ouvrir depuis un magasin, les liens `?store=…&scene=…[&ref=…]` et `?store=…` ; l'index reconstruit depuis le dépôt quand il manque. Le modèle de magasin est dans `templates/fauststore/` du dépôt de faustmodular ; le dépôt modèle sur GitHub reste à créer.
+Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`propriétaire/dépôt`, ou son adresse sur GitHub), ses modules dans la famille *Magasins* de la bibliothèque et dans la recherche, ses scènes dans Fichier ▸ Ouvrir depuis un magasin, les liens `?store=…&scene=…[&ref=…]`, `?scene=<adresse du fichier sur GitHub>` (\ref{sec:partager}) et `?store=…` ; l'index reconstruit depuis le dépôt quand il manque. Le modèle de magasin est dans `templates/fauststore/` du dépôt de faustmodular ; le dépôt modèle sur GitHub reste à créer.
 :::
 
 1. **Lire.** Ouvrir un magasin public (`propriétaire/dépôt`), le parcourir et y chercher (famille *Magasins* de la bibliothèque), placer un module, ouvrir une scène ; liens `?store=…&scene=…` ; index reconstruit depuis le dépôt s'il manque. Le dépôt modèle `fauststore-template`.

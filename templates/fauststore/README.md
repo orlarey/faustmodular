@@ -9,7 +9,8 @@ A **store** of Faust modules and scenes, for [faustmodular](https://orlarey.gith
 - `scenes/<Name>/<Name>.jfaust`: a scene, the file faustmodular saves (it contains the code of its modules).
 
 To use it: in faustmodular, Modules menu, *Stores*, *Add a store…*, and type `owner/repository`. Its modules are
-in the library; its scenes in File ▸ Open from a store. A scene opens from a link:
-`https://orlarey.github.io/faustmodular/?store=<owner>/<repository>&scene=scenes/Nappe/Nappe.jfaust`.
+in the library; its scenes in File ▸ Open from a store. A scene opens from a link: the address of its file on GitHub
+after `?scene=`, for instance
+`https://orlarey.github.io/faustmodular/?scene=https://github.com/<owner>/<repository>/blob/main/scenes/Nappe/Nappe.jfaust`.
 
 Add the topic `fauststore` to the repository, so that others find it.

@@ -12,6 +12,9 @@
 - File ▸ Open from a store ▸ a store ▸ a scene: opened as a new scene.
 - Links: `?store=<owner>/<repository>&scene=<path>[&ref=<commit>]` opens a scene of a store; `?store=<owner>/<repository>`
   follows it and opens the library on it. The link is then taken off the address.
+- **Share a scene by its address**: `?scene=<the address of its file on GitHub>`, as GitHub shows it
+  (`github.com/<owner>/<repository>/blob/<ref>/<path>`) or raw, encoded or not: the store, the version and the path
+  are taken from it.
 - A model of a store in `templates/fauststore` (a manifest, a module, a scene, a README).
 
 ## 3.45.1 (2026-11-06)
