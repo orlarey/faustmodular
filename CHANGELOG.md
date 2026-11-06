@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.48.1 (2026-11-06)
+
+- **A scene of a store keeps its name**: published, it is named in the index as in its file (`sceneName`, "synctest 2"),
+  not as its file in the store (`synctest-2`, simplified); at each publication, a scene named only by its file
+  (added by hand, or by an index of 3.47/3.48.0) gets its name. Opened from a store or by a link, a scene takes the
+  name in its file.
+
 ## 3.48.0 (2026-11-06)
 
 - **Stores first** in the library, each with an indicator: *read* (no token), *write* (a token checked: one can

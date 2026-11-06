@@ -71,6 +71,26 @@ describe("store: the index", () => {
     });
 });
 
+describe("store: the names of the scenes", () => {
+    it("names a scene published as in its file; at a publication, a scene named only by its file gets its name", async () => {
+        const sceneOf = (name: string) => JSON.stringify({ format: "faustplayground-patch", version: 2, sceneName: name, modules: [], connections: [] });
+        const a = sceneOf("synctest 2"), b = sceneOf("Ma nappe");
+        const tree = [{ path: "scenes/synctest-2/synctest-2.jfaust", sha: await gitBlobSha(a) }, { path: "scenes/Ma-nappe/Ma-nappe.jfaust", sha: await gitBlobSha(b) }];
+        const files: Record<string, string> = { [tree[0].path]: a, [tree[1].path]: b };
+        // an index before 3.48.1: the names of the files
+        const before = { modules: [], scenes: tree.map((e) => ({ path: e.path, name: e.path.split("/")[1], sha: e.sha })) };
+        // read without a publication: kept as they are, nothing read
+        let reads = 0;
+        const read = async (path: string) => { reads++; return files[path]; };
+        expect((await buildIndex(tree, before, read)).scenes.map((s) => s.name)).toEqual(["Ma-nappe", "synctest-2"]);
+        expect(reads).toBe(0);
+        // a publication (of another scene): their names read from their files
+        const c = sceneOf("Été");
+        const after = await buildIndex(tree, before, read, { files: new Map([["scenes/Ete/Ete.jfaust", c]]), parent: "p", date: "d" });
+        expect(after.scenes.map((s) => s.name)).toEqual(["Été", "Ma nappe", "synctest 2"]);
+    });
+});
+
 describe("store: publishing", () => {
     it("checks the token of a store: the repository writable with it; the store then followed, in read and write", async () => {
         const gh = github({ "fauststore.json": MANIFEST });

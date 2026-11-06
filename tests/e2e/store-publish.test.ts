@@ -92,12 +92,12 @@ describe("store, publishing", () => {
         expect(gh.files().get("modules/SineVCO/SineVCO.dsp")).not.toContain("vgroup(\"SineVCO\",environment");
         const index = parseIndex(JSON.parse(gh.files().get("index.json")!))!;
         expect(index.modules.map((m) => m.name)).toEqual(["SineVCO"]);
-        expect(index.scenes.map((s) => s.name)).toEqual(["Ma-scene"]);
+        expect(index.scenes.map((s) => s.name)).toEqual(["Ma scène"]);                       // its name, its file simplified
         // the link opens the scene published
         const other = await context.newPage();
         other.on("pageerror", (e) => errors.push(e.message));
         await other.goto(link.replace("?scene=", "?starter=0&scene="));
-        await other.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current?.name == "Ma-scene", null, { timeout: 60_000 });
+        await other.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current?.name == "Ma scène", null, { timeout: 60_000 });
         await other.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
         expect(errors).toEqual([]);
         await context.close();

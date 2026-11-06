@@ -30,6 +30,16 @@ export async function sceneCodes(content: string): Promise<string[]> {
     }
 }
 
+// The name of a scene in its file (sceneName), or null.
+export function sceneNameIn(content: string): string | null {
+    try {
+        const name = JSON.parse(content)?.sceneName;
+        return typeof name == "string" && name.trim() ? name.trim().slice(0, 200) : null;
+    } catch {
+        return null;
+    }
+}
+
 // The index of the files `tree` (with their git blobs), the index before reused where the files are the same; `read`
 // reads a file of the repository not described yet; `changes`: the files published, and when.
 export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, read: (path: string) => Promise<string>,
@@ -58,15 +68,22 @@ export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, r
     const builtScenes = await Promise.all(scenes.map(async (path): Promise<StoreScene> => {
         const old = previousScenes.get(path);
         const published = changes?.files.get(path);
-        if (published === undefined && old && (old.sha === undefined || old.sha == shas.get(path))) return { ...old, sha: shas.get(path) ?? old.sha };
+        // at a publication, a scene named only by its file (added by hand, or by an index before 3.48.1): its name read
+        const named = async (entry: StoreScene) => {
+            if (!changes || entry.name != nameOfPath(path)) return entry;
+            try { return { ...entry, name: sceneNameIn(await read(path)) ?? entry.name }; } catch { return entry; }
+        };
+        if (published === undefined && old && (old.sha === undefined || old.sha == shas.get(path))) return named({ ...old, sha: shas.get(path) ?? old.sha });
         const entry: StoreScene = { path, name: old?.name ?? nameOfPath(path), summary: old?.summary, author: old?.author, preview: old?.preview, sha: shas.get(path) };
         if (published !== undefined) {
+            entry.name = sceneNameIn(published) ?? entry.name;
             entry.sha = await gitBlobSha(published);
             entry.codes = await sceneCodes(published);
             entry.updated = changes!.date;
         } else {
             entry.codes = old?.codes;
             entry.updated = old?.updated;
+            return named(entry);
         }
         return entry;
     }));

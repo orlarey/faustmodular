@@ -20,6 +20,7 @@ import { FILE_TYPES, FileHandles, hasFileAccess, SceneFileHandle } from "../docu
 import { MenuItem, shortcut, showMenuBelow } from "../view/ContextMenu";
 import type { Stores } from "../store/Stores";
 import { scenePath as scenePathOf } from "../store/StoreFormat";
+import { sceneNameIn } from "../store/StoreIndex";
 import { parseStoreRef } from "../store/StoreFormat";
 import type { Publishing } from "../store/Publishing";
 import { shareLink } from "../store/Publishing";
@@ -209,7 +210,8 @@ export class FileMenu {
             new Message(t.storeUnreadable.replace("%s", store + " : " + path));
             return false;
         }
-        return this.openText(text, sceneNameOf(path.split("/").pop()!));
+        // named as in its file (its name, not the name of its file in the store)
+        return this.openText(text, sceneNameIn(text) ?? sceneNameOf(path.split("/").pop()!));
     }
 
     // The scene written to its file (or downloaded), then not modified any more.
