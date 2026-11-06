@@ -20,6 +20,8 @@ export interface StoreState {
 export class Stores {
     private fStates = new Map<string, StoreState>();
     private fListeners: Array<() => void> = [];
+    // the token of a store (the one published to): read through the API with it, fresh, private too
+    tokenFor: (key: string) => string | undefined = () => undefined;
 
     constructor(readonly reader: StoreReader = new StoreReader(), private fStorage: Storage | null = Stores.storage()) {
         for (const key of this.saved()) {
@@ -72,7 +74,7 @@ export class Stores {
         state.status = "loading";
         this.emit();
         try {
-            state.store = await this.reader.open(state.ref);
+            state.store = await this.reader.open(state.ref, this.tokenFor(key));
             state.status = "ready";
             state.error = undefined;
         } catch (e) {

@@ -85,6 +85,9 @@ export function parseManifest(json: unknown): StoreManifest | null {
     };
 }
 
+// A version of a module before the current one: its code (SHA-1), the commit that contains it, its date.
+export interface StoreVersion { code: string; commit: string; date?: string }
+
 export interface StoreModule {
     path: string;
     name: string;
@@ -96,6 +99,9 @@ export interface StoreModule {
     inlets: string[];
     outlets: string[];
     code?: string;              // the SHA-1 of its code
+    sha?: string;               // the git blob of its file: an entry of the index is valid while it is the same
+    versions?: StoreVersion[];  // its versions before, the latest first
+    updated?: string;
 }
 
 export interface StoreScene {
@@ -104,6 +110,9 @@ export interface StoreScene {
     summary?: string;
     author?: string;
     preview?: string;
+    sha?: string;
+    codes?: string[];           // the SHA-1 of the codes of its modules
+    updated?: string;
 }
 
 export interface StoreIndex {
@@ -112,6 +121,10 @@ export interface StoreIndex {
 }
 
 // The index, checked: the entries with a safe path, their texts bounded; null if it is not one.
+const SHA = /^[0-9a-f]{40}$/;
+const sha = (v: unknown) => (typeof v == "string" && SHA.test(v) ? v : undefined);
+const date = (v: unknown) => (typeof v == "string" && v.length < 40 ? v : undefined);
+
 export function parseIndex(json: unknown): StoreIndex | null {
     const x = json as any;
     if (!x || x.format != "fauststore-index" || !Array.isArray(x.modules) || !Array.isArray(x.scenes)) return null;
@@ -119,11 +132,15 @@ export function parseIndex(json: unknown): StoreIndex | null {
         path: m.path, name: text(m.name, 200) || nameOfPath(m.path), author: text(m.author, 200), license: text(m.license, 100),
         summary: text(m.summary, 500) ?? "", description: text(m.description, 5000) ?? "",
         functions: texts(m.functions), inlets: texts(m.inlets), outlets: texts(m.outlets),
-        code: typeof m.code == "string" && /^[0-9a-f]{40}$/.test(m.code) ? m.code : undefined,
+        code: sha(m.code), sha: sha(m.sha), updated: date(m.updated),
+        versions: Array.isArray(m.versions) ? m.versions.filter((v: any) => v && sha(v.code) && sha(v.commit))
+            .map((v: any) => ({ code: v.code, commit: v.commit, date: date(v.date) })) : undefined,
     }));
     const scenes: StoreScene[] = x.scenes.filter((s: any) => s && safePath(s.path) && /\.(jfaust|json)$/i.test(s.path)).map((s: any) => ({
         path: s.path, name: text(s.name, 200) || nameOfPath(s.path), summary: text(s.summary, 500), author: text(s.author, 200),
         preview: safePath(s.preview) ? s.preview : undefined,
+        sha: sha(s.sha), updated: date(s.updated),
+        codes: Array.isArray(s.codes) ? s.codes.filter((c: unknown) => sha(c)) : undefined,
     }));
     return { modules, scenes };
 }
@@ -160,4 +177,35 @@ export function contentsOf(paths: string[]): { modules: string[]; scenes: string
         modules: safe.filter((p) => p.startsWith("modules/") && /\.dsp$/i.test(p)).sort(),
         scenes: safe.filter((p) => p.startsWith("scenes/") && /\.jfaust$/i.test(p)).sort(),
     };
+}
+
+// The name of an element in the store: its name reduced to letters, digits, "-" and "_" (accents taken off,
+// spaces as "-"); "Untitled" if nothing is left.
+export function slug(name: string): string {
+    const s = (name ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        .replace(/\s+/g, "-").replace(/[^A-Za-z0-9_-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    return s.slice(0, 80) || "Untitled";
+}
+
+export const modulePath = (name: string) => `modules/${slug(name)}/${slug(name)}.dsp`;
+export const scenePath = (name: string) => `scenes/${slug(name)}/${slug(name)}.jfaust`;
+
+// The git blob of a text: the SHA-1 of "blob <length>\0" and its bytes (UTF-8), as git names it.
+export async function gitBlobSha(text: string): Promise<string> {
+    const body = new TextEncoder().encode(text);
+    const head = new TextEncoder().encode(`blob ${body.length}\0`);
+    const all = new Uint8Array(head.length + body.length);
+    all.set(head);
+    all.set(body, head.length);
+    const digest = await globalThis.crypto.subtle.digest("SHA-1", all);
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// The index as it is written in the store.
+export function serializeIndex(index: StoreIndex, updated: string): string {
+    const clean = (o: object) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+    return JSON.stringify({
+        format: "fauststore-index", version: 1, updated,
+        modules: index.modules.map(clean), scenes: index.scenes.map(clean),
+    }, null, 1) + "\n";
 }

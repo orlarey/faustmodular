@@ -99,7 +99,7 @@ libraries/<sha1>.lib                des fichiers de bibliothèques Faust, par em
 
 ## L'index
 
-L'index décrit le contenu du magasin, pour qu'on le parcoure et qu'on y cherche sans lire chaque fichier. Il est **dérivé** : faustmodular le refait à chaque publication, et un lecteur le reconstruit si l'index manque ou est en retard (\ref{sec:lire}). Il n'est jamais la seule source d'une information, à une exception près, les versions passées (\ref{sec:versions}), qui se retrouvent aussi dans l'historique git.
+L'index décrit le contenu du magasin, pour qu'on le parcoure et qu'on y cherche sans lire chaque fichier. Il est **dérivé** : faustmodular le refait à chaque publication. C'est un **cache vérifié** : chaque entrée porte l'empreinte git de son fichier (`sha`, le *blob*), et un lecteur ne garde une entrée que si le fichier du dépôt a toujours cette empreinte ; il lit les autres (\ref{sec:lire}). Un module ajouté ou modifié à la main sur GitHub n'est donc jamais caché par un index en retard. Il n'est jamais la seule source d'une information, à une exception près, les versions passées (\ref{sec:versions}), qui se retrouvent aussi dans l'historique git.
 
 ```json
 {
@@ -257,7 +257,7 @@ Lire un magasin public ne demande **aucun compte** :
 
 `raw.githubusercontent.com` accepte les requêtes d'une autre origine (CORS) et n'est pas soumis à la limite de l'API (60 requêtes par heure sans compte). Il met les fichiers en cache quelques minutes : un magasin d'un autre se voit avec ce retard ; son propriétaire, après avoir publié, lit par l'API (\ref{sec:publier}), sans retard.
 
-**Sans index**, ou s'il est en retard (un magasin rempli à la main sur GitHub), faustmodular liste le dépôt en un appel (`GET /repos/<dépôt>/git/trees/HEAD?recursive=1`) et lit les métadonnées des fichiers qu'il y trouve. Un magasin peut donc être tenu sans faustmodular.
+**L'arborescence**, en un appel (`GET /repos/<dépôt>/git/trees/HEAD?recursive=1`), donne les fichiers du dépôt et leur empreinte git : faustmodular garde les entrées de l'index dont le fichier n'a pas changé, et lit les autres (un module ajouté à la main, un index absent). Un magasin peut donc être tenu sans faustmodular. Si l'API ne répond pas (sa limite atteinte), l'index sert seul.
 
 **Un magasin privé** se lit avec l'autorisation de son propriétaire, par l'API (`GET /repos/<dépôt>/contents/<chemin>`).
 
@@ -270,7 +270,7 @@ Les codes lus entrent dans le magasin local, par empreinte : un module déjà pr
 faustmodular est un site statique : il ne peut pas garder de secret. La première version utilise un **jeton d'accès personnel à droits limités** (*fine-grained personal access token*) :
 
 - créé une fois par l'utilisateur, sur GitHub, pour **le seul dépôt de son magasin**, avec la permission **Contents : lecture et écriture** ;
-- collé dans les réglages de faustmodular, qui le garde dans le navigateur et ne l'envoie qu'à `api.github.com` ;
+- collé dans *Mon magasin…* (menu Fichier), qui le vérifie (le dépôt lisible et inscriptible avec lui), le garde dans le navigateur (`localStorage`) et ne l'envoie qu'à `api.github.com` ;
 - révocable à tout moment sur GitHub, avec une date d'expiration.
 
 faustmodular conduit la création : un lien vers la page de GitHub, les réglages à choisir, puis une vérification du jeton (`GET /repos/<dépôt>` : le dépôt est accessible et inscriptible).
@@ -339,7 +339,7 @@ Décisions proposées, à valider :
 1. Un magasin est un dépôt GitHub de disposition convenue, avec un manifeste `fauststore.json` ; un dépôt modèle sert à le créer.
 2. Les modules sont des `.dsp` valides, sans l'enveloppe de faustmodular, décrits par leurs `declare` ; les scènes, le fichier `.jfaust` autonome.
 3. Les codes sont identifiés par leur SHA-1, comme dans le magasin local ; le statut et les mises à jour se déduisent du contenu.
-4. L'index est dérivé, refait à chaque publication et reconstructible depuis le dépôt ; seules les versions passées y sont mémorisées, et l'historique git les garde aussi.
+4. L'index est dérivé, refait à chaque publication, et vérifié à la lecture par l'empreinte git de chaque fichier ; seules les versions passées y sont mémorisées, et l'historique git les garde aussi.
 5. Lire sans compte, par `raw.githubusercontent.com` ; publier en un commit, par l'API Git.
 6. Pour commencer, un jeton personnel limité au dépôt (Contents : lecture et écriture) ; OAuth par un petit relais plus tard.
 7. Plusieurs magasins suivis, un seul où publier.
@@ -363,6 +363,8 @@ Chaque phase est utile seule.
 
 ::: note [État]
 Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`propriétaire/dépôt`, ou son adresse sur GitHub), ses modules dans la famille *Magasins* de la bibliothèque et dans la recherche, ses scènes dans Fichier ▸ Ouvrir depuis un magasin, les liens `?store=…&scene=…[&ref=…]`, `?scene=<adresse du fichier sur GitHub>` (\ref{sec:partager}) et `?store=…` ; l'index reconstruit depuis le dépôt quand il manque. Le modèle de magasin est dans `templates/fauststore/` du dépôt de faustmodular ; le dépôt modèle sur GitHub reste à créer.
+
+Phase 2 livrée dans faustmodular 3.47.0 : *Mon magasin…* (le dépôt et son jeton, vérifiés) ; *Publier la scène dans mon magasin* (menu Fichier, avec confirmation si elle y est déjà) et *Publier dans mon magasin* (menu d'un module : son code, sans l'enveloppe) ; un commit par publication, l'index refait (les versions passées d'un module, avec leur commit), refait sur la branche si elle a bougé entre-temps ; le lien de partage, au commit publié, copié ; le magasin relu, à jour, avec le jeton. Restent pour plus tard : compléter les métadonnées d'un module au moment de le publier, l'aperçu d'une scène, retirer un élément.
 :::
 
 1. **Lire.** Ouvrir un magasin public (`propriétaire/dépôt`), le parcourir et y chercher (famille *Magasins* de la bibliothèque), placer un module, ouvrir une scène ; liens `?store=…&scene=…` ; index reconstruit depuis le dépôt s'il manque. Le dépôt modèle `fauststore-template`.

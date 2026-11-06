@@ -4,6 +4,8 @@
 */
 import { STARTER_CENTERED, starterPatch, starterWanted } from "./documents/Starter";
 import { Stores } from "./store/Stores";
+import { MyStore, Publishing } from "./store/Publishing";
+import { storedCode } from "./documents/DocumentFormat";
 import { storeLink, withoutStoreLink } from "./store/StoreLink";
 import type { ab2str, FaustCompiler, FaustMonoDspGenerator, FaustPolyDspGenerator, str2ab } from "@grame/faustwasm";
 import type * as faustwasm from "@grame/faustwasm";
@@ -90,9 +92,20 @@ export function resumeInit(app: App) {
     // faustPlayground: its name before 2.10.0
     // the stores followed (Documentation/STORE-SPEC.md), read in the background
     var stores = new Stores();
+    // my store, where one publishes (the token: only sent to GitHub)
+    var publishing = new Publishing(new MyStore(), stores);
     app.menu.setStores(stores);
+    app.menu.fileMenu.publishing = publishing;
     stores.loadAll();
-    var access: any = { app, documents: null, stores, get scene() { return Utilitary.currentScene; } };
+    // a module published from its context menu: its code, without the group faustmodular wraps it in
+    document.addEventListener("storepublishmodule", (e: Event) => {
+        var module = Utilitary.currentScene.getModuleById((e as CustomEvent<string>).detail);
+        if (!module) return;
+        var name = module.moduleFaust.getName();
+        var code = storedCode(name, module.moduleFaust.getSource()).code;
+        app.menu.fileMenu.publishWith((p) => p.publishModule(name, code));
+    });
+    var access: any = { app, documents: null, stores, publishing, get scene() { return Utilitary.currentScene; } };
     (globalThis as any).faustmodular = (globalThis as any).faustPlayground = access;
 
     // The documents: the scene becomes the last open document (documents/Documents.ts)

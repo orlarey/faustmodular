@@ -1,7 +1,7 @@
 // The store (Documentation/STORE-SPEC.md): its reference, its manifest and its index checked, a module described
 // from its code, the repository read with its index or without (rebuilt from git/trees), the stores followed.
 import { describe, expect, it } from "vitest";
-import { contentsOf, moduleEntry, parseFileUrl, parseIndex, parseManifest, parseStoreRef, safePath, storeKey } from "../../src/store/StoreFormat";
+import { contentsOf, gitBlobSha, moduleEntry, parseFileUrl, parseIndex, parseManifest, parseStoreRef, safePath, storeKey } from "../../src/store/StoreFormat";
 import { storeLink } from "../../src/store/StoreLink";
 import { StoreError, StoreReader } from "../../src/store/StoreReader";
 import { Stores } from "../../src/store/Stores";
@@ -26,7 +26,7 @@ process = os.sawtooth(110) * 0.1;
 `;
 
 // A repository in memory, served as GitHub serves it (raw files, the tree of the API).
-function github(files: Record<string, string>, owner = "o", repo = "r") {
+function github(files: Record<string, string>, owner = "o", repo = "r", shas = false) {
     const calls: string[] = [];
     const fetch = async (url: string) => {
         calls.push(url);
@@ -36,7 +36,7 @@ function github(files: Record<string, string>, owner = "o", repo = "r") {
             return path in files ? new Response(files[path]) : new Response("404: Not Found", { status: 404 });
         }
         if (url == `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`) {
-            return new Response(JSON.stringify({ tree: Object.keys(files).map((path) => ({ path, type: "blob" })) }));
+            return new Response(JSON.stringify({ tree: await Promise.all(Object.entries(files).map(async ([path, c]) => ({ path, type: "blob", sha: shas ? await gitBlobSha(c) : undefined }))) }));
         }
         return new Response("", { status: 404 });
     };
@@ -111,14 +111,20 @@ describe("store: links", () => {
 });
 
 describe("store: reading", () => {
-    it("reads the manifest and the index from the raw files, without the API", async () => {
-        const index = { format: "fauststore-index", version: 1, modules: [{ path: "modules/Drone/Drone.dsp", name: "Drone" }], scenes: [] };
-        const { fetch, calls } = github({ "fauststore.json": MANIFEST, "index.json": JSON.stringify(index) });
+    it("keeps the entries of the index whose file is the same (its git blob), reads the others; without the API, the index alone", async () => {
+        const index = { format: "fauststore-index", version: 1, modules: [{ path: "modules/Drone/Drone.dsp", name: "Drone (index)", sha: await gitBlobSha(DRONE) }], scenes: [] };
+        const files = { "fauststore.json": MANIFEST, "index.json": JSON.stringify(index), "modules/Drone/Drone.dsp": DRONE, "modules/Lfo/Lfo.dsp": DRONE.replace(/Drone/g, "Lfo") };
+        const { fetch, calls } = github(files, "o", "r", true);
         const store = await new StoreReader(fetch).open(parseStoreRef("o/r")!);
         expect(store.rebuilt).toBe(false);
         expect(store.manifest.name).toBe("Modules de Yann");
-        expect(store.index.modules.map((m) => m.name)).toEqual(["Drone"]);
-        expect(calls.every((c) => c.startsWith("https://raw.githubusercontent.com/"))).toBe(true);
+        // Drone from the index (its file the same, not read), Lfo added by hand: read
+        expect(store.index.modules.map((m) => m.name)).toEqual(["Drone (index)", "Lfo"]);
+        expect(calls.some((c) => c.endsWith("/modules/Drone/Drone.dsp"))).toBe(false);
+        expect(calls.filter((c) => c.startsWith("https://api.github.com/")).length).toBe(1);
+        // the API not reachable (its limit): the index alone
+        const limited = async (url: string) => url.startsWith("https://api.github.com/") ? new Response("{}", { status: 403 }) : fetch(url);
+        expect((await new StoreReader(limited).open(parseStoreRef("o/r")!)).index.modules.map((m) => m.name)).toEqual(["Drone (index)"]);
     });
 
     it("without an index, rebuilds it from the repository: one call of the API, the modules described", async () => {

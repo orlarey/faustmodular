@@ -1102,6 +1102,9 @@ export class Scene {
                 { label: minimized ? t().menuExpand : t().menuMinimize, enabled: faust, action: () => this.toggleMinimized(selection) },
                 { label: orbitShown ? t().menuClassicInterface : t().menuOrbitInterface, enabled: orbitable.length > 0, action: () => this.toggleOrbit(selection) },
                 "separator",
+                // its code to my store (Documentation/STORE-SPEC.md, "Publier"): Main.ts
+                { label: t().publishModule, enabled: selection.length == 1 && faust, action: () => document.dispatchEvent(new CustomEvent("storepublishmodule", { detail: selection[0] })) },
+                "separator",
                 { label: t().menuDelete, shortcut: shortcut("Delete"), enabled: faust, action: () => this.deleteModules(selection) },
             ]);
         });

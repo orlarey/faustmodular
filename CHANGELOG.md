@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.47.0 (2026-11-06)
+
+- **Publishing to one's store** (`Documentation/STORE-SPEC.md`, phase 2). File ▸ *My store…*: the repository and a
+  fine-grained token (for that repository only, Contents read and write), checked, kept in the browser, only sent to
+  api.github.com. File ▸ *Publish the scene to my store* (asked first if it is there already), and *Publish to my store*
+  in the context menu of a module (its code, without the group faustmodular wraps it in).
+- One commit per publication, through the Git API of GitHub: the branch, a tree on its tree, a commit, the branch moved
+  without forcing; made again on the new commit if someone published meanwhile. The index is made again in the same
+  commit: a module published again keeps its code before in its versions, with the commit that contains it.
+- The link to share what was published, at its commit (`?scene=https://github.com/<store>/blob/<commit>/<path>`), is
+  copied; the store is read again at once, fresh (through the API, with the token).
+- Reading: the index is a cache checked by the git blob of each file (one call of the API gives them): an entry is kept
+  while its file is the same, the others are read; a module added on GitHub by hand is never hidden by an index late.
+  Without the API (its limit reached), the index alone.
+
 ## 3.46.0 (2026-11-06)
 
 - **Stores, read** (`Documentation/STORE-SPEC.md`, phase 1): a store is a GitHub repository of Faust modules and scenes
