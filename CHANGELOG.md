@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.48.0 (2026-11-06)
+
+- **Stores first** in the library, each with an indicator: *read* (no token), *write* (a token checked: one can
+  publish to it), or ⚠ (it cannot be read, why on hovering). A click on the indicator opens its menu: *Write to this
+  store…* (a token), or *Change the token…* and *Read only again*; *Read again*; *Open on GitHub*; *Follow no more*.
+- **A token per store**: several stores can be in write (one's own, one for a course…). *Publish…* (the scene, a
+  module) publishes to the only store in write, or offers a submenu to choose; with none, it says how to get one.
+  File ▸ *My store…* is gone; the store of 3.47.0 and its token are taken as they were.
+
 ## 3.47.0 (2026-11-06)
 
 - **Publishing to one's store** (`Documentation/STORE-SPEC.md`, phase 2). File ▸ *My store…*: the repository and a

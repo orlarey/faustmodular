@@ -270,7 +270,7 @@ Les codes lus entrent dans le magasin local, par empreinte : un module déjà pr
 faustmodular est un site statique : il ne peut pas garder de secret. La première version utilise un **jeton d'accès personnel à droits limités** (*fine-grained personal access token*) :
 
 - créé une fois par l'utilisateur, sur GitHub, pour **le seul dépôt de son magasin**, avec la permission **Contents : lecture et écriture** ;
-- collé dans *Mon magasin…* (menu Fichier), qui le vérifie (le dépôt lisible et inscriptible avec lui), le garde dans le navigateur (`localStorage`) et ne l'envoie qu'à `api.github.com` ;
+- donné au magasin depuis son indicateur dans la bibliothèque (*Écrire dans ce magasin…*), qui le vérifie (le dépôt lisible et inscriptible avec lui), le garde dans le navigateur (`localStorage`, un jeton par magasin) et ne l'envoie qu'à `api.github.com` ;
 - révocable à tout moment sur GitHub, avec une date d'expiration.
 
 faustmodular conduit la création : un lien vers la page de GitHub, les réglages à choisir, puis une vérification du jeton (`GET /repos/<dépôt>` : le dépôt est accessible et inscriptible).
@@ -291,7 +291,7 @@ Un module se publie depuis la colonne *Mes modules* ou depuis le menu d'un modul
 
 # Dans faustmodular \label{sec:surfaces}
 
-- **Réglages : Mes magasins.** *Mon magasin* (le dépôt où je publie, avec son jeton) ; les **magasins suivis**, en lecture (on en ajoute par `propriétaire/dépôt`, ou depuis la découverte, \ref{sec:decouvrir}) ; on peut en suivre plusieurs, et n'en avoir qu'un où publier.
+- **Les magasins suivis**, en tête de la bibliothèque (on en ajoute par `propriétaire/dépôt`, ou depuis la découverte, \ref{sec:decouvrir}). Chacun porte un **indicateur** : *lecture* (sans jeton), *écriture* (avec un jeton vérifié : on peut y publier), ou ⚠ s'il ne peut pas être lu. Un clic sur l'indicateur ouvre son menu : *Écrire dans ce magasin…* (le jeton), ou *Changer le jeton…* et *Repasser en lecture seule* ; *Relire* ; *Ouvrir sur GitHub* ; *Ne plus suivre*. On peut écrire dans plusieurs magasins (un personnel, un pour un cours) : *Publier…* propose alors de choisir, par un sous-menu.
 - **La bibliothèque** (menu Modules) : une famille **Magasins**, un groupe par magasin suivi ; la recherche les couvre ; placer un module d'un magasin, c'est comme placer un module livré. L'instance retient sa **provenance** (magasin, chemin, empreinte), pour l'affichage et pour la mise à jour.
 - **Le menu Fichier** : *Ouvrir depuis un magasin…* (les scènes, avec leur aperçu ; une scène ouverte devient un **nouveau** document, comme un import) ; *Publier dans mon magasin…*.
 - **Les liens** : `…/faustmodular/?store=<propriétaire>/<dépôt>&scene=<chemin>` ouvre une scène publiée, sans compte ; `&ref=<commit>` l'ouvre dans une version précise. `?store=<propriétaire>/<dépôt>` seul ouvre la bibliothèque sur ce magasin. Un lien se copie depuis la scène ou le module (\ref{sec:partager}).
@@ -342,7 +342,7 @@ Décisions proposées, à valider :
 4. L'index est dérivé, refait à chaque publication, et vérifié à la lecture par l'empreinte git de chaque fichier ; seules les versions passées y sont mémorisées, et l'historique git les garde aussi.
 5. Lire sans compte, par `raw.githubusercontent.com` ; publier en un commit, par l'API Git.
 6. Pour commencer, un jeton personnel limité au dépôt (Contents : lecture et écriture) ; OAuth par un petit relais plus tard.
-7. Plusieurs magasins suivis, un seul où publier.
+7. Plusieurs magasins suivis, chacun en lecture seule ou en lecture-écriture selon qu'on a un jeton pour lui (un jeton par magasin) ; *Publier…* publie dans le seul magasin en écriture, ou propose de choisir.
 8. Un magasin commun à faustcode et faustmodular dès le départ (les modules sont des `.dsp`) ; faustdaw y trouve ses matériaux.
 9. Un magasin garde les recettes et les matériaux qu'elles produisent, liés par des relations typées, vérifiables par empreinte ; l'index les recense dans les deux sens.
 10. L'audio en FLAC dans le dépôt, sous 50 Mo par fichier, avec un aperçu Opus ; au-delà, et pour la vidéo, un lien.
@@ -365,6 +365,8 @@ Chaque phase est utile seule.
 Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`propriétaire/dépôt`, ou son adresse sur GitHub), ses modules dans la famille *Magasins* de la bibliothèque et dans la recherche, ses scènes dans Fichier ▸ Ouvrir depuis un magasin, les liens `?store=…&scene=…[&ref=…]`, `?scene=<adresse du fichier sur GitHub>` (\ref{sec:partager}) et `?store=…` ; l'index reconstruit depuis le dépôt quand il manque. Le modèle de magasin est dans `templates/fauststore/` du dépôt de faustmodular ; le dépôt modèle sur GitHub reste à créer.
 
 Phase 2 livrée dans faustmodular 3.47.0 : *Mon magasin…* (le dépôt et son jeton, vérifiés) ; *Publier la scène dans mon magasin* (menu Fichier, avec confirmation si elle y est déjà) et *Publier dans mon magasin* (menu d'un module : son code, sans l'enveloppe) ; un commit par publication, l'index refait (les versions passées d'un module, avec leur commit), refait sur la branche si elle a bougé entre-temps ; le lien de partage, au commit publié, copié ; le magasin relu, à jour, avec le jeton. Restent pour plus tard : compléter les métadonnées d'un module au moment de le publier, l'aperçu d'une scène, retirer un élément.
+
+En 3.48.0 : les magasins en tête de la bibliothèque, leur indicateur (lecture, écriture) et son menu ; un jeton par magasin (le magasin de la 3.47.0 repris, avec son jeton), *Mon magasin…* retiré ; publier dans le seul magasin en écriture, ou choisir parmi plusieurs.
 :::
 
 1. **Lire.** Ouvrir un magasin public (`propriétaire/dépôt`), le parcourir et y chercher (famille *Magasins* de la bibliothèque), placer un module, ouvrir une scène ; liens `?store=…&scene=…` ; index reconstruit depuis le dépôt s'il manque. Le dépôt modèle `fauststore-template`.

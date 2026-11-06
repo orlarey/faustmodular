@@ -1,8 +1,8 @@
 /*				PUBLISHING.TS
-    Publishing to one's store (Documentation/STORE-SPEC.md, "Publier"): my store (its repository and the token to
-    write to it, kept in the browser, only sent to api.github.com), and the publication of a scene or a module in one
-    commit, with the index made again. After it: the store read again (fresh, with the token), and the link to share
-    the element at the commit published, copied.
+    Publishing to a store (Documentation/STORE-SPEC.md, "Publier"): the stores followed are in read only, or in read
+    and write with a token for each (kept in the browser, only sent to api.github.com); the publication of a scene or
+    a module to one of them in one commit, with the index made again. After it: the store read again (fresh, with the
+    token), and the link to share the element at the commit published, copied.
 */
 
 import { modulePath, parseIndex, parseStoreRef, scenePath, serializeIndex, STORE_INDEX, storeKey, StoreIndex, StoreRef } from "./StoreFormat";
@@ -10,32 +10,57 @@ import { buildIndex } from "./StoreIndex";
 import { PublishError, StorePublisher } from "./StorePublisher";
 import { Stores } from "./Stores";
 
-const REPO = "faustmodular:my-store";
-const TOKEN = "faustmodular:my-store-token";
+const TOKENS = "faustmodular:store-tokens";
+// before 3.48.0: one store to publish to
+const OLD_REPO = "faustmodular:my-store";
+const OLD_TOKEN = "faustmodular:my-store-token";
 
-export class MyStore {
-    constructor(private fStorage: Storage | null = MyStore.storage()) { }
+// The tokens of the stores one writes to (a store with a token: read and write), kept in the browser, only sent to
+// api.github.com.
+export class StoreTokens {
+    constructor(private fStorage: Storage | null = StoreTokens.storage()) {
+        // the store of 3.47.0, with its token
+        try {
+            const repo = this.fStorage?.getItem(OLD_REPO), token = this.fStorage?.getItem(OLD_TOKEN);
+            if (repo && token && !this.get(repo)) this.set(repo, token);
+            this.fStorage?.removeItem(OLD_REPO);
+            this.fStorage?.removeItem(OLD_TOKEN);
+        } catch { /* nothing */ }
+    }
 
     private static storage(): Storage | null {
         try { return localStorage; } catch { return null; }
     }
 
-    get repo(): string | null { return this.fStorage?.getItem(REPO) ?? null; }
-    get token(): string | null { return this.fStorage?.getItem(TOKEN) ?? null; }
-    get ref(): StoreRef | null { return this.repo ? parseStoreRef(this.repo) : null; }
-
-    save(repo: string, token: string): void {
+    private all(): Record<string, string> {
         try {
-            this.fStorage?.setItem(REPO, repo);
-            this.fStorage?.setItem(TOKEN, token);
-        } catch { /* not kept */ }
+            const x = JSON.parse(this.fStorage?.getItem(TOKENS) ?? "{}");
+            return x && typeof x == "object" ? x : {};
+        } catch {
+            return {};
+        }
     }
 
-    forget(): void {
-        try {
-            this.fStorage?.removeItem(REPO);
-            this.fStorage?.removeItem(TOKEN);
-        } catch { /* nothing */ }
+    private write(all: Record<string, string>): void {
+        try { this.fStorage?.setItem(TOKENS, JSON.stringify(all)); } catch { /* not kept */ }
+    }
+
+    get(key: string): string | undefined {
+        return this.all()[key];
+    }
+
+    set(key: string, token: string): void {
+        this.write({ ...this.all(), [key]: token });
+    }
+
+    remove(key: string): void {
+        const all = this.all();
+        delete all[key];
+        this.write(all);
+    }
+
+    keys(): string[] {
+        return Object.keys(this.all());
     }
 }
 
@@ -48,35 +73,50 @@ export function shareLink(app: string, ref: StoreRef, commit: string, path: stri
 }
 
 export class Publishing {
-    constructor(readonly myStore: MyStore, readonly stores: Stores, readonly publisher = new StorePublisher()) {
-        stores.tokenFor = (key) => (this.myStore.ref && storeKey(this.myStore.ref) == key ? this.myStore.token ?? undefined : undefined);
+    constructor(readonly tokens: StoreTokens, readonly stores: Stores, readonly publisher = new StorePublisher()) {
+        stores.tokenFor = (key) => this.tokens.get(key);
     }
 
-    get ready(): boolean {
-        return !!(this.myStore.ref && this.myStore.token);
+    // The stores one can publish to: followed, with a token.
+    writable(): string[] {
+        return this.stores.list().map((s) => s.key).filter((key) => !!this.tokens.get(key));
     }
 
-    // Checks a repository and a token, and keeps them.
-    async configure(repo: string, token: string): Promise<{ key: string; branch: string; private: boolean }> {
-        const ref = parseStoreRef(repo);
-        if (!ref) throw new PublishError("notFound", repo);
+    // A token for a store, checked (the repository readable and writable with it), then kept: the store followed, in
+    // read and write.
+    async configure(store: string, token: string): Promise<{ key: string; branch: string; private: boolean }> {
+        const ref = parseStoreRef(store);
+        if (!ref) throw new PublishError("notFound", store);
         const verified = await this.publisher.verify(ref, token.trim());
-        this.myStore.save(storeKey(ref), token.trim());
-        return { key: storeKey(ref), ...verified };
+        const key = storeKey(ref);
+        this.tokens.set(key, token.trim());
+        if (this.stores.get(key)) await this.stores.refresh(key);
+        else await this.stores.follow(key);
+        return { key, ...verified };
     }
 
-    // Whether a file is in my store (at the head of its branch).
-    async exists(path: string): Promise<boolean> {
-        const ref = this.myStore.ref, token = this.myStore.token;
-        if (!ref || !token) return false;
+    // The store in read only again: its token forgotten by the browser.
+    forget(store: string): void {
+        this.tokens.remove(store);
+        this.stores.refresh(store);
+    }
+
+    private target(store: string): { ref: StoreRef; token: string } {
+        const ref = parseStoreRef(store), token = this.tokens.get(store);
+        if (!ref || !token) throw new PublishError("token", store);
+        return { ref, token };
+    }
+
+    // Whether a file is in a store (at the head of its branch).
+    async exists(store: string, path: string): Promise<boolean> {
+        const { ref, token } = this.target(store);
         const { branch } = await this.publisher.verify(ref, token);
         return (await this.publisher.branch(ref, token, branch)).tree.some((e) => e.path == path);
     }
 
-    // Publishes files (path -> content): one commit, the index made again from the branch.
-    async publish(files: Map<string, string>, message: string): Promise<{ commit: string; branch: string; index: StoreIndex }> {
-        const ref = this.myStore.ref, token = this.myStore.token;
-        if (!ref || !token) throw new PublishError("token", "no store");
+    // Publishes files (path -> content) to a store: one commit, the index made again from the branch.
+    async publish(store: string, files: Map<string, string>, message: string): Promise<{ commit: string; branch: string; index: StoreIndex }> {
+        const { ref, token } = this.target(store);
         let index: StoreIndex = { modules: [], scenes: [] };
         const result = await this.publisher.publish(ref, token, async (branch) => {
             const at = { ...ref, ref: branch.commit };
@@ -93,17 +133,17 @@ export class Publishing {
         return { ...result, index };
     }
 
-    async publishScene(name: string, content: string): Promise<Published> {
+    async publishScene(store: string, name: string, content: string): Promise<Published> {
         const path = scenePath(name);
-        const replaced = await this.exists(path);
-        const { commit, branch } = await this.publish(new Map([[path, content]]), `${replaced ? "Publish again" : "Publish"} the scene ${name} (faustmodular)`);
-        return { store: storeKey(this.myStore.ref!), path, commit, branch, replaced };
+        const replaced = await this.exists(store, path);
+        const { commit, branch } = await this.publish(store, new Map([[path, content]]), `${replaced ? "Publish again" : "Publish"} the scene ${name} (faustmodular)`);
+        return { store, path, commit, branch, replaced };
     }
 
-    async publishModule(name: string, code: string): Promise<Published> {
+    async publishModule(store: string, name: string, code: string): Promise<Published> {
         const path = modulePath(name);
-        const replaced = await this.exists(path);
-        const { commit, branch } = await this.publish(new Map([[path, code]]), `${replaced ? "Publish a new version of" : "Publish"} the module ${name} (faustmodular)`);
-        return { store: storeKey(this.myStore.ref!), path, commit, branch, replaced };
+        const replaced = await this.exists(store, path);
+        const { commit, branch } = await this.publish(store, new Map([[path, code]]), `${replaced ? "Publish a new version of" : "Publish"} the module ${name} (faustmodular)`);
+        return { store, path, commit, branch, replaced };
     }
 }

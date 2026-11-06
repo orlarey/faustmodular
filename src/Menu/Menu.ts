@@ -14,6 +14,7 @@ import { AccelerometerHandler } from "../Accelerometer";
 import type { Documents } from "../documents/Documents";
 import { FileMenu } from "./FileMenu";
 import type { Stores } from "../store/Stores";
+import type { Publishing } from "../store/Publishing";
 
 declare global {
     interface Document {
@@ -191,8 +192,8 @@ export class Menu {
     }
 
     // The stores followed: their modules in the library, their scenes in the File menu.
-    setStores(stores: Stores) {
-        this.library.setStores(stores);
+    setStores(stores: Stores, publishing: Publishing) {
+        this.library.setStores(stores, publishing, (store, then) => this.fileMenu.storeDialog(store, then));
         this.fileMenu.stores = stores;
     }
 

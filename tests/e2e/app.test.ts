@@ -1573,13 +1573,13 @@ describe("library", () => {
         const rows = await page.evaluate(() => Array.from(document.querySelectorAll("#libraryFamilies li")).map((l) =>
             l.classList.contains("libraryGroup") ? "# " + l.textContent : (l as HTMLElement).dataset.family));
         expect(rows).toEqual([
+            // the stores followed (none) first, and one to add (no family)
+            "# Stores", undefined,
             "# Modular", "Sources", "Timbre", "Level", "Control", "Time", "Random and pitch", "Measure",
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
             "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib saturation", "Lib delays", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
             "My modules",
-            // the stores followed (none), and one to add (no family)
-            "# Stores", undefined,
         ]);
         // a family: its modules; a module pointed at: its description
         await page.locator('li.libraryFamily[data-family="Filters"]').click();
@@ -1852,7 +1852,7 @@ describe("toolbar, File menu, context menu of the stage", () => {
         await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
         await page.locator("#documentsButtonMenu").click();
         const items = await page.locator(".context-menu > .context-menu-item > span:first-child").allTextContents();
-        expect(items).toEqual(["New scene", "Open a scene…", "Save", "Save as…", "Import a Faust file (.dsp)…", "Recent scenes", "Examples", "Open from a store", "Publish the scene to my store", "My store…"]);
+        expect(items).toEqual(["New scene", "Open a scene…", "Save", "Save as…", "Import a Faust file (.dsp)…", "Recent scenes", "Examples", "Open from a store", "Publish the scene to my store"]);
         // the panel of the documents is not shown
         expect(await page.locator("#documentsContainer").isVisible()).toBe(false);
         await page.keyboard.press("Escape");

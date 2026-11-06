@@ -32,6 +32,8 @@ import type { Documents } from "../documents/Documents";
 import { search } from "../model/LibrarySearch";
 import type { Stores, StoreState } from "../store/Stores";
 import type { StoreModule } from "../store/StoreFormat";
+import type { Publishing } from "../store/Publishing";
+import { showContextMenu } from "../view/ContextMenu";
 
 interface CatalogModule {
     path: string;
@@ -64,10 +66,15 @@ export class Library {
     documents: Documents | null = null;
 
     stores: Stores | null = null;
+    publishing: Publishing | null = null;
+    private fTokenDialog: ((store: string, then?: () => void) => void) | null = null;
 
-    // The stores followed (Documentation/STORE-SPEC.md): a family each, their modules added by their address.
-    setStores(stores: Stores) {
+    // The stores followed (Documentation/STORE-SPEC.md): a family each, their modules added by their address; in read
+    // only, or in read and write with a token (`tokenDialog`: asks for it).
+    setStores(stores: Stores, publishing?: Publishing, tokenDialog?: (store: string, then?: () => void) => void) {
         this.stores = stores;
+        this.publishing = publishing ?? null;
+        this.fTokenDialog = tokenDialog ?? null;
         stores.onChange(() => { if (this.fQuery.trim() != "") this.setQuery(this.fQuery); else this.renderFamilies(); });
         this.renderFamilies();
     }
@@ -236,6 +243,34 @@ export class Library {
             list.appendChild(li);
         };
         var groupLabels: Record<string, string> = { Modular: t.libraryModular, FaustPlayground: t.libraryClassic, "Faust libraries": t.libraryFaust };
+        // the stores followed, first, each in read only or in read and write (its indicator: a menu); a store to add
+        if (this.stores) {
+            heading(t.libraryStores);
+            for (const state of this.stores.list()) {
+                const family = STORE + state.key;
+                item(family, searching ? this.fResults.filter((r) => r.family == family).length : this.storeModules(state).length);
+                const li = list.lastElementChild as HTMLElement;
+                li.classList.add("storeFamily", state.status);
+                li.title = state.key + (state.status == "error" ? " \u2014 " + this.storeError(state) : "");
+                const writable = !!this.publishing?.tokens.get(state.key);
+                const access = document.createElement("span");
+                access.className = "storeAccess " + (state.status == "error" ? "error" : writable ? "write" : "read");
+                access.textContent = state.status == "error" ? "\u26a0" : writable ? t.storeWriteBadge : t.storeReadBadge;
+                access.title = state.status == "error" ? this.storeError(state) : writable ? t.storeReadWrite : t.storeReadOnly;
+                access.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const r = access.getBoundingClientRect();
+                    this.storeMenu(state, r.left, r.bottom + 2);
+                });
+                // the name, the indicator, then the count
+                li.insertBefore(access, li.querySelector(".libraryCount"));
+            }
+            const add = document.createElement("li");
+            add.className = "libraryFamily storeAdd";
+            add.textContent = t.storeAdd;
+            add.addEventListener("click", () => this.askStore(add));
+            list.appendChild(add);
+        }
         for (var group of catalog.groups) {
             heading(groupLabels[group.name] ?? group.name);
             for (var family of group.families) {
@@ -245,36 +280,32 @@ export class Library {
         }
         item(USER_FAMILY, searching ? this.fResults.filter((r) => r.family == USER_FAMILY).length : this.documents?.store.listModules().length ?? 0);
         list.lastElementChild!.classList.add("userFamily");
-        // the stores followed, then a store to add
-        if (this.stores) {
-            heading(t.libraryStores);
-            for (const state of this.stores.list()) {
-                const family = STORE + state.key;
-                item(family, searching ? this.fResults.filter((r) => r.family == family).length : this.storeModules(state).length);
-                const li = list.lastElementChild as HTMLElement;
-                li.classList.add("storeFamily", state.status);
-                li.title = state.key + (state.status == "error" ? " \u2014 " + this.storeError(state) : "");
-                const remove = document.createElement("span");
-                remove.className = "storeRemove";
-                remove.textContent = "\u2715";
-                remove.title = t.storeRemove;
-                remove.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    new Confirm(t.confirmStoreRemove.replace("%s", this.familyLabel(family)), (close) => {
-                        close();
-                        if (this.fFamily == family) this.fFamily = USER_FAMILY;
-                        this.stores!.unfollow(state.key);
-                    });
-                });
-                li.appendChild(remove);
-            }
-            const add = document.createElement("li");
-            add.className = "libraryFamily storeAdd";
-            add.textContent = t.storeAdd;
-            add.addEventListener("click", () => this.askStore(add));
-            list.appendChild(add);
-        }
         this.renderModules();
+    }
+
+    // The menu of a store: write to it (a token), or read only again; read it again, see it on GitHub, follow it no more.
+    private storeMenu(state: StoreState, x: number, y: number) {
+        const t = Utilitary.messageResource;
+        const family = STORE + state.key;
+        const writable = !!this.publishing?.tokens.get(state.key);
+        showContextMenu(x, y, [
+            writable
+                ? { label: t.storeChangeToken, action: () => this.fTokenDialog?.(state.key) }
+                : { label: t.storeMakeWritable, enabled: !!this.fTokenDialog && state.status != "error", action: () => this.fTokenDialog?.(state.key) },
+            ...(writable ? [{ label: t.storeMakeReadOnly, action: () => { this.publishing?.forget(state.key); this.renderFamilies(); } }] : []),
+            "separator",
+            { label: t.storeReload, action: () => { this.stores?.refresh(state.key); } },
+            { label: t.storeOpenGitHub, action: () => { window.open(`https://github.com/${state.ref.owner}/${state.ref.repo}`, "_blank", "noopener"); } },
+            "separator",
+            {
+                label: t.storeRemove, action: () => new Confirm(t.confirmStoreRemove.replace("%s", this.familyLabel(family)), (close) => {
+                    close();
+                    if (this.fFamily == family) this.fFamily = USER_FAMILY;
+                    this.publishing?.tokens.remove(state.key);
+                    this.stores!.unfollow(state.key);
+                }),
+            },
+        ]);
     }
 
     private storeError(state: StoreState): string {

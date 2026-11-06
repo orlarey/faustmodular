@@ -28,7 +28,7 @@ afterAll(async () => {
 const MANIFEST = JSON.stringify({ format: "fauststore", version: 1, name: "Test store" });
 
 describe("store, publishing", () => {
-    it("sets my store, publishes the scene and a module, copies the link, and the link opens the scene", async () => {
+    it("gives a store a token from its indicator, publishes the scene and a module, copies the link, and the link opens the scene", async () => {
         const gh = github({ "fauststore.json": MANIFEST, "README.md": "# store" });
         const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, locale: "en-US", permissions: ["clipboard-read", "clipboard-write"] });
         const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, accept", "access-control-allow-methods": "GET, POST, PATCH" };
@@ -44,7 +44,8 @@ describe("store, publishing", () => {
         const page = await context.newPage();
         const errors: string[] = [];
         page.on("pageerror", (e) => errors.push(e.message));
-        await page.goto(url + "?starter=0");
+        // the store followed, in read only
+        await page.goto(url + "?starter=0&store=o/r");
         await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
         // a scene with a module, named
         await page.evaluate(async () => {
@@ -53,21 +54,26 @@ describe("store, publishing", () => {
             app.uploadUrl(app, null, 300, 150, location.origin + "/faust-modules/modular/SineVCO.dsp");
             while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
         });
-        // File > Publish the scene to my store: no store yet, the dialog
-        await page.getByText("File", { exact: true }).first().click();
-        await page.getByText("Publish the scene to my store").click();
+        // no store in writing: File > Publish… says how to get one
+        await page.locator('li.storeFamily[data-family="store:o/r"] .storeAccess.read').waitFor({ timeout: 30_000 });
+        // the indicator of the store: its menu, Write to this store…, the token checked
+        await page.locator('li.storeFamily[data-family="store:o/r"] .storeAccess').click();
+        await page.locator(".context-menu-item", { hasText: /^Write to this store/ }).click();
         await page.locator(".storeDialog").waitFor();
-        const inputs = page.locator(".storeDialog input");
-        await inputs.nth(0).fill("o/r");
-        await inputs.nth(1).fill("bad");
+        const token = page.locator(".storeDialog input");
+        await token.fill("bad");
         await page.getByText("Check and save").click();
         await page.locator(".storeDialogStatus.error").waitFor();
         expect(await page.locator(".storeDialogStatus").textContent()).toContain("token");
-        await inputs.nth(1).fill("good");
+        await token.fill("good");
         await page.getByText("Check and save").click();
-        // checked: the publication goes on
-        await page.waitForFunction(() => (window as any).document.querySelector(".storeDialog") == null, null, { timeout: 10_000 });
-        await page.waitForFunction(() => (globalThis as any).faustPlayground.stores.get("o/r")?.status == "ready", null, { timeout: 30_000 });
+        await page.locator(".storeDialogStatus.ok").waitFor();
+        await page.getByText("Close", { exact: true }).click();
+        await page.locator('li.storeFamily[data-family="store:o/r"] .storeAccess.write').waitFor({ timeout: 10_000 });
+        // File > Publish the scene to my store (one store in writing: at once)
+        await page.getByText("File", { exact: true }).first().click();
+        await page.locator(".context-menu-item", { hasText: /^Publish the scene to my store/ }).click();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.stores.get("o/r")?.store?.index.scenes.length == 1, null, { timeout: 30_000 });
         expect(gh.files().has("scenes/Ma-scene/Ma-scene.jfaust")).toBe(true);
         const scene = JSON.parse(gh.files().get("scenes/Ma-scene/Ma-scene.jfaust")!);
         expect(scene.modules.some((m: any) => m.name == "SineVCO")).toBe(true);
@@ -75,7 +81,7 @@ describe("store, publishing", () => {
         const link = await page.evaluate(() => navigator.clipboard.readText());
         expect(link).toBe(url + "?scene=https://github.com/o/r/blob/" + sceneCommit + "/scenes/Ma-scene/Ma-scene.jfaust");
         // the token kept in the browser, the store followed
-        expect(await page.evaluate(() => [localStorage.getItem("faustmodular:my-store"), localStorage.getItem("faustmodular:my-store-token")])).toEqual(["o/r", "good"]);
+        expect(await page.evaluate(() => JSON.parse(localStorage.getItem("faustmodular:store-tokens")!))).toEqual({ "o/r": "good" });
         // the module, from its context menu
         const title = await page.evaluate(() => "#" + (globalThis as any).faustPlayground.scene.getModules()[0].moduleView.fModuleContainer.id + " h6");
         await page.click(title, { button: "right" });

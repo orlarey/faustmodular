@@ -8,7 +8,7 @@ import { gitBlobSha, modulePath, parseIndex, parseStoreRef, scenePath, slug } fr
 import { buildIndex } from "../../src/store/StoreIndex";
 import { StoreReader } from "../../src/store/StoreReader";
 import { PublishError, StorePublisher } from "../../src/store/StorePublisher";
-import { MyStore, Publishing, shareLink } from "../../src/store/Publishing";
+import { StoreTokens, Publishing, shareLink } from "../../src/store/Publishing";
 import { Stores } from "../../src/store/Stores";
 import { github } from "../helpers/github";
 
@@ -23,7 +23,7 @@ const memory = () => {
 function publishing(gh: ReturnType<typeof github>) {
     const reader = new StoreReader(gh.fetch);
     const stores = new Stores(reader, memory());
-    const p = new Publishing(new MyStore(memory()), stores, new StorePublisher(gh.fetch));
+    const p = new Publishing(new StoreTokens(memory()), stores, new StorePublisher(gh.fetch));
     return { p, stores };
 }
 
@@ -72,13 +72,27 @@ describe("store: the index", () => {
 });
 
 describe("store: publishing", () => {
-    it("checks the token: the repository writable with it", async () => {
+    it("checks the token of a store: the repository writable with it; the store then followed, in read and write", async () => {
         const gh = github({ "fauststore.json": MANIFEST });
-        const { p } = publishing(gh);
+        const { p, stores } = publishing(gh);
         await expect(p.configure("o/r", "bad")).rejects.toMatchObject({ reason: "token" });
-        expect(p.ready).toBe(false);
+        expect(p.writable()).toEqual([]);
         expect(await p.configure("https://github.com/o/r", "good")).toEqual({ key: "o/r", branch: "master", private: false });
-        expect(p.ready).toBe(true);
+        expect(p.writable()).toEqual(["o/r"]);
+        expect(stores.get("o/r")!.status).toBe("ready");
+        // read only again: the token forgotten
+        p.forget("o/r");
+        expect(p.writable()).toEqual([]);
+        expect(stores.get("o/r")).toBeDefined();
+    });
+
+    it("takes the store of 3.47.0, with its token, in read and write", () => {
+        const storage = memory();
+        storage.setItem("faustmodular:my-store", "o/r");
+        storage.setItem("faustmodular:my-store-token", "good");
+        const tokens = new StoreTokens(storage);
+        expect(tokens.get("o/r")).toBe("good");
+        expect(storage.getItem("faustmodular:my-store")).toBeNull();
     });
 
     it("publishes a scene in one commit, with the index; the store read again, fresh", async () => {
@@ -87,7 +101,7 @@ describe("store: publishing", () => {
         await p.configure("o/r", "good");
         const scene = JSON.stringify({ format: "faustplayground-patch", version: 2, sceneName: "Nappe", modules: [{ kind: "faust", name: "Drone", code: 'process = vgroup("Drone",environment{\nprocess = _;\n}.process);' }], connections: [] });
         const before = gh.head;
-        const done = await p.publishScene("Nappe", scene);
+        const done = await p.publishScene("o/r", "Nappe", scene);
         expect(done).toMatchObject({ store: "o/r", path: "scenes/Nappe/Nappe.jfaust", branch: "master", replaced: false });
         expect(gh.head).toBe(done.commit);
         expect(gh.commit(done.commit).parents).toEqual([before]);                    // one commit
@@ -105,9 +119,9 @@ describe("store: publishing", () => {
         const gh = github({ "fauststore.json": MANIFEST });
         const { p } = publishing(gh);
         await p.configure("o/r", "good");
-        const first = await p.publishModule("Drone", code("Drone"));
+        const first = await p.publishModule("o/r", "Drone", code("Drone"));
         expect(first.replaced).toBe(false);
-        const second = await p.publishModule("Drone", code("Drone", "process = _ * 0.5;"));
+        const second = await p.publishModule("o/r", "Drone", code("Drone", "process = _ * 0.5;"));
         expect(second.replaced).toBe(true);
         expect(gh.commit(second.commit).message).toBe("Publish a new version of the module Drone (faustmodular)");
         const index = parseIndex(JSON.parse(gh.files().get("index.json")!))!;
@@ -119,7 +133,7 @@ describe("store: publishing", () => {
         const { p } = publishing(gh);
         await p.configure("o/r", "good");
         gh.moveDuringNext("modules/Lfo/Lfo.dsp", code("Lfo"));
-        const done = await p.publishModule("Drone", code("Drone"));
+        const done = await p.publishModule("o/r", "Drone", code("Drone"));
         expect(gh.head).toBe(done.commit);
         expect([...gh.files().keys()].sort()).toEqual(["fauststore.json", "index.json", "modules/Drone/Drone.dsp", "modules/Lfo/Lfo.dsp"]);
         expect(parseIndex(JSON.parse(gh.files().get("index.json")!))!.modules.map((m) => m.name)).toEqual(["Drone", "Lfo"]);

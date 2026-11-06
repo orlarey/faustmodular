@@ -168,10 +168,11 @@ account:
   `https://orlarey.github.io/faustmodular/?scene=https://github.com/<owner>/<repository>/blob/main/scenes/<Name>/<Name>.jfaust`
   (or `?store=<owner>/<repository>&scene=scenes/<Name>/<Name>.jfaust`).
 
-**Publishing** to your store: File ▸ *My store…*: the repository, and a token made on GitHub (a fine-grained token,
-for that repository only, with the permission Contents read and write; it stays in your browser and is only sent to
-GitHub). Then File ▸ *Publish the scene to my store*, or *Publish to my store* in the context menu of a module: one
-commit each, and the link to share the scene, at that version, is copied.
+Each store shows whether it is in **read** only or in **write**. **Publishing** to a store: click its *read*
+indicator, *Write to this store…*, and give it a token made on GitHub (a fine-grained token, for that repository
+only, with the permission Contents read and write; it stays in your browser and is only sent to GitHub). Then File ▸
+*Publish the scene to my store*, or *Publish to my store* in the context menu of a module (a submenu when several
+stores are in write): one commit each, and the link to share the scene, at that version, is copied.
 
 ## Keyboard and mouse
 

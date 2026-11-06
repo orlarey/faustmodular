@@ -1506,17 +1506,35 @@ input.scene-name-input {
 }
 
 /* The stores followed (store/Stores.ts): a family each, below the group Stores; one to add */
-li.libraryFamily.storeFamily .storeRemove {
-	cursor: pointer;
-	opacity: 0;
-	padding: 0 2px 0 6px;
+li.libraryFamily.storeFamily {
+	justify-content: flex-start;
+	align-items: center;
+}
+li.libraryFamily.storeFamily .libraryCount {
+	margin-left: 6px;
+}
+/* read only, or read and write: a menu (Library.storeMenu) */
+.storeAccess {
+	margin-left: auto;
+	padding: 0 6px;
+	border-radius: 8px;
+	border: 1px solid var(--fp-accent-border-soft);
+	font: 10px var(--fp-mono);
+	line-height: 15px;
 	color: var(--fp-text-quiet);
+	cursor: pointer;
+	text-decoration: none;
 }
-li.libraryFamily.storeFamily:hover .storeRemove {
-	opacity: 1;
+.storeAccess.write {
+	color: var(--fp-accent);
+	border-color: var(--fp-accent);
 }
-li.libraryFamily.storeFamily .storeRemove:hover {
-	color: var(--fp-pill-text);
+.storeAccess.error {
+	color: #ff8a80;
+	border-color: transparent;
+}
+.storeAccess:hover {
+	background: var(--fp-pill-bg-hover);
 }
 li.libraryFamily.storeFamily.loading {
 	opacity: 0.6;

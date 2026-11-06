@@ -47,19 +47,29 @@ export class FileMenu {
     publishing: Publishing | null = null;
     private fDialog: StoreDialog | null = null;
 
-    // My store: its repository and its token (the dialog).
-    storeDialog(then?: () => void): void {
+    // Writing to a store: its token (the dialog); `then`, once checked.
+    storeDialog(store: string, then?: () => void): void {
         if (!this.publishing) return;
         this.fDialog ??= new StoreDialog(this.publishing);
-        this.fDialog.open(then);
+        this.fDialog.open(store, then);
     }
 
-    // Publishes to my store (the dialog first, if none): `publish` gives what was published; the link to share it,
-    // at its commit, copied.
-    async publishWith(publish: (p: Publishing) => Promise<{ store: string; path: string; commit: string }>): Promise<void> {
+    // The entry to publish to the stores in read and write: none (how to get one), one (at once), several (a submenu).
+    publishItem(label: string, publish: (store: string) => void, enabled = true): MenuItem {
+        const t = Utilitary.messageResource;
+        const writable = this.publishing?.writable() ?? [];
+        if (writable.length == 0) return { label, enabled: false, title: t.storeNoWritable };
+        if (writable.length == 1) return { label, enabled, title: writable[0], action: () => publish(writable[0]) };
+        return {
+            label: label.replace(/…$/, "") , enabled,
+            items: writable.map((key) => ({ label: this.stores?.get(key)?.store?.manifest.name || key, title: key, action: () => publish(key) })),
+        };
+    }
+
+    // Publishes to a store: `publish` gives what was published; the link to share it, at its commit, copied.
+    async publishWith(store: string, publish: (p: Publishing) => Promise<{ store: string; path: string; commit: string }>): Promise<void> {
         const p = this.publishing;
         if (!p) return;
-        if (!p.ready) { this.storeDialog(() => { this.publishWith(publish) }); return; }
         const t = Utilitary.messageResource;
         Utilitary.showFullPageLoading();
         try {
@@ -69,21 +79,20 @@ export class FileMenu {
             try { await navigator.clipboard.writeText(link); copied = true; } catch { /* not allowed */ }
             new Message((copied ? t.storePublished : t.storePublishedLink).replace("%s", done.store).replace("%p", done.path).replace("%l", link), undefined, 8000);
         } catch (e) {
-            new Message(publishErrorText(e, p.myStore.repo ?? ""), undefined, 8000);
+            new Message(publishErrorText(e, store), undefined, 8000);
         } finally {
             Utilitary.hideFullPageLoading();
         }
     }
 
-    // The scene shown, to my store (asked first if it is there already: replaced, the version before in the history).
-    publishScene(): void {
+    // The scene shown, to a store (asked first if it is there already: replaced, the version before in the history).
+    publishScene(store: string): void {
         const t = Utilitary.messageResource;
         const current = this.fDocuments()?.current;
         if (!current || !this.publishing) return;
-        const go = () => this.publishWith((p) => p.publishScene(current.name, this.content()));
-        if (!this.publishing.ready) { go(); return; }
-        this.publishing.exists(scenePathOf(current.name)).then((there) => {
-            if (there) new Confirm(t.confirmScenePublishReplace.replace("%s", current.name), (close) => { close(); go(); });
+        const go = () => this.publishWith(store, (p) => p.publishScene(store, current.name, this.content()));
+        this.publishing.exists(store, scenePathOf(current.name)).then((there) => {
+            if (there) new Confirm(t.confirmScenePublishReplace.replace("%s", current.name).replace("%t", store), (close) => { close(); go(); });
             else go();
         }).catch(() => go());
     }
@@ -110,8 +119,7 @@ export class FileMenu {
             { label: t.documentExamples, items: EXAMPLES.map((example) => ({ label: t[example.key], action: () => this.openExample(example.file) })) },
             this.storeItem(),
             "separator",
-            { label: t.publishScene, enabled: !!current && !!this.publishing, action: () => this.publishScene() },
-            { label: t.myStore, enabled: !!this.publishing, action: () => this.storeDialog() },
+            this.publishItem(t.publishScene, (store) => this.publishScene(store), !!current),
         ];
         showMenuBelow(anchor, items);
     }

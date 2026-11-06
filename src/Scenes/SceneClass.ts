@@ -610,6 +610,9 @@ export class Scene {
         });
     }
 
+    // The entry of the context menu of a module to publish it to a store (FileMenu.publishItem, set by Main.ts).
+    publishMenuItem: ((label: string, publish: (store: string) => void, enabled: boolean) => MenuItem) | null = null;
+
     // The state of the microphone: not asked yet (idle), being asked, on, or refused (or missing).
     audioInputState: "idle" | "pending" | "on" | "refused" = "idle";
 
@@ -1102,8 +1105,10 @@ export class Scene {
                 { label: minimized ? t().menuExpand : t().menuMinimize, enabled: faust, action: () => this.toggleMinimized(selection) },
                 { label: orbitShown ? t().menuClassicInterface : t().menuOrbitInterface, enabled: orbitable.length > 0, action: () => this.toggleOrbit(selection) },
                 "separator",
-                // its code to my store (Documentation/STORE-SPEC.md, "Publier"): Main.ts
-                { label: t().publishModule, enabled: selection.length == 1 && faust, action: () => document.dispatchEvent(new CustomEvent("storepublishmodule", { detail: selection[0] })) },
+                // its code to a store in read and write (Documentation/STORE-SPEC.md, "Publier"): Main.ts
+                this.publishMenuItem
+                    ? this.publishMenuItem(t().publishModule, (store) => document.dispatchEvent(new CustomEvent("storepublishmodule", { detail: { module: selection[0], store } })), selection.length == 1 && faust)
+                    : { label: t().publishModule, enabled: false },
                 "separator",
                 { label: t().menuDelete, shortcut: shortcut("Delete"), enabled: faust, action: () => this.deleteModules(selection) },
             ]);
