@@ -230,5 +230,19 @@
   "portInput": "input",
   "portOutput": "output",
   "portInlets": "Inputs",
-  "portOutlets": "Outputs"
+  "portOutlets": "Outputs",
+  "libraryStores": "Stores",
+  "storeAdd": "＋ Add a store…",
+  "storePlaceholder": "owner/repository",
+  "storeLoading": "Reading the store…",
+  "storeRemove": "Stop following this store",
+  "confirmStoreRemove": "Stop following the store \"%s\"? (Nothing is deleted: it can be followed again.)",
+  "storeUnreadable": "The store \"%s\" cannot be read:",
+  "storeNotFound": "repository not found on GitHub (or private).",
+  "storeNotAStore": "this repository is not a store (no fauststore.json file).",
+  "storeUnreachable": "GitHub does not answer (network, or limit of requests reached).",
+  "storeNoModule": "No module in this store.",
+  "fileOpenFromStore": "Open from a store",
+  "fileNoStore": "No store followed: add one in the library (Modules menu, Stores).",
+  "storeNoScene": "No scene"
 }

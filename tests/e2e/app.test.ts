@@ -1567,7 +1567,7 @@ describe("Scope", () => {
 });
 
 describe("library", () => {
-    it("shows the families in one view (modular, FaustPlayground, Faust libraries, My modules), their modules and descriptions", async () => {
+    it("shows the families in one view (modular, FaustPlayground, Faust libraries, My modules, Stores), their modules and descriptions", async () => {
         const { page, errors } = await openApp();
         await page.locator("#libraryButtonMenu").click();
         const rows = await page.evaluate(() => Array.from(document.querySelectorAll("#libraryFamilies li")).map((l) =>
@@ -1578,6 +1578,8 @@ describe("library", () => {
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
             "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib saturation", "Lib delays", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
             "My modules",
+            // the stores followed (none), and one to add (no family)
+            "# Stores", undefined,
         ]);
         // a family: its modules; a module pointed at: its description
         await page.locator('li.libraryFamily[data-family="Filters"]').click();
@@ -1843,14 +1845,14 @@ describe("toolbar, File menu, context menu of the stage", () => {
         await page.close();
     }, 120_000);
 
-    it("File: a dropdown (New scene, Open, Save, Save as, Import, Recent scenes, Examples); a Faust file opened becomes a module", async () => {
+    it("File: a dropdown (New scene, Open, Save, Save as, Import, Recent scenes, Examples, Open from a store); a Faust file opened becomes a module", async () => {
         const { page, errors } = await openApp();
         await page.addInitScript(() => { delete (window as any).showOpenFilePicker; delete (window as any).showSaveFilePicker; });
         await page.reload();
         await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
         await page.locator("#documentsButtonMenu").click();
         const items = await page.locator(".context-menu > .context-menu-item > span:first-child").allTextContents();
-        expect(items).toEqual(["New scene", "Open a scene…", "Save", "Save as…", "Import a Faust file (.dsp)…", "Recent scenes", "Examples"]);
+        expect(items).toEqual(["New scene", "Open a scene…", "Save", "Save as…", "Import a Faust file (.dsp)…", "Recent scenes", "Examples", "Open from a store"]);
         // the panel of the documents is not shown
         expect(await page.locator("#documentsContainer").isVisible()).toBe(false);
         await page.keyboard.press("Escape");

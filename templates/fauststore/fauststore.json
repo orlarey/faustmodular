@@ -1,0 +1,9 @@
+{
+  "format": "fauststore",
+  "version": 1,
+  "name": "My Faust store",
+  "description": "Modules and scenes for faustmodular and faustcode (see Documentation/STORE-SPEC.md of faustmodular).",
+  "author": "",
+  "license": "MIT",
+  "language": "en"
+}

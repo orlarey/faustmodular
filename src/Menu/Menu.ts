@@ -13,6 +13,7 @@ import { Confirm, Message } from "../Messages";
 import { AccelerometerHandler } from "../Accelerometer";
 import type { Documents } from "../documents/Documents";
 import { FileMenu } from "./FileMenu";
+import type { Stores } from "../store/Stores";
 
 declare global {
     interface Document {
@@ -187,6 +188,18 @@ export class Menu {
         buttonElement.style.backgroundColor = this.menuView.menuColorSelected;
         buttonElement.style.zIndex = "1";
         if (choice == MenuChoices.documents) this.menuView.documentsPanel.render();
+    }
+
+    // The stores followed: their modules in the library, their scenes in the File menu.
+    setStores(stores: Stores) {
+        this.library.setStores(stores);
+        this.fileMenu.stores = stores;
+    }
+
+    // The library open on a family (a store: "store:<owner>/<repo>").
+    showLibrary(family?: string) {
+        if (this.currentMenuChoices != MenuChoices.library) this.menuHandler(this.newMenuChoices = MenuChoices.library);
+        if (family) this.library.selectFamily(family);
     }
 
     setDocuments(documents: Documents) {

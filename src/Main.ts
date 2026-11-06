@@ -3,6 +3,8 @@
     intefaces used through the app
 */
 import { STARTER_CENTERED, starterPatch, starterWanted } from "./documents/Starter";
+import { Stores } from "./store/Stores";
+import { storeLink, withoutStoreLink } from "./store/StoreLink";
 import type { ab2str, FaustCompiler, FaustMonoDspGenerator, FaustPolyDspGenerator, str2ab } from "@grame/faustwasm";
 import type * as faustwasm from "@grame/faustwasm";
 
@@ -86,7 +88,11 @@ export function resumeInit(app: App) {
 
     // Access point for debugging and end-to-end tests (browser console: faustmodular.scene.patch);
     // faustPlayground: its name before 2.10.0
-    var access: any = { app, documents: null, get scene() { return Utilitary.currentScene; } };
+    // the stores followed (Documentation/STORE-SPEC.md), read in the background
+    var stores = new Stores();
+    app.menu.setStores(stores);
+    stores.loadAll();
+    var access: any = { app, documents: null, stores, get scene() { return Utilitary.currentScene; } };
     (globalThis as any).faustmodular = (globalThis as any).faustPlayground = access;
 
     // The documents: the scene becomes the last open document (documents/Documents.ts)
@@ -106,6 +112,7 @@ export function resumeInit(app: App) {
         app.menu.setDocuments(documents);
         // opened by faustcode (?link=faustcode): ready to receive its code (FaustcodeLink)
         Utilitary.currentScene.faustcodeLink.announce();
+        openStoreLink(app, stores);
     }).catch((e) => {
         console.error("documents unavailable", e);
         new Message(Utilitary.messageResource.documentsUnavailable + " : " + e);
@@ -124,6 +131,21 @@ export function resumeInit(app: App) {
             e.preventDefault();
         }
     });
+}
+
+// A link to a store (?store=…&scene=…): the scene opened as a new document, or the library on the store.
+function openStoreLink(app: App, stores: Stores) {
+    var link = storeLink(location.search);
+    if (!link) return;
+    history.replaceState(history.state, "", withoutStoreLink(location.href));
+    var t = Utilitary.messageResource;
+    if (link.scene) {
+        app.menu.fileMenu.openFromStore(link.store, link.scene);
+        return;
+    }
+    stores.follow(link.store)
+        .then((state) => app.menu.showLibrary("store:" + state.key))
+        .catch((e) => { new Message(t.storeUnreadable.replace("%s", link!.store) + " " + (e?.reason == "notAStore" ? t.storeNotAStore : e?.reason == "notFound" ? t.storeNotFound : t.storeUnreachable)) });
 }
 
 //event listener to activate web audio on IOS devices, touchstart for iOS 8

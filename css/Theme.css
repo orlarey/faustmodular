@@ -1504,3 +1504,41 @@ input.scene-name-input {
 .context-menu-item.has-submenu .context-menu-shortcut {
 	font-size: 10px;
 }
+
+/* The stores followed (store/Stores.ts): a family each, below the group Stores; one to add */
+li.libraryFamily.storeFamily .storeRemove {
+	cursor: pointer;
+	opacity: 0;
+	padding: 0 2px 0 6px;
+	color: var(--fp-text-quiet);
+}
+li.libraryFamily.storeFamily:hover .storeRemove {
+	opacity: 1;
+}
+li.libraryFamily.storeFamily .storeRemove:hover {
+	color: var(--fp-pill-text);
+}
+li.libraryFamily.storeFamily.loading {
+	opacity: 0.6;
+}
+li.libraryFamily.storeFamily.error {
+	color: var(--fp-text-quiet);
+	text-decoration: line-through;
+}
+li.libraryFamily.storeAdd {
+	color: var(--fp-text-quiet);
+	font-style: italic;
+}
+li.libraryFamily.storeAdd input.storeName {
+	width: 100%;
+	box-sizing: border-box;
+	font-style: normal;
+}
+a.storeLink {
+	display: block;
+	color: var(--fp-text-quiet);
+	text-decoration: none;
+}
+a.storeLink:hover {
+	color: var(--fp-accent);
+}

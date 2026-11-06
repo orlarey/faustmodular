@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.46.0 (2026-11-06)
+
+- **Stores, read** (`Documentation/STORE-SPEC.md`, phase 1): a store is a GitHub repository of Faust modules and scenes
+  (`fauststore.json`, `modules/<Name>/<Name>.dsp`, `scenes/<Name>/<Name>.jfaust`). A public store is read without an
+  account, from raw.githubusercontent.com; without an index, its contents are listed in one call of the API and its
+  modules described from their code (their `declare` and DESCRIPTION comment).
+- In the library, the group *Stores*: *Add a store…* (`owner/repository`, or its address on GitHub), a family per store
+  followed (kept in the browser, read again at each visit), its modules added like the others and found by the
+  search, its description; a store can be followed no more.
+- File ▸ Open from a store ▸ a store ▸ a scene: opened as a new scene.
+- Links: `?store=<owner>/<repository>&scene=<path>[&ref=<commit>]` opens a scene of a store; `?store=<owner>/<repository>`
+  follows it and opens the library on it. The link is then taken off the address.
+- A model of a store in `templates/fauststore` (a manifest, a module, a scene, a README).
+
 ## 3.45.1 (2026-11-06)
 
 - **The microphone is closed when the last cable from the input module is removed** (a second later: a cable drawn

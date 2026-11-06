@@ -346,6 +346,10 @@ Points ouverts :
 
 Chaque phase est utile seule.
 
+::: note [État]
+Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`propriétaire/dépôt`, ou son adresse sur GitHub), ses modules dans la famille *Magasins* de la bibliothèque et dans la recherche, ses scènes dans Fichier ▸ Ouvrir depuis un magasin, les liens `?store=…&scene=…[&ref=…]` et `?store=…` ; l'index reconstruit depuis le dépôt quand il manque. Le modèle de magasin est dans `templates/fauststore/` du dépôt de faustmodular ; le dépôt modèle sur GitHub reste à créer.
+:::
+
 1. **Lire.** Ouvrir un magasin public (`propriétaire/dépôt`), le parcourir et y chercher (famille *Magasins* de la bibliothèque), placer un module, ouvrir une scène ; liens `?store=…&scene=…` ; index reconstruit depuis le dépôt s'il manque. Le dépôt modèle `fauststore-template`.
 2. **Publier.** Le jeton et sa vérification ; publier un module et une scène en un commit ; l'index tenu à jour ; *Mon magasin* et les magasins suivis dans les réglages.
 3. **Versions.** La provenance des instances ; les versions passées dans l'index ; le badge de mise à jour pour les modules d'un magasin ; ouvrir une version précise (`&ref=`).

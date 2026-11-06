@@ -155,6 +155,20 @@ as, recent scenes and examples. Scenes are `.jfaust` files.
 
 <p align="center"><img src="Documentation/screenshots/file.png" alt="The File menu" width="440"></p>
 
+## Stores
+
+A **store** is a GitHub repository of Faust modules and scenes, with a simple layout (`fauststore.json`,
+`modules/<Name>/<Name>.dsp`, `scenes/<Name>/<Name>.jfaust`; a model in [`templates/fauststore`](templates/fauststore),
+the specification in [`Documentation/STORE-SPEC.md`](Documentation/STORE-SPEC.md)). A public store is read without an
+account:
+
+- in the Modules menu, *Stores*, *Add a store…*: type `owner/repository`. Its modules are in the library, found by the
+  search, added like the others; its scenes are in File ▸ Open from a store;
+- a link opens a scene of a store as a new scene:
+  `https://orlarey.github.io/faustmodular/?store=<owner>/<repository>&scene=scenes/<Name>/<Name>.jfaust`.
+
+Publishing to one's store from faustmodular comes next.
+
 ## Keyboard and mouse
 
 | | |

@@ -230,5 +230,19 @@
   "portInput": "entrée",
   "portOutput": "sortie",
   "portInlets": "Entrées",
-  "portOutlets": "Sorties"
+  "portOutlets": "Sorties",
+  "libraryStores": "Magasins",
+  "storeAdd": "＋ Ajouter un magasin…",
+  "storePlaceholder": "propriétaire/dépôt",
+  "storeLoading": "Lecture du magasin…",
+  "storeRemove": "Ne plus suivre ce magasin",
+  "confirmStoreRemove": "Ne plus suivre le magasin « %s » ? (Rien n'est effacé : on peut le suivre de nouveau.)",
+  "storeUnreadable": "Le magasin « %s » ne peut pas être lu :",
+  "storeNotFound": "dépôt introuvable sur GitHub (ou privé).",
+  "storeNotAStore": "ce dépôt n'est pas un magasin (pas de fichier fauststore.json).",
+  "storeUnreachable": "GitHub ne répond pas (réseau, ou limite de requêtes atteinte).",
+  "storeNoModule": "Aucun module dans ce magasin.",
+  "fileOpenFromStore": "Ouvrir depuis un magasin",
+  "fileNoStore": "Aucun magasin suivi : ajoutez-en un dans la bibliothèque (menu Modules, Magasins).",
+  "storeNoScene": "Aucune scène"
 }
