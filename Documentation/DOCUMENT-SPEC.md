@@ -352,6 +352,8 @@ La thèse de ce document le prépare sans rien imposer :
 - un module utilisateur, avec la suite de ses versions, est l'unité naturelle à **publier** ; les métadonnées `declare` de Faust (nom, auteur, licence, version, description) en fournissent une première description ;
 - un module récupéré de fauststore se comporte comme un module de bibliothèque : ses instances sont attachées à une version précise, et « Mettre à jour » propose les versions publiées depuis.
 
+Une première forme en est spécifiée dans `STORE-SPEC.md` : un magasin est un dépôt GitHub de disposition convenue, que faustmodular lit sans compte et où il publie par l'API de GitHub.
+
 # Robustesse \label{sec:robustesse}
 
 - **Onglets multiples.** Deux onglets sur le même document risquent de s'écraser. Défaut retenu, comme markpage : **détecter et avertir**. Le second onglet ouvre le document en lecture seule, par `BroadcastChannel`. Plus tard : un seul onglet écrit, les autres suivent (le *lease* de faustdaw).
