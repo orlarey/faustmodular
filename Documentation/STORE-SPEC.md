@@ -15,6 +15,7 @@ language: fr
 - **Les modules** — un fichier `.dsp` valide, décrit par ses `declare`.
 - **Les scènes** — un fichier autonome, qui sonne à l'identique.
 - **Les versions** — l'historique de git et les empreintes des codes.
+- **Représentations et matériaux** — une œuvre et ses représentations : la recette (la scène) et ce qu'elle a produit (un enregistrement), liées.
 - **Lire** — sans compte, pour les magasins publics.
 - **Publier** — avec une autorisation limitée au dépôt, en un commit.
 - **Dans faustmodular** — bibliothèque, menu Fichier, liens, réglages.
@@ -71,7 +72,9 @@ modules/<Nom>/*.png                 ses images (facultatives)
 scenes/<Nom>/<Nom>.jfaust           une scène : un fichier faustmodular autonome
 scenes/<Nom>/preview.png            son aperçu (facultatif)
 scenes/<Nom>/README.md              sa présentation (facultative)
-libraries/<sha1>.lib                des fichiers de bibliothèques Faust, par empreinte (phase 5, \ref{sec:phases})
+materials/<Nom>/<Nom>.json          un matériau : sa fiche (\ref{sec:materiaux})
+materials/<Nom>/<Nom>.flac          son média (audio ; ou un lien, pour un média trop lourd)
+libraries/<sha1>.lib                des fichiers de bibliothèques Faust, par empreinte (phase 6, \ref{sec:phases})
 ```
 
 - Un dossier par élément : il peut porter une présentation et des images, que GitHub affiche.
@@ -132,6 +135,20 @@ L'index décrit le contenu du magasin, pour qu'on le parcoure et qu'on y cherche
       "codes": ["8f22aa96…", "6d1559ec…"],
       "updated": "2026-11-06T10:00:00Z"
     }
+  ],
+  "materials": [
+    {
+      "path": "materials/Nappe-1/Nappe-1.json",
+      "name": "Nappe-1",
+      "kind": "recording",
+      "media": "materials/Nappe-1/Nappe-1.flac",
+      "duration": 60.0,
+      "updated": "2026-11-06T10:00:00Z"
+    }
+  ],
+  "links": [
+    { "rel": "recordingOf", "from": "materials/Nappe-1/Nappe-1.json", "to": "scenes/Nappe/Nappe.jfaust", "sha1": "…" },
+    { "rel": "uses", "from": "scenes/Nappe/Nappe.jfaust", "to": "modules/Drone/Drone.dsp", "sha1": "8f22aa96…" }
   ]
 }
 ```
@@ -139,6 +156,7 @@ L'index décrit le contenu du magasin, pour qu'on le parcoure et qu'on y cherche
 - `code` : le SHA-1 du code du module tel qu'il est publié ; `versions` : les versions précédentes, de la plus récente à la plus ancienne, en ajout seul, avec le commit qui les contient.
 - `inputs`, `outputs` : l'arité du module compilé, pour le placer sans le compiler.
 - `codes` d'une scène : les empreintes des codes de ses modules, pour savoir sans l'ouvrir quels modules elle utilise.
+- `links` : les relations entre éléments (\ref{sec:materiaux}), dérivées de leurs fiches et de leur contenu ; chacune se lit dans les deux sens.
 
 # Les modules \label{sec:modules}
 
@@ -171,6 +189,63 @@ Une scène est publiée sous la forme du **fichier que faustmodular enregistre a
 - **Le statut se déduit du contenu**, comme pour la bibliothèque livrée (`DOCUMENT-SPEC.md`, « Le statut se déduit du contenu ») : une instance dont le code figure dans `versions` d'un module d'un magasin suivi est une ancienne version de ce module, et faustmodular propose de la **mettre à jour** (le badge du module). La mise à jour reste explicite et annulable ; une scène n'est jamais modifiée par une publication.
 - **Une scène publiée de nouveau** remplace son fichier ; l'historique git garde les précédentes.
 - **Retirer** un élément le supprime du dépôt et de l'index (le commit le garde) ; les instances qui l'utilisaient gardent leur code.
+
+# Représentations et matériaux \label{sec:materiaux}
+
+Une œuvre a plusieurs **représentations** : sa **recette** (des modules, une scène : du code qui produit du son) et les **matériaux** qu'elle a produits (un enregistrement audio, une vidéo). Le magasin garde les unes et les autres, et le **lien** entre elles : depuis faustdaw, un enregistrement devient la matière d'une piste, et l'on retrouve la scène qui l'a produit ; depuis la scène, ses enregistrements. C'est une **provenance**, au sens du modèle W3C PROV : ce matériau a été *généré par* cette activité (l'enregistrement), *à partir de* cette entité (la scène), à telle version.
+
+## Les matériaux
+
+Un matériau est un dossier `materials/<Nom>/` : sa **fiche** (`<Nom>.json`) et son **média**.
+
+```json
+{
+  "format": "fauststore-material",
+  "version": 1,
+  "kind": "recording",
+  "name": "Nappe-1",
+  "media": { "path": "Nappe-1.flac", "type": "audio/flac", "sha1": "…", "preview": "Nappe-1.opus" },
+  "sampleRate": 48000,
+  "channels": 2,
+  "frames": 2880000,
+  "from": { "store": "orlarey/faust-store", "path": "scenes/Nappe/Nappe.jfaust", "sha1": "…", "commit": "…" },
+  "generator": "faustmodular 3.46.0",
+  "timeline": { "tempo": 120, "meter": 4, "startTick": 0, "lengthTicks": 61440 },
+  "live": ["gestures"],
+  "date": "2026-11-06T10:00:00Z"
+}
+```
+
+- `from` : la recette, par son chemin **et l'empreinte de son contenu**. Le lien est vérifiable : on retrouve la scène telle qu'elle était au moment de l'enregistrement, même si elle a évolué depuis (le commit la garde).
+- `timeline` : où l'enregistrement commence dans la ligne de temps de faust-sync, et combien de temps il dure, en tics entiers (`FAUST-SYNC-SPEC.md`). faustdaw le pose sur sa grille au tic près, et sait son tempo.
+- `live` : ce que la recette ne rejoue pas, parmi `microphone`, `midi`, `gestures` (les réglages bougés à la main), `sync` (une autre application jouait). Sans entrée vivante, la scène est **déterministe** : l'enregistrement n'est qu'une matérialisation de la recette, qu'un rendu hors ligne (`OfflineAudioContext`) pourrait refaire, plus vite que le temps réel. Avec des gestes, il faudra les noter aussi (une automation), pour que la recette reste complète.
+- D'autres genres viendront (`kind`) : un rendu hors ligne, une vidéo, un projet faustdaw.
+
+## Les relations
+
+| Relation | De | Vers | Sens |
+| :-- | :-- | :-- | :-- |
+| `recordingOf` | un matériau | une scène | il en est un enregistrement |
+| `uses` | une scène | un module | elle l'utilise (par l'empreinte de son code) |
+| `derivedFrom` | un module, une scène | un module, une scène | il en est une modification |
+| `usedIn` | un matériau | un projet faustdaw | il y sert de matière (plus tard) |
+
+Une relation est écrite dans l'élément qui la porte (la fiche d'un matériau, le contenu d'une scène) ; l'index les recense toutes (`links`) et se lit **dans les deux sens**. Une relation peut viser un autre magasin (`store`).
+
+## Les médias
+
+| Média | Taille | Où |
+| :-- | :-- | :-- |
+| FLAC (sans perte) | ≈ 6 Mo par minute (48 kHz, stéréo) | dans le dépôt, jusqu'à 50 Mo par fichier |
+| Opus (pour l'écoute) | ≈ 1 Mo par minute | dans le dépôt, un aperçu à côté du FLAC |
+| WAV | ≈ 11,5 Mo par minute | non : FLAC à la place, sans perte |
+| vidéo, audio plus long | des dizaines de Mo par minute | hors du dépôt : la fiche donne un lien (`media.url`) |
+
+Un dépôt git garde chaque version de chaque fichier, et GitHub recommande de rester sous quelques Go : les médias lourds restent hors du dépôt. Pour eux, les *Releases* de GitHub (jusqu'à 2 Go par fichier, hors de l'historique) sont une piste, à vérifier : il faut qu'une page web puisse les télécharger.
+
+## Enregistrer depuis faustmodular
+
+Le transport offre **● Enregistrer** : la sortie principale (après le volume et le limiteur), à l'échantillon près, par un AudioWorklet ; à partir d'un début de mesure, pour un nombre de mesures choisi ou jusqu'à ■. Le matériau se télécharge (FLAC ou WAV) ; et il se publie avec sa scène, **en un seul commit**, déjà lié. C'est une fonctionnalité de faustmodular à part entière : elle sert aussi sans magasin.
 
 # Lire \label{sec:lire}
 
@@ -240,7 +315,7 @@ Un module se publie depuis la colonne *Mes modules* ou depuis le menu d'un modul
 - **Les limites de l'API** : 60 requêtes par heure sans compte (d'où la lecture par `raw.githubusercontent.com`), 5000 avec un jeton ; la recherche, 10 par minute sans compte.
 - **Le cache de `raw.githubusercontent.com`** : quelques minutes de retard pour voir une publication d'un autre.
 - **La taille** : GitHub refuse les fichiers de plus de 100 Mo et déconseille au-delà de 50 Mo ; un module ou une scène pèse quelques kilo-octets, un aperçu quelques dizaines.
-- **Les bibliothèques Faust** : un module qui importe `stdfaust.lib` dépend de la version des bibliothèques ; tant qu'elles ne sont pas épinglées (`DOCUMENT-SPEC.md`, « Les bibliothèques Faust sont épinglées »), un module publié il y a longtemps peut sonner autrement. Le dossier `libraries/` est prévu pour cela (phase 5).
+- **Les bibliothèques Faust** : un module qui importe `stdfaust.lib` dépend de la version des bibliothèques ; tant qu'elles ne sont pas épinglées (`DOCUMENT-SPEC.md`, « Les bibliothèques Faust sont épinglées »), un module publié il y a longtemps peut sonner autrement. Le dossier `libraries/` est prévu pour cela (phase 6).
 
 # Décisions et points ouverts \label{sec:decisions}
 
@@ -253,7 +328,9 @@ Décisions proposées, à valider :
 5. Lire sans compte, par `raw.githubusercontent.com` ; publier en un commit, par l'API Git.
 6. Pour commencer, un jeton personnel limité au dépôt (Contents : lecture et écriture) ; OAuth par un petit relais plus tard.
 7. Plusieurs magasins suivis, un seul où publier.
-8. Un magasin commun à faustcode et faustmodular dès le départ (les modules sont des `.dsp`).
+8. Un magasin commun à faustcode et faustmodular dès le départ (les modules sont des `.dsp`) ; faustdaw y trouve ses matériaux.
+9. Un magasin garde les recettes et les matériaux qu'elles produisent, liés par des relations typées, vérifiables par empreinte ; l'index les recense dans les deux sens.
+10. L'audio en FLAC dans le dépôt, sous 50 Mo par fichier, avec un aperçu Opus ; au-delà, et pour la vidéo, un lien.
 
 Points ouverts :
 
@@ -262,6 +339,8 @@ Points ouverts :
 - **Évaluations** : les étoiles du dépôt, ou des réactions par élément (des *issues* ?), ou rien.
 - **Licence** : imposer une licence au manifeste d'un magasin public, ou seulement la recommander.
 - **Un index des magasins** chez GRAME, en plus du *topic*.
+- **Les médias lourds** : *Releases* de GitHub, Git LFS, ou un hébergement extérieur.
+- **Les gestes** : noter les réglages bougés pendant un enregistrement, pour que la recette le refasse.
 
 # Phases \label{sec:phases}
 
@@ -271,4 +350,5 @@ Chaque phase est utile seule.
 2. **Publier.** Le jeton et sa vérification ; publier un module et une scène en un commit ; l'index tenu à jour ; *Mon magasin* et les magasins suivis dans les réglages.
 3. **Versions.** La provenance des instances ; les versions passées dans l'index ; le badge de mise à jour pour les modules d'un magasin ; ouvrir une version précise (`&ref=`).
 4. **Découvrir et partager.** Le *topic* `fauststore` et la liste des magasins publics ; les aperçus de scènes ; faustcode sur le même magasin.
-5. **Plus tard.** OAuth par un relais ; contribuer par *fork* et *pull request* depuis l'application ; les bibliothèques Faust épinglées dans `libraries/` ; les préréglages.
+5. **Matériaux.** Enregistrer depuis le transport ; publier une scène et son enregistrement en un commit ; les relations dans l'index ; faustdaw lit les matériaux d'un magasin et remonte à leur recette.
+6. **Plus tard.** OAuth par un relais ; contribuer par *fork* et *pull request* depuis l'application ; les bibliothèques Faust épinglées dans `libraries/` ; les préréglages.
