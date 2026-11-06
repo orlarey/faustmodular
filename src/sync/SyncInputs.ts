@@ -1,6 +1,7 @@
 /*				SYNCINPUTS.TS
     The reserved inputs of a module (Documentation/FAUST-SYNC-SPEC.md, § 8): the last inputs of its process, named by
-    a declaration, `declare sync "beat; run; start; tempo; meter";` (any of the channels of the Timeline node, in any
+    a declaration, `declare sync "index; run; start; tempo; meter";` (any of the channels of the Timeline node: beat, run, start,
+    tempo, meter, index, tick; in any
     order), fed by the application with the shared timeline, at every sample. They are not ports of the patch: the
     ports are the other inputs, then the modulations; the reserved inputs come after them all (modulatedCode).
 */

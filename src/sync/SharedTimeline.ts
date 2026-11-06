@@ -16,11 +16,11 @@
 
 import { ClockLine, ClockLineMessage, lineAt } from "./ClockLine";
 import { ClockOffset } from "./ClockOffset";
-import { apply, ClockTime, LEAD, newer, newTimeline, Operation, rebase, Timeline } from "./Timeline";
+import { apply, beatAt, ClockFrame, LEAD, newer, newTimeline, Operation, Position, rebase, Timeline } from "./Timeline";
 import { TIMELINE_CHANNELS, TimelineCore, TimelineRule } from "./TimelineCore";
 
 export const SYNC_CHANNEL = "faust-sync";
-export const SYNC_VERSION = 2;
+export const SYNC_VERSION = 3;
 const READ_EVERY = 50;          // ms: a reading of getOutputTimestamp
 const CLOCK_EVERY = 500;        // ms: the clock published
 const ACTIVE = 3000;            // ms: an application not heard for longer has left
@@ -116,7 +116,7 @@ export class SharedTimeline {
         const id = typeof crypto != "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random()).slice(2);
         this.origin = `${app}:${id}`;
         // a new timeline: older than any change (revision 0), so that an answer replaces it
-        this.timeline = newTimeline(this.origin);
+        this.timeline = newTimeline(this.origin, fContext.sampleRate);
     }
 
     // The node and the channel; `hello` to the others.
@@ -169,8 +169,9 @@ export class SharedTimeline {
     // An operation of this application (the transport), shared at once: anchored on its clock, LEAD ms ahead.
     operate(op: Operation): void {
         const now = commonNow();
-        const effect: ClockTime = { clock: this.origin, time: this.timeAt(now + LEAD) };
-        const next = apply(this.timeline, op, now, this.origin, effect, (time) => this.positionAt(time));
+        const sampleRate = this.fContext.sampleRate;
+        const effect: ClockFrame = { clock: this.origin, frame: Math.round(this.timeAt(now + LEAD) * sampleRate), sampleRate };
+        const next = apply(this.timeline, op, now, this.origin, effect, (frame) => this.exactAt(frame));
         if (next === this.timeline) return;
         this.adopt(next);
         this.post({ protocol: "faust-sync", version: SYNC_VERSION, type: "state", origin: this.origin, timeline: next, clock: this.payload() });
@@ -183,13 +184,22 @@ export class SharedTimeline {
         return this.fContext.currentTime + (T - commonNow()) / 1000;
     }
 
-    // The position at a time of this clock, as this application plays it (its samples); by the rule before the node.
+    // The position at a sample of this context, exact, as this application plays it (the rule of its node; a rule
+    // not yet in effect: the position it will have).
+    exactAt(frame: number): Position {
+        const rule = this.fRule;
+        if (!rule) return { tick: this.timeline.anchor.tick, phase: this.timeline.anchor.phase };
+        const p = TimelineCore.advance(rule.tick, rule.rem, rule.playing ? frame - rule.frame : 0, rule.inc, rule.den);
+        return { tick: p.tick, phase: p.rem / rule.den };
+    }
+
+    // The position at a time of this clock (s), in beats (for the display).
     positionAt(time: number): number {
         const rule = this.fRule, t = this.timeline;
-        if (!rule) return t.playing && t.anchor.clock == this.origin ? t.anchor.beat + (time - t.anchor.time) * t.tempo / 60 : t.anchor.beat;
         const frame = time * this.fContext.sampleRate;
-        // a rule not yet in effect: the position it will have
-        return rule.playing ? rule.beat + (frame - rule.frame) * rule.tempo / (60 * this.fContext.sampleRate) : rule.beat;
+        if (!rule) return t.anchor.clock == this.origin ? beatAt(t, frame) : (t.anchor.tick + t.anchor.phase) / TimelineCore.PPQ;
+        const ticks = rule.tick + (rule.rem + (rule.playing ? (frame - rule.frame) * rule.inc : 0)) / rule.den;
+        return ticks / TimelineCore.PPQ;
     }
 
     // The position that comes out of the speaker now.
@@ -288,7 +298,7 @@ export class SharedTimeline {
         const t = this.timeline, clock = t.anchor.clock;
         if (clock == this.origin || this.peers.includes(clock)) return t;
         const offset = this.offsetTo(clock);
-        return offset === null ? t : rebase(t, this.origin, offset);
+        return offset === null ? t : rebase(t, this.origin, this.fContext.sampleRate, offset);
     }
 
     private peerOf(origin: string) {
@@ -331,14 +341,15 @@ export class SharedTimeline {
         const offset = this.offsetTo(t.anchor.clock);
         if (offset === null) return;
         this.fTranslated = t.anchor.clock == this.origin ? null : offset;
-        const rule: TimelineRule = {
-            frame: (t.anchor.time - offset) * this.fContext.sampleRate, beat: t.anchor.beat, tempo: t.tempo, meter: t.meter, playing: t.playing,
-        };
+        // the anchor at a sample of this context: by δ rounded to the sample (the same rate: an integer difference)
+        const sampleRate = this.fContext.sampleRate;
+        const a = rebase(t, this.origin, sampleRate, offset).anchor;
+        const rule = TimelineCore.rule(a.frame, a.tick, a.phase, t.tempo, t.meter, t.playing, sampleRate);
         const before = this.fRule;
         if (reason && before && before.playing && rule.playing) {
-            const frame = this.timeAt(commonNow()) * this.fContext.sampleRate;
-            const at = (r: TimelineRule) => r.beat + (frame - r.frame) * r.tempo / (60 * this.fContext.sampleRate);
-            const shift = (at(rule) - at(before)) * 60 / rule.tempo;
+            const frame = this.timeAt(commonNow()) * sampleRate;
+            const at = (r: TimelineRule) => r.tick + (r.rem + (frame - r.frame) * r.inc) / r.den;
+            const shift = (at(rule) - at(before)) / (rule.inc * sampleRate / rule.den);
             if (Math.abs(shift) > 1e-6) this.corrections.push({ T: commonNow(), reason, shift });
             if (this.corrections.length > 100) this.corrections.shift();
         }

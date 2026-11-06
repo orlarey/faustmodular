@@ -13,10 +13,16 @@ import { syncInputs } from "../../src/sync/SyncInputs";
 const code = fs.readFileSync(path.resolve(__dirname, "../../public/faust-modules/modular/SyncClock.dsp"), "utf8");
 const SR = 48000;
 
+// A rule from a position in beats (its tick and phase), in this context.
+const rule = (frame: number, beat: number, tempo: number, meter: number, playing: boolean) => {
+    const ticks = beat * TimelineCore.PPQ, tick = Math.floor(ticks + 1e-9);
+    return TimelineCore.rule(frame, tick, Math.max(0, ticks - tick), tempo, meter, playing, SR);
+};
+
 async function play(rules: TimelineRule[], length: number, params: Record<string, number> = {}, alter?: (timeline: Float32Array[]) => void) {
     const core = new TimelineCore(SR);
     rules.forEach((r) => core.schedule(r));
-    const timeline = Array.from({ length: 5 }, () => new Float32Array(length));
+    const timeline = Array.from({ length: 7 }, () => new Float32Array(length));
     core.render(0, timeline, length);
     alter?.(timeline);
     const generator = new fw.FaustMonoDspGenerator();
@@ -31,32 +37,41 @@ async function play(rules: TimelineRule[], length: number, params: Record<string
 
 describe("Sync Clock module", () => {
     it("has 5 reserved inputs and no port", async () => {
-        expect(syncInputs(code)).toEqual([0, 1, 2, 3, 4]);
+        expect(syncInputs(code)).toEqual([5, 1, 2, 3, 4]);
     });
 
     it("gates every sixteenth note from the downbeat, exactly at its sample", async () => {
         const start = 1000;
-        const { edges, resets, clock } = await play([{ frame: start, beat: 0, tempo: 120, meter: 4, playing: true }], start + 48000);
+        const { edges, resets, clock } = await play([rule(start, 0, 120, 4, true)], start + 48000);
         expect(edges).toEqual(Array.from({ length: 8 }, (_, k) => start + k * 6000));
         expect(resets).toEqual([start]);
-        // Width 0.5: 3000 samples high
+        // Width 0.5: 120 ticks of 240, 3000 samples high
         expect(clock.slice(start, start + 6000).reduce((n, v) => n + (v > 0.5 ? 1 : 0), 0)).toBe(3000);
     });
 
+    it("at 44.1 kHz, every sixteenth note at the sample of its tick: 5512.5 samples, rounded up", async () => {
+        // 22.96875 samples per tick: tick 240·j at the first sample where the position reaches it
+        const core = new TimelineCore(44100);
+        core.schedule(TimelineCore.rule(0, 0, 0, 120, 4, true, 44100));
+        const t = Array.from({ length: 7 }, () => new Float32Array(44100));
+        core.render(0, t, 44100);
+        const ticks: number[] = [];
+        t[6].forEach((v, i) => { if (v) ticks.push(i); });
+        expect(ticks.length).toBe(1919);                                  // 1 s: 1920 ticks from tick 0 at sample 0
+        ticks.forEach((n, i) => expect(n).toBe(Math.ceil((i + 1) * 44100 * 60 / (120 * 960))));
+    });
+
     it("gates every bar with the bar division, and nothing once stopped", async () => {
-        const rules = [
-            { frame: 0, beat: 0, tempo: 120, meter: 3, playing: true },
-            { frame: 48000 * 4, beat: 8, tempo: 120, meter: 3, playing: false },
-        ];
+        const rules = [rule(0, 0, 120, 3, true), rule(48000 * 4, 8, 120, 3, false)];
         const { edges } = await play(rules, 48000 * 5, { Division: 0 });
         expect(edges).toEqual([0, 72000, 144000]);                    // bars of 3 beats: 1.5 s
     });
 
     it("takes up the playing in the middle of a step without a gate, then at the next division", async () => {
-        // stopped at 1.1, then playing again
-        const rules = [{ frame: 0, beat: 1.1, tempo: 120, meter: 4, playing: false }, { frame: 100, beat: 1.1, tempo: 120, meter: 4, playing: true }];
+        // stopped at 1.1, then playing again (in the high part of the step: no gate yet)
+        const rules = [rule(0, 1.1, 120, 4, false), rule(100, 1.1, 120, 4, true)];
         const { edges, resets } = await play(rules, 24000, { Division: 0.5 });
-        // the next eighth after 1.1: 1.5, 0.4 beat later (9600 samples)
+        // the next eighth after 1.1: 1.5, 0.4 beat later (384 ticks, 9600 samples)
         expect(edges[0]).toBe(100 + 9600);
         expect(resets).toEqual([]);
     });
@@ -64,14 +79,15 @@ describe("Sync Clock module", () => {
     // A block of the position slightly behind (2.7 ms back, in the middle of a step, then at a bar line): the
     // gates stay where they are, none too many.
     it("gives no gate too many for a small step back of the position", async () => {
-        const rule = { frame: 0, beat: 0, tempo: 120, meter: 4, playing: true };
-        const back = (from: number) => (t: Float32Array[]) => { for (let i = from; i < from + 128; i++) t[0][i] = ((t[0][i] - 128 * 2 / SR) + 4) % 4; };
-        const plain = await play([rule], 120000);
-        const middle = await play([rule], 120000, {}, back(3000 + 6000 * 3));
+        const r = rule(0, 0, 120, 4, true);
+        // the index 128 samples (5.12 ticks → 5) back, and no tick in that block
+        const back = (from: number) => (t: Float32Array[]) => {
+            for (let i = from; i < from + 128; i++) { t[5][i] = (t[5][i] - 5 + 3840) % 3840; t[6][i] = 0; }
+        };
+        const plain = await play([r], 120000);
+        const middle = await play([r], 120000, {}, back(3000 + 6000 * 3));
         expect(middle.edges).toEqual(plain.edges);
-        // across the bar line at 2 s (beat 4 → 0, sample 96000): the gate of the bar line comes when the position
-        // has crossed it, the block late; none too many
-        const bar = await play([rule], 120000, {}, back(96000 - 64));
+        const bar = await play([r], 120000, {}, back(96000 - 64));
         expect(bar.edges.length).toBe(plain.edges.length);
         bar.edges.forEach((e, i) => expect(Math.abs(e - plain.edges[i])).toBeLessThanOrEqual(64));
     }, 60_000);

@@ -1,9 +1,11 @@
 # faust-sync — une horloge musicale commune aux applications Faust
 
-*Spécification, version 0.3 (2026-11-06). La 0.1 comptait le temps musical en temps du système ; la 0.2 le comptait
+*Spécification, version 0.4 (2026-11-06). La 0.1 comptait le temps musical en temps du système ; la 0.2 le comptait
 en échantillons audio, mais recalait chaque application sur le temps du système, qui dérive par rapport à la carte
 son (§ 10) ; la 0.3 pose l'ancre sur l'horloge audio d'une application, et chaque autre application la traduit par
-l'écart entre leurs deux horloges, mesuré une fois et figé (§ 2, § 7). Réalisée dans faustmodular 3.44.0 (§ 8.1).*
+l'écart entre leurs deux horloges, mesuré une fois et figé (§ 2, § 7) ; la 0.4 compte la position **en entiers** :
+des tics (960 par noire), dont l'échantillon est calculé exactement, le même dans toutes les applications (§ 4,
+§ 7.3). Réalisée dans faustmodular 3.45.0 (§ 8.1).*
 
 ## 1. Objet
 
@@ -73,46 +75,54 @@ onglets du navigateur (mesuré : § 10). Elle dérive par rapport à la carte so
 
 ## 4. La ligne de temps
 
+La position se compte en **tics** : PPQ = 960 par noire (le PPQ courant des séquenceurs ; les triolets et les
+quintolets tombent juste). Le tempo est au centième de BPM.
+
 ```ts
 interface Timeline {
-    tempo: number;              // temps (noires) par minute, de 20 à 999
+    tempo: number;              // temps (noires) par minute, de 20 à 999, au centième
     meter: number;              // temps par mesure (4 : 4/4)
     playing: boolean;
-    anchor: { clock: string; time: number; beat: number };  // à l'instant `time` (s) de l'horloge de `clock`, la position
-    revision: { time: number; origin: string };             // le changement qui l'a produite : quand (temps commun), et par qui
+    anchor: {                   // à l'échantillon `frame` du contexte de `clock` (à `sampleRate`), la position
+        clock: string; frame: number; sampleRate: number;
+        tick: number;           // un entier
+        phase: number;          // la fraction de tic, de 0 à 1
+    };
+    revision: { time: number; origin: string };   // le changement qui l'a produite : quand (temps commun), et par qui
 }
 ```
 
-La position à l'instant *t* de l'horloge de l'ancre :
+À un échantillon *n* de l'horloge de l'ancre, en lecture, la position est, en tics :
 
 ```
-beat(t) = playing ? anchor.beat + (t − anchor.time) × tempo / 60  :  anchor.beat
+tics(n) = tick + phase + (n − frame) · Tc · PPQ / (6000 · sr)        Tc : le tempo en centièmes de BPM
 ```
 
-Dans l'horloge d'une autre application *Y*, l'instant de l'ancre est `anchor.time − δ`, où δ = t_clock − t_Y est
-l'écart que *Y* a mesuré avec l'horloge de l'ancre (§ 7.2).
+Dans l'horloge d'une autre application *Y* (à la même fréquence), l'échantillon de l'ancre est
+`frame − round(δ · sr)`, où δ = t_clock − t_Y est l'écart que *Y* a mesuré avec l'horloge de l'ancre (§ 7.2) ; à une
+autre fréquence, `round((frame / sampleRate − δ) · sr_Y)`. La position (tic, phase) ne change pas.
 
-Le temps 0 est le premier temps de la première mesure ; *mesure:temps* = `floor(beat / meter) + 1 : floor(beat mod meter) + 1`.
-Une ligne de temps neuve : `{ tempo: 120, meter: 4, playing: false, anchor: { clock: soi, time: 0, beat: 0 } }`, de
-révision 0 (plus ancienne que tout changement).
+Le temps 0 est le premier temps de la première mesure ; *mesure:temps* = `floor(beat / meter) + 1 : floor(beat mod meter) + 1`
+(beat = tics / PPQ). Une ligne de temps neuve : 120 BPM, 4/4, à l'arrêt, au tic 0, de révision 0 (plus ancienne que
+tout changement).
 
 ## 5. Les opérations
 
-Une opération décidée à l'instant commun `t = now()` prend effet à l'instant `e` de l'horloge de son auteur qui sort
-du haut-parleur à `t + L`, **L = 20 ms** (§ 2.5). La nouvelle ligne de temps est ancrée sur l'horloge de l'auteur ; elle
-est continue (la position ne saute pas, sauf si on le demande) ; sa révision est `{ time: t, origin }` :
+Une opération décidée à l'instant commun `t = now()` prend effet à l'échantillon `e` de l'horloge de son auteur qui
+sort du haut-parleur à `t + L`, **L = 20 ms** (§ 2.5). La nouvelle ligne de temps est ancrée sur l'horloge de
+l'auteur, à `e`, avec la position exacte qu'il y joue (son nœud Timeline, § 7.3) : elle est continue au tic et à la
+phase près (la position ne saute pas, sauf si on le demande) ; sa révision est `{ time: t, origin }` :
 
 | Opération | Nouvelle ligne de temps |
 |---|---|
-| `setTempo(T)` | `anchor = { soi, e, beat(e) }`, `tempo = T` |
-| `play()` | `anchor = { soi, e, beat(e) }`, `playing = true` (repart d'où l'arrêt l'a laissée) |
-| `play({ fromStart: true })` | `anchor = { soi, e, 0 }`, `playing = true` |
-| `stop()` | `anchor = { soi, e, beat(e) }`, `playing = false` |
-| `locate(b)` | `anchor = { soi, e, b }` |
+| `setTempo(T)` | `anchor = { soi, e, position(e) }`, `tempo = T` |
+| `play()` | `anchor = { soi, e, position(e) }`, `playing = true` (repart d'où l'arrêt l'a laissée) |
+| `play({ fromStart: true })` | `anchor = { soi, e, tic 0 }`, `playing = true` |
+| `stop()` | `anchor = { soi, e, position(e) }`, `playing = false` |
+| `locate(b)` | `anchor = { soi, e, tic round(b · PPQ) }` |
 | `setMeter(m)` | `meter = m` |
 
-`beat(e)` est la position telle que l'auteur la joue (son nœud Timeline, § 7.3). Une application qui lance la lecture
-alors que d'autres jouent déjà ne crée rien : elle suit la ligne de temps.
+Une application qui lance la lecture alors que d'autres jouent déjà ne crée rien : elle suit la ligne de temps.
 
 ## 6. Le protocole
 
@@ -129,9 +139,9 @@ interface Clock {               // l'horloge d'une application (§ 7.1)
 }
 
 type SyncMessage =
-    | { protocol: "faust-sync"; version: 2; type: "hello"; origin: string }                                    // j'arrive
-    | { protocol: "faust-sync"; version: 2; type: "clock"; origin: string; clock: Clock }                      // mon horloge
-    | { protocol: "faust-sync"; version: 2; type: "state"; origin: string; timeline: Timeline; clock: Clock }  // la ligne de temps
+    | { protocol: "faust-sync"; version: 3; type: "hello"; origin: string }                                    // j'arrive
+    | { protocol: "faust-sync"; version: 3; type: "clock"; origin: string; clock: Clock }                      // mon horloge
+    | { protocol: "faust-sync"; version: 3; type: "state"; origin: string; timeline: Timeline; clock: Clock }  // la ligne de temps
 ```
 
 `origin` : le nom de l'application et un identifiant tiré à son ouverture (`"faustmodular:" + crypto.randomUUID()`).
@@ -234,21 +244,25 @@ remesuré, sauf si le contexte de l'une des deux reprend après une suspension (
 ### 7.3 Le nœud Timeline
 
 Chaque application crée un nœud **Timeline** (un `AudioWorkletProcessor`). Il reçoit par son port la ligne de temps
-traduite dans son contexte : `{ frame, beat, tempo, meter, playing }`, avec `frame = (anchor.time − δ) × sampleRate`,
-et calcule, à chaque échantillon *n* :
+traduite dans son contexte, en entiers : `{ frame, tick, rem, inc, den, … }`, avec `inc = Tc · PPQ`,
+`den = 6000 · sampleRate`, `rem = round(phase · den)`.
 
-```
-beat(n) = playing ? beat + (n − frame) × tempo / (60 × sampleRate)  :  beat
-```
-
-- La traduction n'est refaite qu'à l'arrivée d'une ligne de temps, ou quand δ change (provisoire, puis figé).
-- Une petite correction vers l'arrière (moins de 50 ms, la même ligne de temps traduite par un δ nouveau) ne fait
-  pas reculer la position : elle attend que la nouvelle règle la rejoigne. Reculer ferait franchir de nouveau une
-  division, et donnerait une porte de trop. Les corrections sont affichées dans l'infobulle du transport.
+- **Le compte** : la position à l'échantillon *n* est `k + r / den`, *k* entier, 0 ≤ *r* < *den*. À chaque échantillon
+  en lecture, `r += inc` ; chaque fois que *r* atteint *den*, `r −= den` et `k += 1` (comme l'algorithme de
+  Bresenham). Le tic *k* tombe au premier échantillon où la position l'atteint :
+  `n_k = frame + ⌈((k − tick) · den − rem) / inc⌉`. Exact : pas d'arrondi, pas de dérive, sur des heures, et le même
+  échantillon dans toutes les applications (à la même fréquence, leurs `frame` diffèrent de l'entier round(δ · sr)).
+- **Le recalage** : à une nouvelle règle, ou après un bloc qui ne suit pas le précédent, la position est calculée
+  exactement à partir de l'ancre, en grands entiers (`BigInt`).
+- **Les canaux**, à chaque échantillon : `beat` (la position dans la mesure, en temps, continue), `run` (0 ou 1),
+  `start` (1 pendant un échantillon, quand la lecture part du début), `tempo`, `meter`, **`index`** (le tic dans la
+  mesure : un entier de 0 à PPQ · meter − 1, exact dans un flottant), **`tick`** (1 à l'échantillon de chaque tic).
 - Une nouvelle ligne de temps prend effet à son `frame` (dans le futur, § 5) : le nœud la garde en attente jusqu'à
-  cet échantillon, puis bascule, **exactement à l'échantillon**.
-- Il sort, à chaque échantillon, la position dans la mesure, la lecture (0 ou 1), le départ (1 pendant un échantillon,
-  quand la lecture part du début), le tempo et la mesure.
+  cet échantillon, puis bascule, **exactement à l'échantillon**. La traduction n'est refaite qu'à l'arrivée d'une
+  ligne de temps, ou quand δ change (provisoire, de plus de 2 ms, puis figé).
+- Une petite correction vers l'arrière (moins de 50 ms) ne fait pas reculer la position : elle attend que la nouvelle
+  règle la rejoigne. Les corrections, les blocs qui ne suivent pas et les portes irrégulières des modules (une sonde
+  mesure leur période et leur largeur à l'échantillon) sont affichés dans l'infobulle du transport.
 
 ### 7.4 Cartes son différentes (hors du cas principal)
 
@@ -259,15 +273,18 @@ corriger l'écart en douceur (en modifiant imperceptiblement le pas d'une applic
 
 ### 8.1 faustmodular
 
-Réalisé en 3.43.0, l'algorithme de la 0.3 en 3.44.0 (`src/sync/`).
+Réalisé en 3.43.0, l'algorithme de la 0.3 en 3.44.0, les tics en entiers de la 0.4 en 3.45.0 (`src/sync/`).
 
 - Un **transport** dans la barre d'outils : ⏮ (au début : en lecture, `play({ fromStart: true })`, à l'arrêt,
   `locate(0)`), ▶ / ■, le tempo (modifiable), *mesure:temps*.
 - Un module à part, **Sync Clock** (le MIDI Clock reste tel quel). Sorties : *clock* (une porte par double croche,
   croche, noire ou mesure, alignée sur la mesure), *reset* (au départ du début), *run*. Il lit le nœud Timeline par
-  cinq entrées réservées, `declare sync "beat; run; start; tempo; meter";` : les dernières entrées du DSP, après
-  l'audio et les modulations, que l'application branche elle-même (pas des ports du patch). Ses portes tombent donc à
-  l'échantillon où la position franchit la division, le même dans toutes les applications.
+  cinq entrées réservées, `declare sync "index; run; start; tempo; meter";` : les dernières entrées du DSP, après
+  l'audio et les modulations, que l'application branche elle-même (pas des ports du patch). En entiers (0.4) : un pas
+  de `step` tics (240, 480, 960, ou 960 · meter), haut pendant ses `high = round(width · step)` premiers tics,
+  `clock = run · (index mod step < high)`, à partir du tic qui entre dans le pas (le tic dans le pas retombe de plus
+  d'un demi-pas) ou du départ ; pas à la reprise au milieu d'un pas, ni pour un petit recul. Ses portes tombent donc à
+  l'échantillon exact du tic, le même dans toutes les applications, et sa largeur suit le tempo sans compteur.
 - L'horloge (`ClockLine.ts`), les écarts (`ClockOffset.ts`), la ligne de temps (`Timeline.ts`), le protocole et la
   traduction (`SharedTimeline.ts`), le nœud (`TimelineCore.ts`), testés (`tests/model/clock.test.ts`, `sync.test.ts`).
   De bout en bout, dans Chromium sans carte son : les portes du second onglet, ramenées sur l'horloge du premier par
@@ -277,7 +294,7 @@ Réalisé en 3.43.0, l'algorithme de la 0.3 en 3.44.0 (`src/sync/`).
 ### 8.2 faustcode
 
 - Le même transport dans l'en-tête.
-- Un programme Faust reçoit la ligne de temps à l'échantillon près par une entrée réservée (`declare sync "beat"`),
+- Un programme Faust reçoit la ligne de temps à l'échantillon près par des entrées réservées (`declare sync "index; tick"`, ou `"beat"` pour une position continue),
   branchée sur le nœud Timeline, et, au rythme des blocs, par des métadonnées de widgets : `[sync:tempo]`,
   `[sync:playing]`.
 
@@ -361,3 +378,5 @@ l'erreur réelle au cours du temps. Ses calculs sont testés (`tests/model/sync-
    n'ont pas de raison d'interrompre leur son ; si elles le faisaient, le système audio ne fonctionnerait pas. Reste
    le cas d'une surcharge (le calcul d'une application arrive trop tard, la carte joue un trou) : on l'entend de toute
    façon ; il sera traité s'il se présente.
+7. (0.4) La position en entiers : des tics (960 par noire), comptés par un accumulateur entier ; les portes sont
+   définies par le tic, pas déduites d'une position flottante par comparaison de deux valeurs successives.

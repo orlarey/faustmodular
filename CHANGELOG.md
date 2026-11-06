@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.45.0 (2026-11-06)
+
+- **faust-sync 0.4: the position in integers** (`Documentation/FAUST-SYNC-SPEC.md`, § 4, 7.3). The position is
+  counted in ticks, 960 per quarter note, the tempo in hundredths of BPM. The Timeline node keeps an integer tick and
+  an integer phase, adding Tc · 960 to the phase at every sample and counting a tick every time it reaches
+  6000 · sampleRate (as Bresenham's algorithm): exact, without drift (one hour counted block by block gives the same
+  tick and phase as computed from the start), and the same samples in every application. After a new rule or a block
+  that does not follow the one before, the position is computed again exactly, with big integers.
+- The anchor of the timeline is at a sample of its clock (an integer), with a tick and its phase; an operation
+  anchors at the exact position its author plays. Protocol version 3.
+- Two new channels of the Timeline node: `index` (the tick in the bar, an integer) and `tick` (1 at the sample of each
+  tick); `beat` stays, continuous.
+- **Sync Clock** in integers: a step of 240, 480, 960 ticks or a bar, high for its `round(Width · step)` first ticks,
+  from the tick that enters the step: its gates are defined by the tick, not detected from a position in floats by
+  comparing two successive values. No gate when the playing is taken up in the middle of a step, nor for a small step
+  back of the position. Scenes saved with the previous Sync Clock offer to update it.
+
 ## 3.44.2 (2026-11-06)
 
 - **Sync Clock: no gate too many for a step back of the position.** On a Mac, with two windows playing, a gate
