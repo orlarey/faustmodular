@@ -219,7 +219,7 @@ de la carte (précise). Lu toutes les 50 ms :
 - **la mise en route** : les lectures des 2 premières secondes sont ignorées (fausses de dizaines de ms) ;
 - **les sauts** : la latence annoncée peut changer d'un coup (l'ouverture d'un micro, une sortie reconfigurée). Un
   saut (la dernière demi-seconde, toute entière, à plus de 0,25 ms des deux secondes d'avant) est **suivi** pendant les
-  5 premières secondes, puis **compensé** : l'horloge reste continue. Un système audio qui fonctionne n'interrompt pas
+  5 secondes qui suivent la mise en route, puis **compensé** : l'horloge reste continue. Un système audio qui fonctionne n'interrompt pas
   le son d'une application ; seule la latence annoncée a changé (§ 12).
 
 ### 7.2 Les écarts entre horloges
@@ -227,7 +227,9 @@ de la carte (précise). Lu toutes les 50 ms :
 Pour chaque autre application *X*, à chaque horloge publiée : δ_X = t_X(T) − t_soi(T), au même instant commun *T*
 (le plus récent des deux). Tant que l'une des deux horloges n'est pas stable, la dernière valeur sert (provisoire).
 Quand les valeurs restent à moins de 0,5 ms les unes des autres pendant 2,5 s (5 au moins), δ_X est **figé** à leur
-médiane, et n'est plus remesuré, sauf si le contexte de l'une des deux reprend après une suspension (§ 6.4).
+médiane. Sans un tel calme en 10 s (une machine chargée, une horloge bruitée), il est figé quand même, à la médiane
+des 5 dernières secondes : une valeur qui ne bouge plus vaut mieux que des corrections sans fin. Il n'est plus
+remesuré, sauf si le contexte de l'une des deux reprend après une suspension (§ 6.4).
 
 ### 7.3 Le nœud Timeline
 
@@ -240,6 +242,9 @@ beat(n) = playing ? beat + (n − frame) × tempo / (60 × sampleRate)  :  beat
 ```
 
 - La traduction n'est refaite qu'à l'arrivée d'une ligne de temps, ou quand δ change (provisoire, puis figé).
+- Une petite correction vers l'arrière (moins de 50 ms, la même ligne de temps traduite par un δ nouveau) ne fait
+  pas reculer la position : elle attend que la nouvelle règle la rejoigne. Reculer ferait franchir de nouveau une
+  division, et donnerait une porte de trop. Les corrections sont affichées dans l'infobulle du transport.
 - Une nouvelle ligne de temps prend effet à son `frame` (dans le futur, § 5) : le nœud la garde en attente jusqu'à
   cet échantillon, puis bascule, **exactement à l'échantillon**.
 - Il sort, à chaque échantillon, la position dans la mesure, la lecture (0 ou 1), le départ (1 pendant un échantillon,

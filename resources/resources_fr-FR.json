@@ -186,6 +186,8 @@
   "transportRewind": "Retour au début",
   "transportTempo": "Tempo (temps par minute), partagé",
   "transportPosition": "Mesure:temps",
+  "transportClocks": "Horloges : {peers} autre(s) application(s), écart figé avec {frozen} ; corrections de la position : {count}",
+  "transportCorrection": "Dernière correction : {shift} ms, il y a {ago} s ({reason})",
   "libraryModular": "Modulaire",
   "libraryClassic": "FaustPlayground",
   "titleFamilies": "Familles",

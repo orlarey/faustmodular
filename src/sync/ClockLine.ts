@@ -56,6 +56,7 @@ export class ClockLine {
     private fReadings: Array<{ T: number; c: number }> = [];   // c: the time of the context, jumps compensated
     private fFirst: number | null = null;                       // the first reading (ms)
     private fSegment = 0;                                       // the start of the readings in use (ms)
+    private fSettleFrom = 0;                                    // the end of the warmup: settled SETTLE after it
     private fSettled = false;
     private fCorrection = 0;                                    // the sum of the jumps compensated (s)
     private fRate: number | null = null;
@@ -70,11 +71,13 @@ export class ClockLine {
         if (this.fFirst === null) {
             this.fFirst = T;
             this.fSegment = T + WARMUP;
+            this.fSettleFrom = T + WARMUP;
         }
-        if (T < this.fSegment) return;
+        if (T < this.fSettleFrom) return;
         this.fReadings.push({ T, c: t - this.fCorrection });
         while (this.fReadings.length && this.fReadings[0].T < T - SLOPE_WINDOW - 5000) this.fReadings.shift();
-        if (!this.fSettled && T - this.fSegment >= SETTLE) this.fSettled = true;
+        // counted from the warmup, not from the last jump followed: jumps again and again would never let it settle
+        if (!this.fSettled && T - this.fSettleFrom >= SETTLE) this.fSettled = true;
         this.detect(T);
         if (++this.fSinceRate >= 10 || this.fRate === null) this.updateRate(T);
         this.updateLine(T);

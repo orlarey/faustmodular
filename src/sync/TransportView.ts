@@ -16,7 +16,7 @@ export class TransportView {
     private fSync: SharedTimeline | null = null;
     private fShown = "";
 
-    constructor(private fTexts: () => { play: string; stop: string; rewind: string; tempo: string; position: string; transport: string }) {
+    constructor(private fTexts: () => { play: string; stop: string; rewind: string; tempo: string; position: string; transport: string; clocks: string; correction: string }) {
         this.element = document.createElement("div");
         this.element.id = "transport";
         this.element.className = "transport disabled";
@@ -84,13 +84,27 @@ export class TransportView {
         this.fRewind.title = texts.rewind;
         this.fTempo.title = texts.tempo;
         this.fPosition.title = texts.position;
-        this.element.title = texts.transport + (this.fSync && this.fSync.peers.length > 0 ? ` (${this.fSync.peers.length + 1})` : "");
+        this.fDiagnosed = 0;
         if (t && document.activeElement !== this.fTempo) this.fTempo.value = String(t.tempo);
+    }
+
+    // The clocks of the other applications and the corrections of the position, in the tooltip (each second).
+    private fDiagnosed = 0;
+    private diagnose(): void {
+        const sync = this.fSync, now = performance.now();
+        if (!sync || now - this.fDiagnosed < 1000) return;
+        this.fDiagnosed = now;
+        const texts = this.fTexts(), d = sync.diagnosis();
+        const fill = (text: string, values: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ""));
+        let title = texts.transport + "\n" + fill(texts.clocks, { peers: d.peers, frozen: d.frozen, count: d.corrections });
+        if (d.last) title += "\n" + fill(texts.correction, { shift: (d.last.shift >= 0 ? "+" : "") + d.last.shift.toFixed(3), ago: Math.round(d.last.ago), reason: d.last.reason });
+        if (this.element.title != title) this.element.title = title;
     }
 
     private showPosition(): void {
         const sync = this.fSync;
         if (!sync) return;
+        this.diagnose();
         const { bar, beat } = barBeat(sync.positionNow(), sync.timeline.meter);
         const text = `${bar}:${beat}`;
         if (text != this.fShown) {

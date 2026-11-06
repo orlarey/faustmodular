@@ -107,6 +107,33 @@ const SPECTRUM_ONLY: ScopeWidget[] = ["scale"];
 
 const SIZE = { width: 320, height: 140, minWidth: 160, minHeight: 80, maxWidth: 1600, maxHeight: 1000 };
 const HOLD_MS = 20;            // a new triggered image at most every HOLD_MS (faustcode: holdoff)
+const FFT = 8192;              // the analyser: the spectrum, and the triggered waveform up to half of it
+const ROLL_FFT = 32768;        // the scrolling waveform: 0.68 s at 48 kHz between two frames before a sample is lost
+
+// The scrolling oscilloscope: adds `lost` samples (a gap: null columns), then the samples of `data` from `from`, to
+// the columns of `perColumn` samples ([min, max] each); `column` is the one being filled, kept between frames.
+export function rollColumns(column: { lo: number; hi: number; filled: number; real: number }, roll: Array<[number, number] | null>,
+    lost: number, data: Float32Array, from: number, perColumn: number): void {
+    const close = () => {
+        roll.push(column.real > 0 && column.lo <= column.hi ? [column.lo, column.hi] : null);
+        column.lo = Infinity; column.hi = -Infinity; column.real = 0;
+        column.filled -= perColumn;
+    };
+    while (lost > 0) {
+        const take = Math.min(lost, Math.max(1, perColumn - column.filled));
+        column.filled += take;
+        lost -= take;
+        if (column.filled >= perColumn) close();
+    }
+    for (let i = from; i < data.length;) {
+        const take = Math.min(data.length - i, Math.max(1, Math.ceil(perColumn - column.filled)));
+        for (let k = i; k < i + take; k++) { column.lo = Math.min(column.lo, data[k]); column.hi = Math.max(column.hi, data[k]); }
+        column.real += take;
+        column.filled += take;
+        i += take;
+        if (column.filled >= perColumn) close();
+    }
+}
 
 export class ModuleDisplays {
     private fBars: Bar[] = [];
@@ -120,8 +147,9 @@ export class ModuleDisplays {
     private fFreq: Float32Array<ArrayBuffer> | null = null;
     private fElements: HTMLElement[] = [];
     private fAddress = new Map<ScopeWidget, string>();
-    private fRoll: Array<[number, number]> = [];        // scrolling oscilloscope: [min, max] per column
-    private fRollCarry = 0;                             // samples of the next column already counted
+    // scrolling oscilloscope: [min, max] per column, null for samples lost (frames too far apart)
+    private fRoll: Array<[number, number] | null> = [];
+    private fColumn = { lo: Infinity, hi: -Infinity, filled: 0, real: 0 };  // the column being filled
     private fLastFrame = 0;
     private fLastWindow: Float32Array | null = null;    // the last triggered image (normal mode)
     private fLastTrigger = 0;
@@ -204,7 +232,7 @@ export class ModuleDisplays {
         this.fFrameBox = frame;
         this.applySize();
         const analyser = context.createAnalyser();
-        analyser.fftSize = 8192;
+        analyser.fftSize = FFT;
         analyser.smoothingTimeConstant = 0.5;
         try {
             this.fNode.connect(analyser);
@@ -324,15 +352,26 @@ export class ModuleDisplays {
     private drawScope(c: { g: CanvasRenderingContext2D; width: number; height: number }): void {
         const analyser = this.fAnalyser!;
         const samples = Math.max(16, Math.round((this.param("time", 20) / 1000) * analyser.context.sampleRate));
-        if (samples <= analyser.fftSize / 2) this.drawTriggered(c, samples); else this.drawRolling(c, samples);
+        if (samples <= FFT / 2) this.drawTriggered(c, samples); else this.drawRolling(c, samples);
+    }
+
+    // The analyser at the size of the view (the scrolling waveform keeps more samples between two frames).
+    private analyserSize(fftSize: number): void {
+        const analyser = this.fAnalyser!;
+        if (analyser.fftSize == fftSize) return;
+        analyser.fftSize = fftSize;
+        this.fTime = new Float32Array(fftSize);
+        this.fFreq = new Float32Array(analyser.frequencyBinCount);
     }
 
     // A window of the signal starting on a crossing of the threshold (Trigger auto: the last samples
     // when there is none; normal: the last image stays).
     private drawTriggered(c: { g: CanvasRenderingContext2D; width: number; height: number }, shown: number): void {
+        this.analyserSize(FFT);
         const data = this.fTime!;
         this.fAnalyser!.getFloatTimeDomainData(data);
         this.fRoll = [];
+        this.fLastFrame = 0;
         const threshold = this.param("threshold", 0);
         const normal = this.param("trigger", 0) >= 0.5;
         const slope = this.param("slope", 0) >= 0.5 ? "falling" : "rising";
@@ -352,9 +391,11 @@ export class ModuleDisplays {
     }
 
     // A long duration scrolls: the samples that arrived since the last frame are reduced to the
-    // minimum and maximum of each column of pixels.
+    // minimum and maximum of each column of pixels. Samples older than the buffer of the analyser (frames
+    // further apart than 0.68 s) are lost: a gap of their duration, so that the time stays right.
     private drawRolling(c: { g: CanvasRenderingContext2D; width: number; height: number }, duration: number): void {
         const { g, width, height } = c;
+        this.analyserSize(ROLL_FFT);
         const data = this.fTime!;
         const analyser = this.fAnalyser!;
         analyser.getFloatTimeDomainData(data);
@@ -363,19 +404,9 @@ export class ModuleDisplays {
         this.fLastFrame = now;
         const columns = Math.max(1, Math.round(width));
         const perColumn = duration / columns;                     // samples per column
-        const fresh = Math.min(data.length, Math.round(elapsed * analyser.context.sampleRate));
-        let total = this.fRollCarry + fresh;
-        let index = data.length - fresh;
-        while (total >= perColumn && index < data.length) {
-            const take = Math.max(1, Math.round(perColumn - this.fRollCarry));
-            let lo = Infinity, hi = -Infinity;
-            for (let i = index; i < Math.min(data.length, index + take); i++) { lo = Math.min(lo, data[i]); hi = Math.max(hi, data[i]); }
-            if (lo <= hi) this.fRoll.push([lo, hi]);
-            index += take;
-            total -= perColumn;
-            this.fRollCarry = 0;
-        }
-        this.fRollCarry = Math.max(0, total);
+        const fresh = Math.round(elapsed * analyser.context.sampleRate);
+        const available = Math.min(data.length, fresh);
+        rollColumns(this.fColumn, this.fRoll, Math.min(fresh - available, duration + perColumn), data, data.length - available, perColumn);
         if (this.fRoll.length > columns) this.fRoll.splice(0, this.fRoll.length - columns);
         const colors = this.colors();
         drawScopeGrid(g, width, height, colors);
@@ -383,16 +414,21 @@ export class ModuleDisplays {
         g.lineWidth = 1.5;
         g.beginPath();
         const offset = columns - this.fRoll.length;
-        // one continuous line, through the extent of each column
-        this.fRoll.forEach(([lo, hi], i) => {
+        // one line, through the extent of each column, broken where samples were lost
+        let broken = true;
+        this.fRoll.forEach((column, i) => {
+            if (!column) { broken = true; return; }
+            const [lo, hi] = column;
             const x = ((offset + i + 0.5) / columns) * width;
-            if (i == 0) g.moveTo(x, yOfSample(hi, height)); else g.lineTo(x, yOfSample(hi, height));
+            if (broken) g.moveTo(x, yOfSample(hi, height)); else g.lineTo(x, yOfSample(hi, height));
             g.lineTo(x, yOfSample(lo, height));
+            broken = false;
         });
         g.stroke();
     }
 
     private drawSpectrumView(c: { g: CanvasRenderingContext2D; width: number; height: number }): void {
+        this.analyserSize(FFT);
         const analyser = this.fAnalyser!;
         analyser.getFloatFrequencyData(this.fFreq!);
         const peak = drawSpectrum(c.g, c.width, c.height, this.fFreq!, analyser.context.sampleRate, this.param("scale", 0) < 0.5, this.colors());

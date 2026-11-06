@@ -186,6 +186,8 @@
   "transportRewind": "Back to the start",
   "transportTempo": "Tempo (beats per minute), shared",
   "transportPosition": "Bar:beat",
+  "transportClocks": "Clocks: {peers} other application(s), offset frozen with {frozen}; corrections of the position: {count}",
+  "transportCorrection": "Last correction: {shift} ms, {ago} s ago ({reason})",
   "libraryModular": "Modular",
   "libraryClassic": "FaustPlayground",
   "titleFamilies": "Families",

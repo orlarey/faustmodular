@@ -68,6 +68,9 @@ export class SharedTimeline {
     private fSplitter: ChannelSplitterNode | null = null;
     private fChannel: BroadcastChannel | null = null;
     private fListeners: Array<() => void> = [];
+    // the corrections of the position while playing the same timeline (a difference measured again), for the
+    // diagnosis: when, why, by how much (s; positive: the position moved forward)
+    readonly corrections: Array<{ T: number; reason: string; shift: number }> = [];
 
     constructor(private fContext: AudioContext, app: string) {
         const id = typeof crypto != "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random()).slice(2);
@@ -84,6 +87,7 @@ export class SharedTimeline {
         this.fNode = new AudioWorkletNode(this.fContext, "faust-sync-timeline", {
             numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [TIMELINE_CHANNELS.length],
         });
+        this.fNode.onprocessorerror = (e) => console.warn("faust-sync: the Timeline node stopped", e);
         this.fSplitter = this.fContext.createChannelSplitter(TIMELINE_CHANNELS.length);
         this.fNode.connect(this.fSplitter);
         setInterval(() => this.read(), READ_EVERY);
@@ -95,6 +99,7 @@ export class SharedTimeline {
             this.clock.reset();
             this.fPeers.forEach((p) => p.offset.reset());
             this.fTranslated = null;
+            this.corrections.push({ T: commonNow(), reason: "resumed", shift: 0 });
             this.announce();
         });
         this.translate();
@@ -157,6 +162,17 @@ export class SharedTimeline {
         return this.fPeers.get(clock)?.offset.value ?? null;
     }
 
+    // For the tooltip of the transport: the other applications, the differences frozen, the corrections.
+    diagnosis(): { peers: number; frozen: number; corrections: number; last: { shift: number; ago: number; reason: string } | null } {
+        const peers = this.peers;
+        const frozen = this.offsets().filter((o) => o.active && o.frozen).length;
+        const last = this.corrections[this.corrections.length - 1];
+        return {
+            peers: peers.length, frozen, corrections: this.corrections.length,
+            last: last ? { shift: last.shift * 1000, ago: (commonNow() - last.T) / 1000, reason: last.reason } : null,
+        };
+    }
+
     // The differences measured, for the diagnosis.
     offsets(): Array<{ origin: string; offset: number | null; frozen: boolean; active: boolean }> {
         const now = commonNow();
@@ -181,7 +197,7 @@ export class SharedTimeline {
         if (this.clock.ready && !this.fEverReady) {
             this.fEverReady = true;
             // the time of this clock now known: an anchor on it translated again (an operation before was estimated)
-            if (this.timeline.anchor.clock == this.origin) this.translate();
+            if (this.timeline.anchor.clock == this.origin) this.translate("clock ready");
         }
     }
 
@@ -234,7 +250,7 @@ export class SharedTimeline {
         const frozen = peer.offset.add(T, lineAt(peer.line, T) - this.clock.at(T), own.settled && peer.line.settled);
         const d = peer.offset.value!;
         if (this.timeline.anchor.clock == origin && (frozen || this.fTranslated === null || (peer.offset.frozen === null && Math.abs(d - this.fTranslated) > RETRANSLATE))) {
-            this.translate();
+            this.translate(frozen ? "frozen" : "provisional");
         }
     }
 
@@ -245,7 +261,8 @@ export class SharedTimeline {
     }
 
     // The timeline, from the clock of its anchor to samples of this context, to the node; not before δ is known.
-    private translate(): void {
+    // `reason`: why the same timeline is translated again (a correction), or none for a new one.
+    private translate(reason?: string): void {
         const t = this.timeline;
         const offset = this.offsetTo(t.anchor.clock);
         if (offset === null) return;
@@ -253,6 +270,14 @@ export class SharedTimeline {
         const rule: TimelineRule = {
             frame: (t.anchor.time - offset) * this.fContext.sampleRate, beat: t.anchor.beat, tempo: t.tempo, meter: t.meter, playing: t.playing,
         };
+        const before = this.fRule;
+        if (reason && before && before.playing && rule.playing) {
+            const frame = this.timeAt(commonNow()) * this.fContext.sampleRate;
+            const at = (r: TimelineRule) => r.beat + (frame - r.frame) * r.tempo / (60 * this.fContext.sampleRate);
+            const shift = (at(rule) - at(before)) * 60 / rule.tempo;
+            if (Math.abs(shift) > 1e-6) this.corrections.push({ T: commonNow(), reason, shift });
+            if (this.corrections.length > 100) this.corrections.shift();
+        }
         this.fRule = rule;
         this.fNode?.port.postMessage(rule);
     }

@@ -89,6 +89,15 @@ describe("the difference between two clocks", () => {
         expect(o.value).toBeCloseTo(0.253, 9);
     });
 
+    it("is frozen anyway after 10 s of measures without calm, at the median of the last 5 s", () => {
+        const o = new ClockOffset();
+        let frozen = false, T = 0;
+        for (; T <= 20000 && !frozen; T += 500) frozen = o.add(T, 0.25 + (T % 1000 ? 0.0004 : -0.0004), true);
+        expect(frozen).toBe(true);
+        expect(T - 500).toBe(10000);
+        expect(Math.abs(o.frozen! - 0.25)).toBeLessThan(0.00041);
+    });
+
     it("between two clocks of one card: the same δ whatever the drift, a jump compensated", () => {
         // A from 0, B opened 12.3 s later (its context 12.3 s younger); both drift by −38 ppm
         const A = new ClockLine(), B = new ClockLine();

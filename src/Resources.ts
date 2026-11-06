@@ -78,6 +78,8 @@ export class Resources {
     transportRewind: string;
     transportTempo: string;
     transportPosition: string;
+    transportClocks: string;
+    transportCorrection: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

@@ -88,6 +88,35 @@ describe("Timeline core", () => {
     });
 });
 
+describe("Timeline core: corrections", () => {
+    const run = (core: TimelineCore, start: number, n: number) => {
+        const out = [0, 1, 2, 3, 4].map(() => new Float32Array(n));
+        core.render(start, out, n);
+        return out[0];
+    };
+
+    it("does not go back for a small correction: the position waits, then follows the new rule", () => {
+        const core = new TimelineCore(48000);
+        core.schedule({ frame: 0, beat: 0, tempo: 120, meter: 4, playing: true });
+        run(core, 0, 48000);                                    // 2 beats
+        // the same rule, 0.5 ms later (24 samples): at frame 48000 it gives 2 − 0.001 beat
+        core.schedule({ frame: 24, beat: 0, tempo: 120, meter: 4, playing: true });
+        const beat = run(core, 48000, 128);
+        for (let i = 1; i < 128; i++) expect(beat[i]).toBeGreaterThanOrEqual(beat[i - 1]);
+        expect(beat[0]).toBeCloseTo(2, 4);
+        expect(beat[23]).toBeCloseTo(2, 4);                     // held 24 samples
+        expect(beat[127]).toBeCloseTo((48000 + 127 - 24) * 2 / 48000, 4);
+    });
+
+    it("goes back for a real move: from the start, or a locate", () => {
+        const core = new TimelineCore(48000);
+        core.schedule({ frame: 0, beat: 0, tempo: 120, meter: 4, playing: true });
+        run(core, 0, 48000);
+        core.schedule({ frame: 48000, beat: 1, tempo: 120, meter: 4, playing: true });   // back by a beat (0.5 s)
+        expect(run(core, 48000, 4)[0]).toBeCloseTo(1, 6);
+    });
+});
+
 describe("reserved inputs", () => {
     it("are read from declare sync, as channels of the Timeline node", () => {
         expect(syncInputs('declare sync "beat; run; start; tempo; meter";\nprocess = _;')).toEqual([0, 1, 2, 3, 4]);
@@ -115,6 +144,11 @@ describe("the Timeline processor", () => {
         node.port.onmessage({ data: { frame: 0, beat: 0, tempo: 120, meter: 4, playing: true } });
         const out = [0, 1, 2, 3, 4].map(() => new Float32Array(128));
         expect(node.process([], [out])).toBe(true);
+        // a correction backwards (held): all the code of the core runs, with nothing outside the class
+        node.port.onmessage({ data: { frame: 24, beat: 0, tempo: 120, meter: 4, playing: true } });
+        const next = [0, 1, 2, 3, 4].map(() => new Float32Array(128));
+        expect(node.process([], [next])).toBe(true);
+        expect(next[1][0]).toBe(1);
         return out;
     };
 

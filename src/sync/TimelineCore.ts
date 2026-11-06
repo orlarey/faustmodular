@@ -7,6 +7,11 @@
     that arrives late, its frame already rendered, takes effect at once, the position following it). A new rule
     replaces those still waiting at or after its frame (it is more recent).
 
+    A small correction backwards (less than HOLD s: the difference with another clock measured again, while playing)
+    does not take the position back: it waits until the new rule reaches it.
+    Everything it needs is in the class: the AudioWorkletProcessor is made of its source alone. Going back would cross a division
+    again, and give a gate too many.
+
     The outputs, one channel each, at every sample: the position in the bar (beats, from 0 to meter), running (0 or
     1), start (1 for a sample when the playing starts from the beginning of the song), the tempo, the meter.
 */
@@ -26,12 +31,17 @@ export class TimelineCore {
     current: TimelineRule;
     pending: TimelineRule[];
     started: boolean;
+    hold: number | null;        // the position held while a new rule catches up with it
+    // s: the largest correction backwards that is held (in the class: the processor is made of its source alone)
+    holdMax: number;
 
     constructor(sampleRate: number) {
         this.sampleRate = sampleRate;
         this.current = { frame: 0, beat: 0, tempo: 120, meter: 4, playing: false };
         this.pending = [];
         this.started = false;
+        this.hold = null;
+        this.holdMax = 0.05;
     }
 
     schedule(rule: TimelineRule): void {
@@ -50,12 +60,19 @@ export class TimelineCore {
             const frame = start + i;
             while (this.pending.length > 0 && this.pending[0].frame <= frame) {
                 const rule = this.pending.shift()!;
+                const before = this.hold ?? this.beatAt(frame), wasPlaying = this.current.playing;
                 // the playing starts from the beginning of the song: a start, at this very sample
-                if (rule.playing && !this.current.playing && rule.beat == 0) this.started = true;
+                if (rule.playing && !wasPlaying && rule.beat == 0) this.started = true;
                 this.current = rule;
+                const after = this.beatAt(frame);
+                this.hold = wasPlaying && rule.playing && after < before && (before - after) * 60 / rule.tempo < this.holdMax ? before : null;
             }
             const c = this.current;
-            const beat = this.beatAt(frame);
+            let beat = this.beatAt(frame);
+            if (this.hold !== null) {
+                if (beat >= this.hold) this.hold = null;
+                else beat = this.hold;
+            }
             if (out[0]) out[0][i] = ((beat % c.meter) + c.meter) % c.meter;
             if (out[1]) out[1][i] = c.playing ? 1 : 0;
             if (out[2]) out[2][i] = this.started ? 1 : 0;

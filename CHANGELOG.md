@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.44.1 (2026-11-06)
+
+- **A gate too many on a correction of the position**: while the difference with the clock of another application
+  is provisional (the first ten seconds), and when it is frozen, the position is corrected; a correction backwards,
+  even by a fraction of a millisecond, crossed a division again, and the Sync Clock gave an extra gate (its edge
+  reacts to any step back). The Timeline node no longer goes back for a small correction (less than 50 ms): the
+  position waits for the new rule to reach it.
+- The difference with another clock is frozen anyway after 10 s of measures without 2.5 s of calm (a loaded machine,
+  a noisy clock), at the median of the last 5 s: in Chromium under load, it never froze, and the position was
+  corrected every 500 ms. A clock counts the 5 s in which it follows its jumps from its start, not from its last jump
+  (jumps again and again never let it settle).
+- The tooltip of the transport shows the other applications, the differences frozen, and the corrections of the
+  position (how many, the last one: by how much, when, why), to diagnose a perturbation of the gates.
+- **Scope, scrolling**: when two frames were further apart than the buffer of the analyser (170 ms; two windows
+  busy), the samples in between were lost and the trace was squeezed, the gates seemingly perturbed. The buffer is
+  now 0.68 s when scrolling, and lost samples show as a gap of their duration: the time stays right.
+
 ## 3.44.0 (2026-11-06)
 
 - **faust-sync 0.3** (`Documentation/FAUST-SYNC-SPEC.md`): measured on a Mac with the lab, the sound card and the

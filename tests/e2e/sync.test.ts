@@ -83,8 +83,9 @@ describe("faust-sync between two faustmodular", () => {
         await B.page.evaluate((o) => (window as any).__edges(o), a);
         await A.page.waitForTimeout(3000);
         const [ea, eb] = [await A.page.evaluate((o) => (window as any).__edges(o), a), await B.page.evaluate((o) => (window as any).__edges(o), a)] as number[][];
-        expect(ea.length).toBeGreaterThanOrEqual(20);                  // 8 sixteenth notes per second at 120
-        expect(Math.abs(eb.length - ea.length)).toBeLessThanOrEqual(1);
+        const counts = JSON.stringify({ A: ea.length, B: eb.length, corrections: await B.page.evaluate(() => (globalThis as any).faustPlayground.scene.sync.corrections) });
+        expect(ea.length, counts).toBeGreaterThanOrEqual(20);          // 8 sixteenth notes per second at 120
+        expect(Math.abs(eb.length - ea.length), counts).toBeLessThanOrEqual(1);
         // the gates of B, on the clock of A by the frozen difference, fall on those of A within a sample (the timeline
         // is translated exactly; whether the difference itself is right is measured with a sound card, § 10)
         const gaps = eb.map((e) => Math.min(...ea.map((x) => Math.abs(e - x)))).sort((x, y) => x - y);
