@@ -198,6 +198,8 @@ export class Library {
         this.fFamily = family;
         this.remember("family", family);
         this.renderFamilies();
+        // the family chosen in view (a store, chosen by a link, is at the bottom of the list)
+        (this.libraryView.families.querySelector("li.libraryFamily.selected") as HTMLElement | null)?.scrollIntoView?.({ block: "nearest" });
     }
 
     private familyLabel(family: string): string {
