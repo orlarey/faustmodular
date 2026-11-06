@@ -448,6 +448,11 @@ export class Scene {
         sync.start().then(() => {
             this.sync = sync;
             this.audioGraph.refreshReserved();
+            // the modules that read the timeline, created before: their gates watched (diagnosis)
+            this.fModuleList.forEach((m) => {
+                const node = m.moduleId !== undefined ? this.audioGraph.getNode(m.moduleId) : undefined;
+                if (node && syncInputs(m.moduleFaust.getSource()).length > 0) sync.probe(node);
+            });
             document.dispatchEvent(new CustomEvent("syncready"));
         }).catch((e) => console.warn("faust-sync unavailable:", e));
     }
@@ -510,6 +515,7 @@ export class Scene {
         // in the list before its node: the graph asks for its reserved inputs (startSync)
         this.fModuleList.push(module);
         this.audioGraph.setNode(state.id, dsp);
+        if (syncInputs(module.moduleFaust.getSource()).length > 0) this.sync?.probe(dsp);
         this.patchView.addModule(module);
         this.midi.moduleAdded(module);          // a MIDI to CV module: the MIDI devices asked for (once)
     }
@@ -537,6 +543,7 @@ export class Scene {
         var removed = this.patch.setArity(module.moduleId, dsp.getNumInputs() - modulations - reserved, dsp.getNumOutputs());
         this.patch.updateModule(module.moduleId, { name: module.moduleFaust.getName(), code: module.moduleFaust.getSource() });
         this.audioGraph.setNode(module.moduleId, dsp, replaced);
+        if (reserved > 0) this.sync?.probe(dsp);
         return removed;
     }
 

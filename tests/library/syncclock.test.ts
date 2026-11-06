@@ -13,11 +13,12 @@ import { syncInputs } from "../../src/sync/SyncInputs";
 const code = fs.readFileSync(path.resolve(__dirname, "../../public/faust-modules/modular/SyncClock.dsp"), "utf8");
 const SR = 48000;
 
-async function play(rules: TimelineRule[], length: number, params: Record<string, number> = {}) {
+async function play(rules: TimelineRule[], length: number, params: Record<string, number> = {}, alter?: (timeline: Float32Array[]) => void) {
     const core = new TimelineCore(SR);
     rules.forEach((r) => core.schedule(r));
     const timeline = Array.from({ length: 5 }, () => new Float32Array(length));
     core.render(0, timeline, length);
+    alter?.(timeline);
     const generator = new fw.FaustMonoDspGenerator();
     await generator.compile(await getCompiler(), "syncclock", code, TEST_OPTIONS);
     const p = (await generator.createOfflineProcessor(SR, 128))!;
@@ -59,4 +60,19 @@ describe("Sync Clock module", () => {
         expect(edges[0]).toBe(100 + 9600);
         expect(resets).toEqual([]);
     });
+
+    // A block of the position slightly behind (2.7 ms back, in the middle of a step, then at a bar line): the
+    // gates stay where they are, none too many.
+    it("gives no gate too many for a small step back of the position", async () => {
+        const rule = { frame: 0, beat: 0, tempo: 120, meter: 4, playing: true };
+        const back = (from: number) => (t: Float32Array[]) => { for (let i = from; i < from + 128; i++) t[0][i] = ((t[0][i] - 128 * 2 / SR) + 4) % 4; };
+        const plain = await play([rule], 120000);
+        const middle = await play([rule], 120000, {}, back(3000 + 6000 * 3));
+        expect(middle.edges).toEqual(plain.edges);
+        // across the bar line at 2 s (beat 4 → 0, sample 96000): the gate of the bar line comes when the position
+        // has crossed it, the block late; none too many
+        const bar = await play([rule], 120000, {}, back(96000 - 64));
+        expect(bar.edges.length).toBe(plain.edges.length);
+        bar.edges.forEach((e, i) => expect(Math.abs(e - plain.edges[i])).toBeLessThanOrEqual(64));
+    }, 60_000);
 });

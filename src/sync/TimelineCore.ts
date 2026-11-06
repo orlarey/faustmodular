@@ -34,6 +34,8 @@ export class TimelineCore {
     hold: number | null;        // the position held while a new rule catches up with it
     // s: the largest correction backwards that is held (in the class: the processor is made of its source alone)
     holdMax: number;
+    next: number | null;        // the frame the next block should start at
+    jumps: number;              // the blocks that did not start there (for the diagnosis)
 
     constructor(sampleRate: number) {
         this.sampleRate = sampleRate;
@@ -42,6 +44,8 @@ export class TimelineCore {
         this.started = false;
         this.hold = null;
         this.holdMax = 0.05;
+        this.next = null;
+        this.jumps = 0;
     }
 
     schedule(rule: TimelineRule): void {
@@ -56,6 +60,8 @@ export class TimelineCore {
 
     // Renders `length` samples from the frame `start` into `out` (one array per channel).
     render(start: number, out: Float32Array[], length: number): void {
+        if (this.next !== null && start != this.next) this.jumps++;
+        this.next = start + length;
         for (let i = 0; i < length; i++) {
             const frame = start + i;
             while (this.pending.length > 0 && this.pending[0].frame <= frame) {

@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.44.2 (2026-11-06)
+
+- **Sync Clock: no gate too many for a step back of the position.** On a Mac, with two windows playing, a gate
+  appeared now and then in the middle of a period, in a window that had made no correction: its edge reacted to any
+  step back of the position (`beat < beat'`, `step != step'`). It now gives a gate only when the position crosses a
+  division forwards, or wraps at the bar (falls by more than half a bar). A scene saved with the previous Sync Clock
+  offers to update it (the badge of the module).
+- **Diagnosis of the gates**: every module that reads the timeline (Sync Clock) is watched by a probe on the audio
+  thread: the period and the width of its gates, at the sample; one that differs from the one before by more than 2
+  samples is reported (a tempo change, a stop and a start also are). The Timeline node reports the blocks that do not
+  start where the one before ended. Both in the tooltip of the transport, with the corrections of the position: on a
+  Mac, two gates merged in a window that had made no correction.
+- While the difference with another clock is provisional, the position is corrected only when it moves by more than
+  2 ms (it was 0.1 ms): the first values move by a few ms while the clocks settle, and the frozen value comes within
+  about 10 s.
+
 ## 3.44.1 (2026-11-06)
 
 - **A gate too many on a correction of the position**: while the difference with the clock of another application

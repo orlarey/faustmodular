@@ -88,7 +88,10 @@ describe("faust-sync between two faustmodular", () => {
         expect(Math.abs(eb.length - ea.length), counts).toBeLessThanOrEqual(1);
         // the gates of B, on the clock of A by the frozen difference, fall on those of A within a sample (the timeline
         // is translated exactly; whether the difference itself is right is measured with a sound card, § 10)
-        const gaps = eb.map((e) => Math.min(...ea.map((x) => Math.abs(e - x)))).sort((x, y) => x - y);
+        // (the two windows are read one after the other: an edge of B beyond those of A has no counterpart)
+        const within = eb.filter((e) => e >= ea[0] - 1 && e <= ea[ea.length - 1] + 1);
+        expect(within.length, counts).toBeGreaterThanOrEqual(ea.length - 1);
+        const gaps = within.map((e) => Math.min(...ea.map((x) => Math.abs(e - x)))).sort((x, y) => x - y);
         expect(gaps[gaps.length - 1]).toBeLessThan(0.05);              // ms
         // B's transport shows the playing; B changes the tempo, A follows
         expect(await B.page.locator("#transport").getAttribute("class")).toContain("playing");

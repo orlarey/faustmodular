@@ -188,6 +188,8 @@
   "transportPosition": "Bar:beat",
   "transportClocks": "Clocks: {peers} other application(s), offset frozen with {frozen}; corrections of the position: {count}",
   "transportCorrection": "Last correction: {shift} ms, {ago} s ago ({reason})",
+  "transportGates": "Irregular gates of the Sync Clocks: {count}; jumps of the audio counter: {jumps}",
+  "transportGate": "Last irregular gate: {kind} {value} samples instead of {expected}, {ago} s ago",
   "libraryModular": "Modular",
   "libraryClassic": "FaustPlayground",
   "titleFamilies": "Families",

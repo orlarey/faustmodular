@@ -24,7 +24,9 @@ export const SYNC_VERSION = 2;
 const READ_EVERY = 50;          // ms: a reading of getOutputTimestamp
 const CLOCK_EVERY = 500;        // ms: the clock published
 const ACTIVE = 3000;            // ms: an application not heard for longer has left
-const RETRANSLATE = 0.0001;     // s: a value of δ not yet frozen that moves more: the anchor translated again
+// s: a value of δ not yet frozen that moves more: the anchor translated again (the first values, while the clocks
+// settle, move by a few ms: each correction would move the gates; the frozen value comes within about 10 s)
+const RETRANSLATE = 0.002;
 
 // The clock of an application, as it publishes it: `epoch` changes when its context resumes after a suspension.
 export interface ClockPayload { epoch: number; sampleRate: number; line: ClockLineMessage | null }
@@ -44,11 +46,45 @@ registerProcessor("faust-sync-timeline", class extends AudioWorkletProcessor {
     constructor() {
         super();
         this.core = new TimelineCore(sampleRate);
+        this.reported = 0;
         this.port.onmessage = (e) => this.core.schedule(e.data);
     }
     process(inputs, outputs) {
         const out = outputs[0];
         this.core.render(currentFrame, out, out[0] ? out[0].length : 128);
+        if (this.core.jumps != this.reported) {
+            this.reported = this.core.jumps;
+            this.port.postMessage({ jumps: this.reported });
+        }
+        return true;
+    }
+});
+// The diagnosis of a module that reads the timeline: the clock gates on its first output, their period and width
+// measured at the sample; any of them that differs from the one before by more than 2 samples is reported.
+registerProcessor("faust-sync-probe", class extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.prev = 0; this.rise = -1; this.period = 0; this.width = 0;
+    }
+    process(inputs) {
+        const c = inputs[0] && inputs[0][0];
+        if (!c) return true;
+        for (let i = 0; i < c.length; i++) {
+            const x = c[i], frame = currentFrame + i;
+            if (x > 0.5 && this.prev <= 0.5) {
+                if (this.rise >= 0) {
+                    const p = frame - this.rise;
+                    if (this.period && Math.abs(p - this.period) > 2) this.port.postMessage({ kind: "period", value: p, expected: this.period });
+                    this.period = p;
+                }
+                this.rise = frame;
+            } else if (x <= 0.5 && this.prev > 0.5 && this.rise >= 0) {
+                const w = frame - this.rise;
+                if (this.width && Math.abs(w - this.width) > 2) this.port.postMessage({ kind: "width", value: w, expected: this.width });
+                this.width = w;
+            }
+            this.prev = x;
+        }
         return true;
     }
 });`;
@@ -71,6 +107,10 @@ export class SharedTimeline {
     // the corrections of the position while playing the same timeline (a difference measured again), for the
     // diagnosis: when, why, by how much (s; positive: the position moved forward)
     readonly corrections: Array<{ T: number; reason: string; shift: number }> = [];
+    // the blocks of the Timeline node that did not follow the one before; the irregular gates of the modules
+    frameJumps = 0;
+    readonly gates: Array<{ T: number; kind: string; value: number; expected: number }> = [];
+    private fProbed = new WeakSet<AudioNode>();
 
     constructor(private fContext: AudioContext, app: string) {
         const id = typeof crypto != "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random()).slice(2);
@@ -88,6 +128,7 @@ export class SharedTimeline {
             numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [TIMELINE_CHANNELS.length],
         });
         this.fNode.onprocessorerror = (e) => console.warn("faust-sync: the Timeline node stopped", e);
+        this.fNode.port.onmessage = (e) => { if (typeof e.data?.jumps == "number") this.frameJumps = e.data.jumps; };
         this.fSplitter = this.fContext.createChannelSplitter(TIMELINE_CHANNELS.length);
         this.fNode.connect(this.fSplitter);
         setInterval(() => this.read(), READ_EVERY);
@@ -162,14 +203,37 @@ export class SharedTimeline {
         return this.fPeers.get(clock)?.offset.value ?? null;
     }
 
-    // For the tooltip of the transport: the other applications, the differences frozen, the corrections.
-    diagnosis(): { peers: number; frozen: number; corrections: number; last: { shift: number; ago: number; reason: string } | null } {
+    // The diagnosis of a module that reads the timeline (its node, after each compilation): its gates watched.
+    probe(node: AudioNode): void {
+        if (!this.fNode || this.fProbed.has(node) || node.numberOfOutputs == 0) return;
+        this.fProbed.add(node);
+        const probe = new AudioWorkletNode(this.fContext, "faust-sync-probe", {
+            numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: "explicit", channelInterpretation: "discrete",
+        });
+        const sink = this.fContext.createGain();
+        sink.gain.value = 0;
+        node.connect(probe).connect(sink).connect(this.fContext.destination);
+        probe.port.onmessage = (e) => {
+            this.gates.push({ T: commonNow(), ...e.data });
+            if (this.gates.length > 100) this.gates.shift();
+        };
+    }
+
+    // For the tooltip of the transport: the other applications, the differences frozen, the corrections, the blocks
+    // of the Timeline node that jumped, the irregular gates.
+    diagnosis(): {
+        peers: number; frozen: number; corrections: number; last: { shift: number; ago: number; reason: string } | null;
+        frameJumps: number; gates: number; gate: { kind: string; value: number; expected: number; ago: number } | null;
+    } {
         const peers = this.peers;
         const frozen = this.offsets().filter((o) => o.active && o.frozen).length;
         const last = this.corrections[this.corrections.length - 1];
+        const gate = this.gates[this.gates.length - 1];
         return {
             peers: peers.length, frozen, corrections: this.corrections.length,
             last: last ? { shift: last.shift * 1000, ago: (commonNow() - last.T) / 1000, reason: last.reason } : null,
+            frameJumps: this.frameJumps, gates: this.gates.length,
+            gate: gate ? { kind: gate.kind, value: gate.value, expected: gate.expected, ago: (commonNow() - gate.T) / 1000 } : null,
         };
     }
 

@@ -16,7 +16,7 @@ export class TransportView {
     private fSync: SharedTimeline | null = null;
     private fShown = "";
 
-    constructor(private fTexts: () => { play: string; stop: string; rewind: string; tempo: string; position: string; transport: string; clocks: string; correction: string }) {
+    constructor(private fTexts: () => { play: string; stop: string; rewind: string; tempo: string; position: string; transport: string; clocks: string; correction: string; gates: string; gate: string }) {
         this.element = document.createElement("div");
         this.element.id = "transport";
         this.element.className = "transport disabled";
@@ -98,6 +98,8 @@ export class TransportView {
         const fill = (text: string, values: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ""));
         let title = texts.transport + "\n" + fill(texts.clocks, { peers: d.peers, frozen: d.frozen, count: d.corrections });
         if (d.last) title += "\n" + fill(texts.correction, { shift: (d.last.shift >= 0 ? "+" : "") + d.last.shift.toFixed(3), ago: Math.round(d.last.ago), reason: d.last.reason });
+        title += "\n" + fill(texts.gates, { count: d.gates, jumps: d.frameJumps });
+        if (d.gate) title += "\n" + fill(texts.gate, { kind: d.gate.kind, value: d.gate.value, expected: d.gate.expected, ago: Math.round(d.gate.ago) });
         if (this.element.title != title) this.element.title = title;
     }
 

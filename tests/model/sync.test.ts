@@ -137,8 +137,8 @@ describe("reserved inputs", () => {
 describe("the Timeline processor", () => {
     const run = (core: string) => {
         let Processor: any = null;
-        class AudioWorkletProcessor { port = { onmessage: null as any }; }
-        const register = (_name: string, p: any) => { Processor = p; };
+        class AudioWorkletProcessor { port = { onmessage: null as any, posted: [] as any[], postMessage(m: any) { this.posted.push(m); } }; }
+        const register = (name: string, p: any) => { if (name == "faust-sync-timeline") Processor = p; };
         new Function("registerProcessor", "AudioWorkletProcessor", "sampleRate", "currentFrame", processorSource(core))(register, AudioWorkletProcessor, 48000, 0);
         const node = new Processor();
         node.port.onmessage({ data: { frame: 0, beat: 0, tempo: 120, meter: 4, playing: true } });
@@ -149,6 +149,8 @@ describe("the Timeline processor", () => {
         const next = [0, 1, 2, 3, 4].map(() => new Float32Array(128));
         expect(node.process([], [next])).toBe(true);
         expect(next[1][0]).toBe(1);
+        // the second block started at the frame of the first (currentFrame stays 0 here): a jump, reported
+        expect(node.port.posted).toEqual([{ jumps: 1 }]);
         return out;
     };
 

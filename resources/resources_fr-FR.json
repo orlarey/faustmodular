@@ -188,6 +188,8 @@
   "transportPosition": "Mesure:temps",
   "transportClocks": "Horloges : {peers} autre(s) application(s), écart figé avec {frozen} ; corrections de la position : {count}",
   "transportCorrection": "Dernière correction : {shift} ms, il y a {ago} s ({reason})",
+  "transportGates": "Portes irrégulières des Sync Clock : {count} ; sauts du compteur audio : {jumps}",
+  "transportGate": "Dernière porte irrégulière : {kind} {value} échantillons au lieu de {expected}, il y a {ago} s",
   "libraryModular": "Modulaire",
   "libraryClassic": "FaustPlayground",
   "titleFamilies": "Familles",

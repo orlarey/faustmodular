@@ -175,7 +175,7 @@ export class MenuView {
         // the transport of the timeline shared with the other Faust applications (faust-sync)
         this.transport = new TransportView(() => {
             var t = Utilitary.messageResource;
-            return { play: t.transportPlay, stop: t.transportStop, rewind: t.transportRewind, tempo: t.transportTempo, position: t.transportPosition, transport: t.transport, clocks: t.transportClocks, correction: t.transportCorrection };
+            return { play: t.transportPlay, stop: t.transportStop, rewind: t.transportRewind, tempo: t.transportTempo, position: t.transportPosition, transport: t.transport, clocks: t.transportClocks, correction: t.transportCorrection, gates: t.transportGates, gate: t.transportGate };
         });
         buttonsMenu.appendChild(this.transport.element);
 

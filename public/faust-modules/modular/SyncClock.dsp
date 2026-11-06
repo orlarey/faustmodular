@@ -24,8 +24,9 @@ with {
     // the length of a step in beats (a bar: the meter)
     length = select2(division > 0, meter, division);
     step = floor(beat / length);
-    // a new step: the position crosses a division, the bar wraps, or the playing starts
-    edge = running * (start | (beat < beat') | (step != step'));
+    // a new step: the position crosses a division forwards, the bar wraps (the position falls by more than half a
+    // bar), or the playing starts; a small step back of the position gives nothing
+    edge = running * (start | (beat < beat' - meter / 2) | (step > step'));
     // high for n samples (rounded) from a trigger
     hold(trig, n) = (trig * rint(n)) : max ~ (-(1) : max(0)) : >(0);
     period = length * 60 / max(1, tempo) * ma.SR;
