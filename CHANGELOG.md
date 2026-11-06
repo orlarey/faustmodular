@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.45.1 (2026-11-06)
+
+- **The microphone is closed when the last cable from the input module is removed** (a second later: a cable drawn
+  again, an undo, keep it), or by a click on the module when no cable leaves it. It stayed open until the page was
+  closed: an open microphone may change the output of the browser (its latency: the clocks of faust-sync jump; on a
+  Mac, its quality), and the change remained after the cable was removed.
+
 ## 3.45.0 (2026-11-06)
 
 - **faust-sync 0.4: the position in integers** (`Documentation/FAUST-SYNC-SPEC.md`, § 4, 7.3). The position is

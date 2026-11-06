@@ -592,12 +592,21 @@ export class Scene {
         this.showAudioInput();
         this.patch.subscribe((event) => {
             if (event.type == "connectionAdded" && event.connection.from.module == INPUT_ID) this.activateAudioInput();
+            // the last cable from it removed: the microphone closed (an open microphone may change the output of the
+            // browser: its latency, its quality), after a moment (a cable drawn again, an undo)
+            if (event.type == "connectionRemoved" && event.connection.from.module == INPUT_ID) {
+                setTimeout(() => { if (this.patch.connectionsFrom(INPUT_ID).length == 0) this.deactivateAudioInput(); }, 1000);
+            }
         });
         const container = this.fAudioInput.moduleView.fModuleContainer;
         let down: { x: number; y: number } | null = null;
         container.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; }, true);
         container.addEventListener("click", (e) => {
-            if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && !(e.target as HTMLElement).closest(".port")) this.activateAudioInput();
+            if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && !(e.target as HTMLElement).closest(".port")) {
+                // a click turns it on, or off when no cable leaves it
+                if (this.audioInputState == "on" && this.patch.connectionsFrom(INPUT_ID).length == 0) this.deactivateAudioInput();
+                else this.activateAudioInput();
+            }
         });
     }
 
@@ -644,7 +653,20 @@ export class Scene {
             );
     }
 
+    // The microphone closed: its tracks stopped, the input module without a node (until it is asked for again).
+    deactivateAudioInput(): void {
+        if (this.audioInputState != "on") return;
+        this.fMicrophone?.getTracks().forEach((t) => t.stop());
+        this.fMicrophone = null;
+        this.audioGraph.setNode(INPUT_ID, null);
+        this.audioInputState = "idle";
+        this.showAudioInput();
+    }
+
+    private fMicrophone: MediaStream | null = null;
+
     private getDevice(device: MediaStream): void {
+        this.fMicrophone = device;
         var source = Utilitary.audioContext.createMediaStreamSource(device);
         var settings = device.getAudioTracks()[0]?.getSettings();
         var channels = Math.min(Math.max(settings?.channelCount || 2, 1), MAX_CHANNELS);

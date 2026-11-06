@@ -134,7 +134,8 @@ volume. Double click it to mute. A safety limiter protects your ears and speaker
 
 <p align="center"><img src="Documentation/screenshots/volume.png" alt="The volume being set on the speaker module" width="430"></p>
 
-The microphone is only requested when you use it: when you connect a cable from it, or click it.
+The microphone is only requested when you use it: when you connect a cable from it, or click it. It is closed when
+the last cable from it is removed, or by a click on it when no cable leaves it.
 
 ## Playing in time with other tabs
 

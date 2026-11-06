@@ -14,7 +14,7 @@
   "librarySearchNone": "Aucun module trouvé",
   "librarySearchHint": "La recherche cherche chaque mot dans le nom des modules, leurs fonctions Faust, leur famille et leur description, sans tenir compte des majuscules ni des accents. ↑ ↓ choisissent un module, Entrée l'ajoute, Échap efface la recherche.",
   "microphoneIdle": "Micro : éteint. Cliquer, ou tirer un câble depuis lui, pour l'allumer (le navigateur demande l'autorisation)",
-  "microphoneOn": "Micro : allumé",
+  "microphoneOn": "Micro : allumé. Cliquer pour l'éteindre (quand aucun câble ne part de lui ; il s'éteint aussi quand le dernier câble est retiré)",
   "errorInputAPINotAvailable": "Le micro ou l'entrée son ne peuvent pas être utilisés dans ce navigateur",
   "errorAccSliderNotFound": ": Slider non trouvé, les changements sur ce slider ne seront pas exportés dans l'application finale",
   "errorAccelerometerNotFound": "Accéléromètre non trouvé, les changements sur ce slider ne seront pas exportés dans l'application finale",

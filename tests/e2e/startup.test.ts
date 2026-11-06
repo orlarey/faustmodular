@@ -80,6 +80,16 @@ describe("startup", () => {
         // asked once: another cable asks nothing
         await page.evaluate((mm) => (globalThis as any).faustPlayground.scene.patch.connect({ module: "input", port: 0 }, { module: mm, port: 0 }), id).catch(() => { });
         expect((await microphone(page)).calls).toBe(1);
+        // the last cable removed: the microphone closed (its tracks stopped), a moment later
+        await page.evaluate(() => {
+            const { scene } = (globalThis as any).faustPlayground;
+            const tracks = (scene as any).fMicrophone.getTracks();
+            (window as any).__tracks = tracks;
+            scene.patch.connectionsFrom("input").forEach((c: any) => scene.patch.disconnect(c.id));
+        });
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.audioInputState == "idle", null, { timeout: 5000 });
+        expect(await page.evaluate(() => (window as any).__tracks.every((t: MediaStreamTrack) => t.readyState == "ended"))).toBe(true);
+        expect(await microphone(page)).toMatchObject({ state: "idle", shown: "idle" });
         expect(errors).toEqual([]);
         await context.close();
     }, 60_000);
@@ -97,6 +107,9 @@ describe("startup", () => {
         await page.mouse.click(moved.x + moved.width / 2, moved.y + moved.height / 2);
         await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.audioInputState == "on");
         expect(await microphone(page)).toMatchObject({ calls: 1, state: "on", shown: "on" });
+        // a click again, no cable from it: off
+        await page.mouse.click(moved.x + moved.width / 2, moved.y + moved.height / 2);
+        expect(await microphone(page)).toMatchObject({ state: "idle", shown: "idle" });
         expect(errors).toEqual([]);
         await context.close();
     }, 60_000);
