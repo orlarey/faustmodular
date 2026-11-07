@@ -34,6 +34,7 @@ import type { Stores, StoreState } from "../store/Stores";
 import type { StoreModule } from "../store/StoreFormat";
 import type { Publishing } from "../store/Publishing";
 import { showContextMenu } from "../view/ContextMenu";
+import { faustcodeUrl } from "../FaustcodeLink";
 
 interface CatalogModule {
     path: string;
@@ -415,6 +416,15 @@ export class Library {
             const show = ((m: CatalogModule) => () => this.describe(m))(module);
             a.addEventListener("mouseenter", show);
             a.addEventListener("focus", show);
+            // its menu: open it in faustcode, as a file of faustcode linked to the store
+            a.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                const path = state.store?.index.modules.find((m) => this.stores!.reader.rawUrl(state.ref, m.path) == module.path)?.path;
+                if (!path) return;
+                showContextMenu(e.clientX, e.clientY, [
+                    { label: t.storeOpenInFaustcode, action: () => window.open(storeFileInFaustcode(state, path), "_blank", "noopener") },
+                ]);
+            });
             li.appendChild(a);
             list.appendChild(li);
         }
@@ -641,4 +651,13 @@ export class Library {
     initScroll() {
         for (var list of [this.libraryView.families, this.libraryView.modules, this.libraryView.userLibrarySelect]) list.scrollTop += 1;
     }
+}
+
+// The address of faustcode that opens a module of a store (spec_files_store.md of faustcode, « Les liens »): the
+// address of its file on GitHub, at the ref of the store (its default branch: HEAD).
+export function storeFileInFaustcode(state: StoreState, path: string): string {
+    const file = `https://github.com/${state.ref.owner}/${state.ref.repo}/blob/${state.ref.ref ?? "HEAD"}/${path.split("/").map(encodeURIComponent).join("/")}`;
+    const url = new URL(faustcodeUrl());
+    url.searchParams.set("file", file);
+    return url.href;
 }

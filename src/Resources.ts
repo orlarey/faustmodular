@@ -140,6 +140,7 @@ export class Resources {
     storeMakeReadOnly: string;
     storeReload: string;
     storeOpenGitHub: string;
+    storeOpenInFaustcode: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

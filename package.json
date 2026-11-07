@@ -1,7 +1,7 @@
 {
   "name": "faustmodular",
   "private": true,
-  "version": "3.49.0",
+  "version": "3.50.0",
   "description": "Online platform to combine and run Faust DSP modules",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "faustlib-modules": "node scripts/build-faust-library-modules.mjs",
     "icon-font": "node scripts/build-icon-font.mjs",
-    "screenshots": "node scripts/readme-screenshots.mjs"
+    "screenshots": "node scripts/readme-screenshots.mjs",
+    "build:fauststore": "vite build --config vite.fauststore.config.mjs"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.5",

@@ -379,6 +379,8 @@ Phase 1 livrée dans faustmodular 3.46.0 (`src/store/`) : suivre un magasin (`pr
 Phase 2 livrée dans faustmodular 3.47.0 : *Mon magasin…* (le dépôt et son jeton, vérifiés) ; *Publier la scène dans mon magasin* (menu Fichier, avec confirmation si elle y est déjà) et *Publier dans mon magasin* (menu d'un module : son code, sans l'enveloppe) ; un commit par publication, l'index refait (les versions passées d'un module, avec leur commit), refait sur la branche si elle a bougé entre-temps ; le lien de partage, au commit publié, copié ; le magasin relu, à jour, avec le jeton. Restent pour plus tard : compléter les métadonnées d'un module au moment de le publier, l'aperçu d'une scène, retirer un élément.
 
 En 3.48.0 : les magasins en tête de la bibliothèque, leur indicateur (lecture, écriture) et son menu ; un jeton par magasin (le magasin de la 3.47.0 repris, avec son jeton), *Mon magasin…* retiré ; publier dans le seul magasin en écriture, ou choisir parmi plusieurs.
+
+En 3.50.0, avec faustcode 0.17.0 : le code des magasins devient la bibliothèque `fauststore` 1.0.0, dont faustcode garde une copie ; les magasins suivis et les jetons, partagés par l'origine, sont suivis en direct d'un onglet à l'autre (événement `storage`) ; *Ouvrir dans faustcode* au menu d'un module d'un magasin ; dans faustcode, *Stores…*, *Open from a store* et les liens `?file=` (l'adresse d'un `.dsp` de GitHub, d'un magasin ou non) et `?store=` (`spec_files_store.md` de faustcode).
 :::
 
 1. **Lire.** Ouvrir un magasin public (`propriétaire/dépôt`), le parcourir et y chercher (famille *Magasins* de la bibliothèque), placer un module, ouvrir une scène ; liens `?store=…&scene=…` ; index reconstruit depuis le dépôt s'il manque. Le dépôt modèle `fauststore-template`.

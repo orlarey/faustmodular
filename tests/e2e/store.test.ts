@@ -89,6 +89,13 @@ describe("store, read", () => {
         await page.locator("#libraryModules a", { hasText: "Drone" }).hover();
         expect(await page.locator("#libraryDescription .libraryName").textContent()).toBe("Drone");
         expect(await page.locator("#libraryDescription").textContent()).toContain("GRAME");
+        // its menu: open it in faustcode, by the address of its file on GitHub
+        const popup = context.waitForEvent("page");
+        await page.locator("#libraryModules a", { hasText: "Drone" }).click({ button: "right" });
+        await page.locator(".context-menu-item", { hasText: "Open in faustcode" }).click();
+        const faustcode = await popup;
+        expect(new URL(faustcode.url()).searchParams.get("file")).toBe("https://github.com/test/store/blob/HEAD/modules/Drone/Drone.dsp");
+        await faustcode.close();
         await page.locator("#libraryModules a", { hasText: "Drone" }).dblclick();
         await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
         expect(await modules(page)).toEqual(["Drone"]);

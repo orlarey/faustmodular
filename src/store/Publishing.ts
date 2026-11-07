@@ -8,9 +8,9 @@
 import { modulePath, parseIndex, parseStoreRef, scenePath, serializeIndex, STORE_INDEX, storeKey, StoreIndex, StoreRef } from "./StoreFormat";
 import { buildIndex } from "./StoreIndex";
 import { PublishError, StorePublisher } from "./StorePublisher";
-import { Stores } from "./Stores";
+import { Stores, TOKENS_KEY } from "./Stores";
 
-const TOKENS = "faustmodular:store-tokens";
+const TOKENS = TOKENS_KEY;
 // before 3.48.0: one store to publish to
 const OLD_REPO = "faustmodular:my-store";
 const OLD_TOKEN = "faustmodular:my-store-token";

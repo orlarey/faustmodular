@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.50.0 (2026-11-07)
+
+- **faustcode reads the stores** (faustcode 0.17.0): the code of the stores is now also a library,
+  `fauststore` 1.0.0 (`src/store/fauststore.ts`, built by `npm run build:fauststore` into `lib/fauststore.js`, one ES
+  module without dependency), that faustcode keeps a copy of: both read and write the stores the same way.
+- **The stores followed and the tokens are shared with faustcode** (same origin, `faustmodular:stores`,
+  `faustmodular:store-tokens`), and **followed live**: a store followed, no longer followed, or a token given in
+  another tab (faustmodular or faustcode) is taken here without reloading (`Stores.watch`, the `storage` event).
+- **Open in faustcode**: the menu of a module of a store (right click in the library) opens it in faustcode, as a
+  file linked to the store (`?file=<the address of its file on GitHub>`).
+- The links of faustcode (`?file=`, `?store=…&file=…&ref=…`) are read by the same function as those of faustmodular
+  (`storeLink(search, "file")`); `StoreReader.commitOf` gives the commit of a branch (one call of the API).
+
 ## 3.49.0 (2026-11-07)
 
 - **Publishing a scene publishes its modules**, in the same commit, as files of the store

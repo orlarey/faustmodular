@@ -2,9 +2,9 @@
 // from its code, the repository read with its index or without (rebuilt from git/trees), the stores followed.
 import { describe, expect, it } from "vitest";
 import { contentsOf, gitBlobSha, moduleEntry, parseFileUrl, parseIndex, parseManifest, parseStoreRef, safePath, storeKey } from "../../src/store/StoreFormat";
-import { storeLink } from "../../src/store/StoreLink";
+import { storeLink, withoutStoreLink } from "../../src/store/StoreLink";
 import { StoreError, StoreReader } from "../../src/store/StoreReader";
-import { Stores } from "../../src/store/Stores";
+import { STORES_KEY, Stores, TOKENS_KEY } from "../../src/store/Stores";
 
 const DRONE = `declare name "Drone";
 declare author "Yann Orlarey";
@@ -108,6 +108,14 @@ describe("store: links", () => {
         expect(storeLink("?scene=scenes/A/A.jfaust")).toBeNull();
         expect(storeLink("?starter=0")).toBeNull();
     });
+
+    it("reads the links of faustcode, ?file= in place of ?scene=, and takes them off the address", () => {
+        const file = "https://github.com/orlarey/faust-store/blob/HEAD/modules/Drone/Drone.dsp";
+        expect(storeLink("?file=" + encodeURIComponent(file) + "&view=run", "file")).toEqual({ store: "orlarey/faust-store@HEAD", scene: "modules/Drone/Drone.dsp" });
+        expect(storeLink("?store=o/r&file=modules/A/A.dsp&ref=abc", "file")).toEqual({ store: "o/r@abc", scene: "modules/A/A.dsp" });
+        expect(storeLink("?file=" + file)).toBeNull();     // faustmodular reads ?scene= only
+        expect(withoutStoreLink("https://x.io/faustcode/?file=a&store=o/r&ref=b&mcp=ws", "file")).toBe("/faustcode/?mcp=ws");
+    });
 });
 
 describe("store: reading", () => {
@@ -173,5 +181,33 @@ describe("stores followed", () => {
         expect(again.get("o/r")!.status).toBe("ready");
         again.unfollow("o/r");
         expect(new Stores(reader, storage).list()).toEqual([]);
+    });
+
+    it("follows the stores followed or no longer followed in another tab, and reads again a store whose token changed", async () => {
+        const storage = memory();
+        const repo = github({ "fauststore.json": MANIFEST, "modules/Drone/Drone.dsp": DRONE });
+        const stores = new Stores(new StoreReader(repo.fetch), storage);
+        let tokens: Record<string, string> = {};
+        stores.tokenFor = (key) => tokens[key];
+        const listeners: Array<(e: StorageEvent) => void> = [];
+        stores.watch({ addEventListener: (_type, cb) => { listeners.push(cb); } });
+        const fire = (key: string) => listeners.forEach((cb) => cb({ key } as StorageEvent));
+        // another tab follows o/r
+        storage.setItem(STORES_KEY, JSON.stringify(["o/r"]));
+        fire(STORES_KEY);
+        await new Promise((r) => setTimeout(r, 0));
+        await stores.syncFromStorage();
+        expect(stores.get("o/r")!.status).toBe("ready");
+        // a token given there: read again
+        const before = repo.calls.length;
+        tokens = { "o/r": "good" };
+        fire(TOKENS_KEY);
+        await new Promise((r) => setTimeout(r, 10));
+        expect(repo.calls.length).toBeGreaterThan(before);
+        // no longer followed there
+        storage.setItem(STORES_KEY, "[]");
+        fire(STORES_KEY);
+        await new Promise((r) => setTimeout(r, 0));
+        expect(stores.list()).toEqual([]);
     });
 });

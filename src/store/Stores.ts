@@ -7,7 +7,11 @@
 import { parseStoreRef, storeKey, StoreRef } from "./StoreFormat";
 import { OpenedStore, StoreError, StoreReader } from "./StoreReader";
 
-const KEY = "faustmodular:stores";
+// The followed stores, kept in the storage of the origin, which faustcode shares (a contract between the two:
+// a JSON array of "owner/repo"; spec_files_store.md of faustcode, « L'état partagé avec faustmodular »).
+export const STORES_KEY = "faustmodular:stores";
+export const TOKENS_KEY = "faustmodular:store-tokens";
+const KEY = STORES_KEY;
 
 export interface StoreState {
     key: string;
@@ -112,5 +116,40 @@ export class Stores {
     // Read again (a publication seen).
     refresh(key: string): Promise<StoreState | undefined> {
         return this.load(key);
+    }
+
+    // The list changed in another tab (faustmodular or faustcode): the stores followed there are read, the ones no
+    // longer followed leave.
+    async syncFromStorage(): Promise<void> {
+        const saved = new Set(this.saved());
+        let changed = false;
+        for (const key of [...this.fStates.keys()]) {
+            if (!saved.has(key)) { this.fStates.delete(key); changed = true; }
+        }
+        const added: string[] = [];
+        for (const key of saved) {
+            const ref = parseStoreRef(key);
+            if (ref && !this.fStates.has(key)) { this.fStates.set(key, { key, ref, status: "loading" }); added.push(key); }
+        }
+        if (changed && !added.length) this.emit();
+        await Promise.all(added.map((key) => this.load(key)));
+    }
+
+    // Follows the changes of another tab: the list (STORES_KEY), and the tokens (TOKENS_KEY: a store read again,
+    // fresh and private too with its token, or without it).
+    watch(target: { addEventListener(type: "storage", cb: (e: StorageEvent) => void): void } = window): void {
+        let tokens = this.tokenSnapshot();
+        target.addEventListener("storage", (e: StorageEvent) => {
+            if (e.key === STORES_KEY || e.key === null) void this.syncFromStorage();
+            if (e.key === TOKENS_KEY || e.key === null) {
+                const now = this.tokenSnapshot();
+                for (const s of this.list()) if (now.get(s.key) !== tokens.get(s.key)) void this.refresh(s.key);
+                tokens = now;
+            }
+        });
+    }
+
+    private tokenSnapshot(): Map<string, string | undefined> {
+        return new Map(this.list().map((s) => [s.key, this.tokenFor(s.key)]));
     }
 }

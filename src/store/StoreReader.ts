@@ -87,6 +87,21 @@ export class StoreReader {
         return { ref, manifest, index: await buildIndex(tree, index, (path) => this.text(ref, path, token)), rebuilt: !index };
     }
 
+    // The commit of a ref (its default branch: HEAD), or null if the API cannot say (its limit): the version read,
+    // for a link that designates it for ever.
+    async commitOf(ref: StoreRef, token?: string): Promise<string | null> {
+        try {
+            const response = await this.api(this.apiUrl(ref, `commits/${encodeURIComponent(ref.ref ?? "HEAD")}`), token, "application/vnd.github.sha");
+            if (!response.ok) return null;
+            // without a token, the API answers in JSON (no Accept header: no CORS preflight)
+            const text = (await response.text()).trim();
+            const sha = text.startsWith("{") ? JSON.parse(text)?.sha : text;
+            return typeof sha == "string" && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+        } catch {
+            return null;
+        }
+    }
+
     // The files of the repository, with their git blobs (one call of the API).
     async tree(ref: StoreRef, token?: string): Promise<TreeEntry[]> {
         let response: Response;

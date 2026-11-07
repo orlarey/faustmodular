@@ -273,6 +273,7 @@
   "storeMakeReadOnly": "Repasser en lecture seule (oublier le jeton)",
   "storeReload": "Relire",
   "storeOpenGitHub": "Ouvrir sur GitHub",
+  "storeOpenInFaustcode": "Ouvrir dans faustcode",
   "publishDialogTitle": "Publier « %s » dans %t",
   "publishDialogReplace": "Cette scène est déjà dans le magasin : elle sera remplacée (l'ancienne version reste dans l'historique du dépôt).",
   "publishDialogModules": "Ses modules, publiés avec elle :",

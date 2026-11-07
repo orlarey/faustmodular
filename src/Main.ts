@@ -97,6 +97,8 @@ export function resumeInit(app: App) {
     app.menu.fileMenu.publishing = publishing;
     app.menu.setStores(stores, publishing);
     stores.loadAll();
+    // a store followed, or a token given, in another tab (faustmodular or faustcode, same origin): followed here too
+    stores.watch(window);
     // a module published from its context menu, to a store: its code, without the group faustmodular wraps it in
     Utilitary.currentScene.publishMenuItem = (label, publish, enabled) => app.menu.fileMenu.publishItem(label, publish, enabled);
     document.addEventListener("storepublishmodule", (e: Event) => {
