@@ -47,12 +47,15 @@ describe("store, publishing", () => {
         // the store followed, in read only
         await page.goto(url + "?starter=0&store=o/r");
         await page.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
-        // a scene with a module, named
+        // a scene with a module of the library and a module of one's own, named
         await page.evaluate(async () => {
             const { app, scene, documents } = (globalThis as any).faustPlayground;
             await documents.rename("Ma scène");
             app.uploadUrl(app, null, 300, 150, location.origin + "/faust-modules/modular/SineVCO.dsp");
             while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            const code = 'process = vgroup("MyOsc",environment{\ndeclare name "MyOsc";\nimport("stdfaust.lib");\nprocess = os.osc(220) * 0.1;\n}.process);';
+            await app.compileFaust({ name: "MyOsc", sourceCode: code, x: 300, y: 400, callback: (f: any) => app.createModule(f, "MyOsc", code, 300, 400) });
+            while (scene.getModules().length < 2) await new Promise((r) => setTimeout(r, 20));
         });
         // no store in writing: File > Publish… says how to get one
         await page.locator('li.storeFamily[data-family="store:o/r"] .storeAccess.read').waitFor({ timeout: 30_000 });
@@ -70,35 +73,43 @@ describe("store, publishing", () => {
         await page.locator(".storeDialogStatus.ok").waitFor();
         await page.getByText("Close", { exact: true }).click();
         await page.locator('li.storeFamily[data-family="store:o/r"] .storeAccess.write').waitFor({ timeout: 10_000 });
-        // File > Publish the scene to my store (one store in writing: at once)
+        // File > Publish the scene to my store (one store in writing): its modules, the one of the library kept
         await page.getByText("File", { exact: true }).first().click();
         await page.locator(".context-menu-item", { hasText: /^Publish the scene to my store/ }).click();
+        await page.locator(".publishDialog").waitFor({ timeout: 30_000 });
+        expect(await page.locator(".publishDialogName").allTextContents()).toEqual(["MyOsc"]);
+        expect(await page.locator(".publishDialog").textContent()).toContain("SineVCO (library of faustmodular)");
+        await page.locator(".publishDialog .button.primary").click();
         await page.waitForFunction(() => (globalThis as any).faustPlayground.stores.get("o/r")?.store?.index.scenes.length == 1, null, { timeout: 30_000 });
+        // one commit: the scene and its module
+        expect(gh.commit(gh.head).message).toBe("Publish the scene Ma scène and 1 module (MyOsc) (faustmodular)");
+        expect(gh.files().get("modules/MyOsc/MyOsc.dsp")).toBe('declare name "MyOsc";\nimport("stdfaust.lib");\nprocess = os.osc(220) * 0.1;');
+        expect(gh.files().has("modules/SineVCO/SineVCO.dsp")).toBe(false);
         expect(gh.files().has("scenes/Ma-scene/Ma-scene.jfaust")).toBe(true);
         const scene = JSON.parse(gh.files().get("scenes/Ma-scene/Ma-scene.jfaust")!);
-        expect(scene.modules.some((m: any) => m.name == "SineVCO")).toBe(true);
+        expect(scene.modules.map((m: any) => m.name).filter((n: string) => n != "input" && n != "output").sort()).toEqual(["MyOsc", "SineVCO"]);
         const sceneCommit = gh.head;
         const link = await page.evaluate(() => navigator.clipboard.readText());
         expect(link).toBe(url + "?scene=https://github.com/o/r/blob/" + sceneCommit + "/scenes/Ma-scene/Ma-scene.jfaust");
         // the token kept in the browser, the store followed
         expect(await page.evaluate(() => JSON.parse(localStorage.getItem("faustmodular:store-tokens")!))).toEqual({ "o/r": "good" });
-        // the module, from its context menu
+        // a module of the library, from its context menu: published, as asked
         const title = await page.evaluate(() => "#" + (globalThis as any).faustPlayground.scene.getModules()[0].moduleView.fModuleContainer.id + " h6");
         await page.click(title, { button: "right" });
         await page.locator(".context-menu-item", { hasText: /^Publish to my store/ }).click();
-        await page.waitForFunction((c) => (globalThis as any).faustPlayground.stores.get("o/r")?.store?.index.modules.length == 1, null, { timeout: 30_000 });
+        await page.waitForFunction((c) => (globalThis as any).faustPlayground.stores.get("o/r")?.store?.index.modules.length == 2, null, { timeout: 30_000 });
         expect(gh.head).not.toBe(sceneCommit);
         expect(gh.files().get("modules/SineVCO/SineVCO.dsp")).toContain('declare name "SineVCO"');
         expect(gh.files().get("modules/SineVCO/SineVCO.dsp")).not.toContain("vgroup(\"SineVCO\",environment");
         const index = parseIndex(JSON.parse(gh.files().get("index.json")!))!;
-        expect(index.modules.map((m) => m.name)).toEqual(["SineVCO"]);
+        expect(index.modules.map((m) => m.name)).toEqual(["MyOsc", "SineVCO"]);
         expect(index.scenes.map((s) => s.name)).toEqual(["Ma scène"]);                       // its name, its file simplified
         // the link opens the scene published
         const other = await context.newPage();
         other.on("pageerror", (e) => errors.push(e.message));
         await other.goto(link.replace("?scene=", "?starter=0&scene="));
         await other.waitForFunction(() => (globalThis as any).faustPlayground?.documents?.current?.name == "Ma scène", null, { timeout: 60_000 });
-        await other.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 1, null, { timeout: 60_000 });
+        await other.waitForFunction(() => (globalThis as any).faustPlayground.scene.getModules().length == 2, null, { timeout: 60_000 });
         expect(errors).toEqual([]);
         await context.close();
     }, 180_000);

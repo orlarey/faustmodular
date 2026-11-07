@@ -183,6 +183,18 @@ Une scène est publiée sous la forme du **fichier que faustmodular enregistre a
 - L'aperçu (`preview.png`) est une image de la scène, faite par faustmodular au moment de publier ; il est facultatif.
 - Le nom, la présentation et l'auteur d'une scène sont dans l'index ; la présentation détaillée, dans son `README.md`.
 
+**Publier une scène publie ses modules**, dans le même commit, comme fichiers du magasin (`modules/<Nom>/<Nom>.dsp`) : faustcode peut les ouvrir, la bibliothèque du magasin les montre. Pour chaque module (son code sans l'enveloppe, identifié par son SHA-1) :
+
+| Le module | Ce qui est publié |
+| :-- | :-- |
+| un module de la bibliothèque livrée avec faustmodular (son code dans `library-index.json`, actuel ou ancien) | rien : il est déjà public |
+| dans le magasin avec le même code, ou une version antérieure du module du magasin | rien (la publier ferait revenir le module en arrière) |
+| absent du magasin | publié |
+| présent sous le même nom avec un autre code | au choix : une nouvelle version (proposée), un autre nom (`Nom-2`), ou ne pas le publier |
+| un autre module de la scène porte déjà ce nom | au choix : un autre nom (proposé), ou ne pas le publier |
+
+Une boîte montre ce qui sera publié et demande ces choix (et dit si la scène remplace une version déjà publiée). La scène garde le code de ses modules : elle sonne à l'identique quoi qu'on choisisse. La relation `uses` (la scène utilise ces modules) se déduit de l'index : les empreintes `codes` de la scène, et le `code` et les `versions` des modules.
+
 # Les versions \label{sec:versions}
 
 - **Un module publié de nouveau** remplace son fichier : son code précédent rejoint `versions` dans l'index, avec le commit qui le contient. Une ancienne version se relit par ce commit (`raw.githubusercontent.com/<dépôt>/<commit>/<chemin>`), sans parcourir l'historique.

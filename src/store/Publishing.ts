@@ -64,7 +64,7 @@ export class StoreTokens {
     }
 }
 
-export interface Published { store: string; path: string; commit: string; branch: string; replaced: boolean }
+export interface Published { store: string; path: string; commit: string; branch: string; replaced: boolean; modules?: string[] }
 
 // The link to open an element published, at its commit: the address of its file on GitHub after ?scene= (STORE-SPEC.md,
 // "Partager une scène par son adresse").
@@ -133,11 +133,14 @@ export class Publishing {
         return { ...result, index };
     }
 
-    async publishScene(store: string, name: string, content: string): Promise<Published> {
+    // A scene, and modules with it (path -> code, ScenePlan.ts): one commit.
+    async publishScene(store: string, name: string, content: string, modules: Map<string, string> = new Map()): Promise<Published> {
         const path = scenePath(name);
         const replaced = await this.exists(store, path);
-        const { commit, branch } = await this.publish(store, new Map([[path, content]]), `${replaced ? "Publish again" : "Publish"} the scene ${name} (faustmodular)`);
-        return { store, path, commit, branch, replaced };
+        const files = new Map([[path, content], ...modules]);
+        const what = `the scene ${name}` + (modules.size ? ` and ${modules.size} module${modules.size > 1 ? "s" : ""} (${[...modules.keys()].map((p) => p.split("/")[1]).join(", ")})` : "");
+        const { commit, branch } = await this.publish(store, files, `${replaced ? "Publish again" : "Publish"} ${what} (faustmodular)`);
+        return { store, path, commit, branch, replaced, modules: [...modules.keys()] };
     }
 
     async publishModule(store: string, name: string, code: string): Promise<Published> {

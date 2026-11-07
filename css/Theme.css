@@ -1631,3 +1631,47 @@ a.storeLink:hover {
 	border-color: var(--fp-accent);
 	color: var(--fp-accent);
 }
+
+/* Publishing a scene with its modules (Menu/PublishDialog.ts) */
+.publishDialog {
+	width: min(620px, calc(100vw - 32px));
+}
+.publishDialogHeading {
+	margin: 10px 0 6px;
+	color: var(--fp-text);
+}
+.publishDialogModules {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+.publishDialogModule {
+	display: grid;
+	grid-template-columns: minmax(80px, 1fr) auto;
+	align-items: center;
+	gap: 2px 10px;
+}
+.publishDialogName {
+	font: 13px var(--fp-mono);
+	color: var(--fp-text);
+}
+.publishDialogModule select {
+	font: 12px var(--fp-sans);
+	padding: 3px 6px;
+	border-radius: 6px;
+	border: 1px solid var(--fp-accent-border-soft);
+	background: var(--fp-value-bg);
+	color: var(--fp-text);
+}
+.publishDialogNote {
+	grid-column: 1 / -1;
+	font-size: 11px;
+	color: var(--fp-text-quiet);
+}
+.publishDialogNote:empty {
+	display: none;
+}
+.publishDialog .storeDialogHelp {
+	margin-top: 6px;
+}

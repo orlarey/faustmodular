@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.49.0 (2026-11-07)
+
+- **Publishing a scene publishes its modules**, in the same commit, as files of the store
+  (`modules/<Name>/<Name>.dsp`): faustcode can open them, the library of the store shows them
+  (`src/store/ScenePlan.ts`). Not published: the modules of the library of faustmodular (now or before), those already
+  in the store with the same code, or an earlier version of the one in the store. A name taken by another code (in the
+  store: a new version is proposed; or in the scene: another name, `Name-2`) asks what to do, in a dialog that shows
+  what will be published and whether the scene replaces one already published. The scene keeps the codes of its
+  modules: it sounds the same whatever is chosen.
+
 ## 3.48.1 (2026-11-06)
 
 - **A scene of a store keeps its name**: published, it is named in the index as in its file (`sceneName`, "synctest 2"),

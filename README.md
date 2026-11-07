@@ -172,7 +172,9 @@ Each store shows whether it is in **read** only or in **write**. **Publishing** 
 indicator, *Write to this store…*, and give it a token made on GitHub (a fine-grained token, for that repository
 only, with the permission Contents read and write; it stays in your browser and is only sent to GitHub). Then File ▸
 *Publish the scene to my store*, or *Publish to my store* in the context menu of a module (a submenu when several
-stores are in write): one commit each, and the link to share the scene, at that version, is copied.
+stores are in write): one commit each, and the link to share the scene, at that version, is copied. A scene is published
+with its modules (those not already public: the library of faustmodular, or already in the store), so that faustcode
+can open them; a name taken by another code asks what to do.
 
 ## Keyboard and mouse
 

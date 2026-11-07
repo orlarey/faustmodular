@@ -21,6 +21,10 @@ import { MenuItem, shortcut, showMenuBelow } from "../view/ContextMenu";
 import type { Stores } from "../store/Stores";
 import { scenePath as scenePathOf } from "../store/StoreFormat";
 import { sceneNameIn } from "../store/StoreIndex";
+import { libraryShas, planFiles, planSceneModules, PlanRow } from "../store/ScenePlan";
+import { showPublishDialog } from "./PublishDialog";
+import { storedCode } from "../documents/DocumentFormat";
+import { sha1 } from "../documents/Sha1";
 import { parseStoreRef } from "../store/StoreFormat";
 import type { Publishing } from "../store/Publishing";
 import { shareLink } from "../store/Publishing";
@@ -78,7 +82,9 @@ export class FileMenu {
             const link = shareLink(location.origin + location.pathname, parseStoreRef(done.store)!, done.commit, done.path);
             let copied = false;
             try { await navigator.clipboard.writeText(link); copied = true; } catch { /* not allowed */ }
-            new Message((copied ? t.storePublished : t.storePublishedLink).replace("%s", done.store).replace("%p", done.path).replace("%l", link), undefined, 8000);
+            const modules = (done as { modules?: string[] }).modules ?? [];
+            const also = modules.length ? " " + t.storePublishedModules.replace("%n", String(modules.length)).replace("%m", modules.map((m) => m.split("/")[1]).join(", ")) : "";
+            new Message((copied ? t.storePublished : t.storePublishedLink).replace("%s", done.store).replace("%p", done.path + also).replace("%l", link), undefined, 8000);
         } catch (e) {
             new Message(publishErrorText(e, store), undefined, 8000);
         } finally {
@@ -86,16 +92,32 @@ export class FileMenu {
         }
     }
 
-    // The scene shown, to a store (asked first if it is there already: replaced, the version before in the history).
-    publishScene(store: string): void {
-        const t = Utilitary.messageResource;
+    // The scene shown, to a store, with its modules (store/ScenePlan.ts): the store read again first (fresh), the
+    // modules of the library of faustmodular known; a dialog if there is something to decide or to know.
+    async publishScene(store: string): Promise<void> {
         const current = this.fDocuments()?.current;
-        if (!current || !this.publishing) return;
-        const go = () => this.publishWith(store, (p) => p.publishScene(store, current.name, this.content()));
-        this.publishing.exists(store, scenePathOf(current.name)).then((there) => {
-            if (there) new Confirm(t.confirmScenePublishReplace.replace("%s", current.name).replace("%t", store), (close) => { close(); go(); });
-            else go();
-        }).catch(() => go());
+        if (!current || !this.publishing || !this.stores) return;
+        const name = current.name, content = this.content();
+        Utilitary.showFullPageLoading();
+        let rows: PlanRow[] = [], replaced = false;
+        try {
+            const state = await this.stores.refresh(store);
+            const index = state?.store?.index ?? null;
+            let library = new Map<string, string>();
+            try { library = libraryShas(await (await fetch("faust-modules/library-index.json")).json()); } catch { /* unknown: all published */ }
+            const modules = await Promise.all(Utilitary.currentScene.getModules().map(async (m) => {
+                const moduleName = m.moduleFaust.getName();
+                const code = storedCode(moduleName, m.moduleFaust.getSource()).code;
+                return { name: moduleName, code, sha: await sha1(code) };
+            }));
+            rows = planSceneModules(modules, index, library);
+            replaced = !!index?.scenes.some((s) => s.path == scenePathOf(name));
+        } finally {
+            Utilitary.hideFullPageLoading();
+        }
+        const go = (chosen: PlanRow[]) => this.publishWith(store, (p) => p.publishScene(store, name, content, planFiles(chosen)));
+        if (replaced || rows.some((r) => r.status == "new" || r.status == "conflict")) showPublishDialog(store, name, replaced, rows, go);
+        else go(rows);
     }
 
     constructor(private fDocuments: () => Documents | null) { }
