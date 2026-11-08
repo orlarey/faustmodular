@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.50.1 (2026-11-08)
+
+- **faustwasm 0.20.1** (from 0.19.6), with faustcode 0.18.1: the same libfaust (2.90.19) and the same Faust libraries
+  (their files are identical), so a scene sounds the same. What changes is in the MIDI of faustwasm: a DSP can
+  receive one MIDI channel only (`declare options "[midichannel:N]"`), a polyphonic voice ends on the channel of its
+  note, All Notes Off and All Sound Off (CC 123, 120) act on their channel only, and a polyphonic DSP tells its
+  number of active voices.
+
 ## 3.50.0 (2026-11-07)
 
 - **faustcode reads the stores** (faustcode 0.17.0): the code of the stores is now also a library,

@@ -1,7 +1,7 @@
 {
   "name": "faustmodular",
   "private": true,
-  "version": "3.50.0",
+  "version": "3.50.1",
   "description": "Online platform to combine and run Faust DSP modules",
   "scripts": {
     "dev": "vite",
@@ -25,7 +25,7 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
-    "@grame/faustwasm": "^0.19.6",
+    "@grame/faustwasm": "^0.20.1",
     "faust-orbit-ui": "0.4.1",
     "file-saver": "^2.0.5",
     "qrcode": "^1.5.3"

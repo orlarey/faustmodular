@@ -192,22 +192,23 @@ describe("stores followed", () => {
         const listeners: Array<(e: StorageEvent) => void> = [];
         stores.watch({ addEventListener: (_type, cb) => { listeners.push(cb); } });
         const fire = (key: string) => listeners.forEach((cb) => cb({ key } as StorageEvent));
+        // until a condition holds (the reading is asynchronous), 2 s at most
+        const until = async (ok: () => boolean) => {
+            for (let i = 0; i < 200 && !ok(); i++) await new Promise((r) => setTimeout(r, 10));
+            return ok();
+        };
         // another tab follows o/r
         storage.setItem(STORES_KEY, JSON.stringify(["o/r"]));
         fire(STORES_KEY);
-        await new Promise((r) => setTimeout(r, 0));
-        await stores.syncFromStorage();
-        expect(stores.get("o/r")!.status).toBe("ready");
+        expect(await until(() => stores.get("o/r")?.status == "ready")).toBe(true);
         // a token given there: read again
         const before = repo.calls.length;
         tokens = { "o/r": "good" };
         fire(TOKENS_KEY);
-        await new Promise((r) => setTimeout(r, 10));
-        expect(repo.calls.length).toBeGreaterThan(before);
+        expect(await until(() => repo.calls.length > before)).toBe(true);
         // no longer followed there
         storage.setItem(STORES_KEY, "[]");
         fire(STORES_KEY);
-        await new Promise((r) => setTimeout(r, 0));
-        expect(stores.list()).toEqual([]);
+        expect(await until(() => stores.list().length == 0)).toBe(true);
     });
 });
