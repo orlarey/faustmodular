@@ -147,6 +147,10 @@ playing starts from the beginning, and *run*. On one sound card, the gates of th
 sample: the position is counted in audio samples, not with timers (see
 [the specification](Documentation/FAUST-SYNC-SPEC.md)).
 
+**● Record**, in the transport, records what you hear (the output, after the volume) into a WAV file (24 bits):
+until you stop it, or a number of bars, always from the start of a bar, to the sample. With the transport stopped,
+it starts it. The file is downloaded, named after the scene and the time.
+
 ## Scenes and files
 
 Your scene is saved in the browser as you work, and opened again at your next visit. The **File** menu works as

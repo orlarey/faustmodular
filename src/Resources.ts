@@ -141,6 +141,15 @@ export class Resources {
     storeReload: string;
     storeOpenGitHub: string;
     storeOpenInFaustcode: string;
+    record: string;
+    recordUntilStop: string;
+    recordBars: string;
+    recordWaiting: string;
+    recording: string;
+    recordStop: string;
+    recordDone: string;
+    recordClipped: string;
+    recordFailed: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

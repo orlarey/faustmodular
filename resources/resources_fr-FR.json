@@ -289,5 +289,14 @@
   "publishKeptOlder": "une version antérieure de celui du magasin",
   "publishDialogSound": "La scène garde le code de ses modules : elle sonnera à l'identique, quoi que vous choisissiez.",
   "publishDialogPublish": "Publier",
-  "storePublishedModules": "(et %n modules : %m)"
+  "storePublishedModules": "(et %n modules : %m)",
+  "record": "Enregistrer la sortie (à partir d'un début de mesure)",
+  "recordUntilStop": "Enregistrer jusqu'à l'arrêt",
+  "recordBars": "Enregistrer %n mesures",
+  "recordWaiting": "En attente du début de la prochaine mesure… (clic : annuler)",
+  "recording": "Enregistrement (%n mesures)",
+  "recordStop": "Clic : arrêter l'enregistrement",
+  "recordDone": "Enregistré : %f, %s s, %c canaux (WAV 24 bits).",
+  "recordClipped": "%n échantillons écrêtés.",
+  "recordFailed": "Enregistrement impossible : %s"
 }

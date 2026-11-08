@@ -895,6 +895,35 @@ input.transportTempo:focus {
 	text-align: right;
 	color: var(--fp-pill-text);
 }
+/* ● Record (audio/Recorder.ts): waiting for its bar, blinking; recording, red */
+.transportRecord {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	cursor: pointer;
+	user-select: none;
+	color: var(--fp-pill-text);
+	font-size: 13px;
+}
+.transportRecord.hidden {
+	display: none;
+}
+.transportRecord:hover {
+	background: var(--fp-pill-bg-hover);
+}
+.transportRecord.waiting {
+	color: #ff5a5a;
+	animation: transportRecordBlink 0.8s steps(2, start) infinite;
+}
+.transportRecord.recording {
+	color: #ff3b3b;
+}
+@keyframes transportRecordBlink {
+	to { visibility: hidden; }
+}
 
 /* Library, in one view: the families (grouped), the modules of the family chosen, the description */
 #libraryPanel {

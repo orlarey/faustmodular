@@ -184,6 +184,12 @@ export class SharedTimeline {
         return this.fContext.currentTime + (T - commonNow()) / 1000;
     }
 
+    // The rule of the timeline in samples of this context (TimelineCore), null before it is known: the exact sample
+    // of a position (src/audio/Recording.ts).
+    get rule(): TimelineRule | null {
+        return this.fRule;
+    }
+
     // The position at a sample of this context, exact, as this application plays it (the rule of its node; a rule
     // not yet in effect: the position it will have).
     exactAt(frame: number): Position {

@@ -15,6 +15,10 @@ import type { Documents } from "../documents/Documents";
 import { FileMenu } from "./FileMenu";
 import type { Stores } from "../store/Stores";
 import type { Publishing } from "../store/Publishing";
+import { Recorder } from "../audio/Recorder";
+import { APP_TITLE } from "../Version";
+import { saveAs } from "file-saver";
+import { OUTPUT_ID } from "../Scenes/SceneClass";
 
 declare global {
     interface Document {
@@ -91,7 +95,34 @@ export class Menu {
         // the open document: its name, and a dot when it differs from its committed copy
         document.addEventListener("documentchange", () => { this.showSceneName() });
         // the transport, once the shared timeline is ready (Scene.startSync)
-        var attachTransport = () => { var sync = Utilitary.currentScene.sync; if (sync) this.menuView.transport.attach(sync); };
+        var attachTransport = () => {
+            var sync = Utilitary.currentScene.sync;
+            if (!sync) return;
+            this.menuView.transport.attach(sync);
+            // ● Record: the main output, after the volume and the limiter (audio/Recorder.ts)
+            var scene = Utilitary.currentScene;
+            var recorder = new Recorder({
+                context: Utilitary.audioContext as AudioContext, sync,
+                source: () => scene.masterVolume!.limiter ?? scene.masterVolume!.node,
+                channels: () => recordedChannels(scene),
+                scene: () => scene.sceneName,
+                generator: APP_TITLE,
+                live: () => (scene.microphoneOn ? ["microphone"] : []),
+                done: (result) => {
+                    saveAs(result.blob, result.name);
+                    var t = Utilitary.messageResource;
+                    var seconds = (result.frames / result.sampleRate).toFixed(2);
+                    new Message(t.recordDone.replace("%f", result.name).replace("%s", seconds).replace("%c", String(result.channels))
+                        + (result.clipped ? " " + t.recordClipped.replace("%n", String(result.clipped)) : ""), undefined, 8000);
+                },
+                failed: (e) => new Message(Utilitary.messageResource.recordFailed.replace("%s", String((e as any)?.message ?? e))),
+            });
+            scene.recorder = recorder;
+            this.menuView.transport.attachRecorder(recorder, () => {
+                var t = Utilitary.messageResource;
+                return { record: t.record, recordUntilStop: t.recordUntilStop, recordBars: t.recordBars, recordWaiting: t.recordWaiting, recording: t.recording, recordStop: t.recordStop };
+            });
+        };
         if (Utilitary.currentScene.sync) attachTransport();
         else document.addEventListener("syncready", attachTransport, { once: true });
         // the Modules menu opened from the context menu of the stage
@@ -613,4 +644,12 @@ export class Menu {
 
         }
     }
+}
+
+// The channels recorded: those of the output the cables reach (2 at least, the device's at most).
+function recordedChannels(scene: any): number {
+    var device = scene.masterVolume?.node?.channelCount ?? 2;
+    var used = 0;
+    for (const c of scene.patch.getConnections()) if (c.to.module == OUTPUT_ID) used = Math.max(used, c.to.port + 1);
+    return Math.min(device, Math.max(2, used));
 }

@@ -1,0 +1,102 @@
+// ● Record in the transport (src/audio/Recorder.ts): a Sync Clock to the output, a recording of one bar asked with the
+// transport stopped. The transport starts, the file is downloaded: WAV 24 bits, one bar exactly (2 s at 120 BPM),
+// and the gates of the Sync Clock in it at the very samples where the timeline reaches each sixteenth: the
+// recording starts at the start of the bar, to the sample.
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chromium, Browser } from "playwright";
+import { createServer, ViteDevServer } from "vite";
+import path from "path";
+import fs from "fs";
+import { frameOfTick } from "../../src/audio/Recording";
+import type { TimelineRule } from "../../src/sync/TimelineCore";
+
+let server: ViteDevServer;
+let browser: Browser;
+let url: string;
+
+beforeAll(async () => {
+    server = await createServer({ root: path.resolve(__dirname, "../.."), server: { port: 0 }, logLevel: "error" });
+    await server.listen();
+    url = server.resolvedUrls!.local[0];
+    browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+}, 60_000);
+
+afterAll(async () => {
+    await browser?.close();
+    await server?.close();
+});
+
+// The samples of a WAV PCM 24 bits: one array per channel.
+function readWav(bytes: Buffer): { sampleRate: number; channels: number[][] } {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const n = view.getUint16(22, true), sampleRate = view.getUint32(24, true), bits = view.getUint16(34, true);
+    expect(bits).toBe(24);
+    const fmtSize = view.getUint32(16, true);
+    const data = 12 + 8 + fmtSize + 8;
+    const frames = view.getUint32(data - 4, true) / (3 * n);
+    const channels = Array.from({ length: n }, () => new Array<number>(frames));
+    for (let i = 0; i < frames; i++) {
+        for (let c = 0; c < n; c++) {
+            const o = data + (i * n + c) * 3;
+            const x = bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16);
+            channels[c][i] = (x & 0x800000 ? x - 0x1000000 : x) / 8388607;
+        }
+    }
+    return { sampleRate, channels };
+}
+
+describe("recording from the transport", () => {
+    it("records one bar from its start, to the sample, as a WAV 24 bits", async () => {
+        const context = await browser.newContext({ acceptDownloads: true });
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(url + "?starter=0");
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene?.recorder && (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
+        await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            app.uploadUrl(app, null, 300, 150, location.origin + "/faust-modules/modular/SyncClock.dsp");
+            while (scene.getModules().length == 0) await new Promise((r) => setTimeout(r, 20));
+            const id = scene.getModules()[0].moduleId;
+            while (!scene.audioGraph.getNode(id)) await new Promise((r) => setTimeout(r, 20));
+            scene.patch.connect({ module: id, port: 0 }, { module: "output", port: 0 });
+            scene.patch.connect({ module: id, port: 0 }, { module: "output", port: 1 });
+            const ac = scene.masterVolume.node.context as AudioContext;
+            await ac.resume();
+            await new Promise((r) => setTimeout(r, 300));
+        });
+        // the ● menu: one bar
+        expect(await page.locator(".transportRecord").isVisible()).toBe(true);
+        const download = page.waitForEvent("download", { timeout: 30_000 });
+        await page.locator(".transportRecord").click();
+        await page.locator(".context-menu-item", { hasText: "Record 1 bars" }).click();
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.recorder.state != "idle");
+        const file = await download;
+        const name = file.suggestedFilename();
+        expect(name).toMatch(/^[A-Za-z0-9_-]+-\d{8}-\d{6}\.wav$/);
+        const bytes = fs.readFileSync((await file.path())!);
+        const { sampleRate, channels } = readWav(bytes);
+        const info = await page.evaluate(() => {
+            const { scene } = (globalThis as any).faustPlayground;
+            const r = scene.recorder;
+            return { startFrame: r.startFrame, startTick: r.startTick, rule: scene.sync.rule, material: r.last.material, playing: scene.sync.timeline.playing };
+        });
+        // one bar of 4/4 at 120 BPM: 2 s exactly; 2 channels
+        expect(channels.length).toBe(2);
+        expect(channels[0].length).toBe(2 * sampleRate);
+        expect(info.startTick % (4 * 960)).toBe(0);
+        expect(info.playing).toBe(true);
+        // the gates of the Sync Clock (a sixteenth: 240 ticks), at the samples where the timeline reaches them
+        const rule = info.rule as TimelineRule;
+        const expected = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((k) => frameOfTick(rule, info.startTick + 240 * k)! - info.startFrame);
+        const edges: number[] = [];
+        const left = channels[0];
+        for (let i = 0; i < left.length; i++) if (left[i] > 0.4 && (i == 0 || left[i - 1] <= 0.4)) edges.push(i);
+        expect(edges).toEqual(expected);
+        expect(edges[0]).toBe(0);
+        // its description, for the store
+        expect(info.material).toMatchObject({ format: "fauststore-material", kind: "recording", channels: 2, frames: 2 * sampleRate, timeline: { tempo: 120, meter: 4, startTick: info.startTick, lengthTicks: 3840 } });
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+});

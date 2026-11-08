@@ -289,5 +289,14 @@
   "publishKeptOlder": "an earlier version of the one in the store",
   "publishDialogSound": "The scene keeps the code of its modules: it will sound the same, whatever you choose.",
   "publishDialogPublish": "Publish",
-  "storePublishedModules": "(and %n modules: %m)"
+  "storePublishedModules": "(and %n modules: %m)",
+  "record": "Record the output (from the start of a bar)",
+  "recordUntilStop": "Record until stopped",
+  "recordBars": "Record %n bars",
+  "recordWaiting": "Waiting for the start of the next bar… (click: cancel)",
+  "recording": "Recording (%n bars)",
+  "recordStop": "Click: stop the recording",
+  "recordDone": "Recorded: %f, %s s, %c channels (WAV 24 bits).",
+  "recordClipped": "%n samples clipped.",
+  "recordFailed": "Recording impossible: %s"
 }

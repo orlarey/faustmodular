@@ -259,6 +259,17 @@ Un dépôt git garde chaque version de chaque fichier, et GitHub recommande de r
 
 Le transport offre **● Enregistrer** : la sortie principale (après le volume et le limiteur), à l'échantillon près, par un AudioWorklet ; à partir d'un début de mesure, pour un nombre de mesures choisi ou jusqu'à ■. Le matériau se télécharge (FLAC ou WAV) ; et il se publie avec sa scène, **en un seul commit**, déjà lié. C'est une fonctionnalité de faustmodular à part entière : elle sert aussi sans magasin.
 
+::: note [Réalisé dans faustmodular 3.51.0]
+**● Enregistrer**, dans le transport (`src/audio/Recorder.ts`, `src/audio/Recording.ts`).
+- **Le début.** L'échantillon de début est le premier où la position atteint le début de la mesure : f = frame₀ + ⌈((T − tick₀)·den − rem₀) / inc⌉, calculé en grands entiers depuis la règle de la ligne de temps dans ce contexte. C'est l'échantillon même où les Sync Clocks voient la mesure commencer.
+- **La vérification.** Un test l'enregistre de bout en bout : une mesure à 120 BPM dure exactement 2 s, et les seize portes d'une Sync Clock tombent sur les échantillons calculés, la première sur l'échantillon 0.
+- **Le transport arrêté.** Il démarre, et l'enregistrement avec lui.
+- **La fin.** Elle suit un changement de tempo, et ■ termine l'enregistrement.
+- **Le fichier.** C'est un WAV PCM 24 bits, téléchargé, et sa fiche (`fauststore-material`) est préparée.
+
+Restent : l'encodage FLAC, la publication avec la scène en un commit (`materials/`, la relation `recordingOf`), et la notation des gestes (`gestures`).
+:::
+
 # Lire \label{sec:lire}
 
 Lire un magasin public ne demande **aucun compte** :

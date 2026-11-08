@@ -6,6 +6,16 @@
 
 import type { SharedTimeline } from "./SharedTimeline";
 import { barBeat, TEMPO_MAX, TEMPO_MIN } from "./Timeline";
+import type { Recorder } from "../audio/Recorder";
+import { showContextMenu } from "../view/ContextMenu";
+
+// The texts of ● Record.
+export interface RecordTexts {
+    record: string; recordUntilStop: string; recordBars: string; recordWaiting: string; recording: string; recordStop: string;
+}
+
+const RECORD_BARS = "faustmodular-record-bars";
+const BAR_CHOICES = [1, 2, 4, 8, 16, 32];
 
 export class TransportView {
     readonly element: HTMLElement;
@@ -13,6 +23,9 @@ export class TransportView {
     private fRewind: HTMLElement;
     private fTempo: HTMLInputElement;
     private fPosition: HTMLElement;
+    private fRecord: HTMLElement;
+    private fRecorder: Recorder | null = null;
+    private fRecordTexts: (() => RecordTexts) | null = null;
     private fSync: SharedTimeline | null = null;
     private fShown = "";
 
@@ -36,7 +49,12 @@ export class TransportView {
         bpm.textContent = "BPM";
         this.fPosition = document.createElement("span");
         this.fPosition.className = "transportPosition";
-        this.element.append(this.fRewind, this.fPlay, this.fTempo, bpm, this.fPosition);
+        // ● Record (src/audio/Recorder.ts), once the recorder is attached
+        this.fRecord = document.createElement("div");
+        this.fRecord.className = "transportRecord hidden";
+        this.fRecord.textContent = "\u25CF";
+        this.fRecord.addEventListener("click", () => this.record());
+        this.element.append(this.fRewind, this.fPlay, this.fRecord, this.fTempo, bpm, this.fPosition);
         this.fPlay.addEventListener("click", () => this.toggle());
         this.fRewind.addEventListener("click", () => this.rewind());
         this.fTempo.addEventListener("change", () => {
@@ -58,6 +76,45 @@ export class TransportView {
         this.element.classList.remove("disabled");
         sync.onChange(() => this.show());
         this.show();
+    }
+
+    // The recorder of the main output, and its texts.
+    attachRecorder(recorder: Recorder, texts: () => RecordTexts): void {
+        this.fRecorder = recorder;
+        this.fRecordTexts = texts;
+        this.fRecord.classList.remove("hidden");
+        recorder.onChange(() => this.showRecord());
+        this.showRecord();
+    }
+
+    // ●: idle, a menu (until stopped, or a number of bars); waiting or recording: stop.
+    private record(): void {
+        const recorder = this.fRecorder, texts = this.fRecordTexts?.();
+        if (!recorder || !texts) return;
+        if (recorder.state != "idle") { recorder.stop(); return; }
+        let last: number | null = null;
+        try { const v = localStorage.getItem(RECORD_BARS); last = v === null || v == "0" ? null : Number(v); } catch { /* none */ }
+        const choose = (bars: number | null) => {
+            try { localStorage.setItem(RECORD_BARS, String(bars ?? 0)); } catch { /* not kept */ }
+            void recorder.start(bars);
+        };
+        const r = this.fRecord.getBoundingClientRect();
+        showContextMenu(r.left, r.bottom + 4, [
+            { label: texts.recordUntilStop, checked: last === null, action: () => choose(null) },
+            "separator",
+            ...BAR_CHOICES.map((n) => ({ label: texts.recordBars.replace("%n", String(n)), checked: last === n, action: () => choose(n) })),
+        ]);
+    }
+
+    private showRecord(): void {
+        const recorder = this.fRecorder, texts = this.fRecordTexts?.();
+        if (!recorder || !texts) return;
+        const state = recorder.state;
+        this.fRecord.classList.toggle("waiting", state == "waiting");
+        this.fRecord.classList.toggle("recording", state == "recording" || state == "writing");
+        this.fRecord.title = state == "idle" ? texts.record
+            : state == "waiting" ? texts.recordWaiting
+                : texts.recording.replace("%n", recorder.bars ? String(recorder.bars) : "∞") + "\n" + texts.recordStop;
     }
 
     private toggle(): void {
@@ -108,7 +165,10 @@ export class TransportView {
         if (!sync) return;
         this.diagnose();
         const { bar, beat } = barBeat(sync.positionNow(), sync.timeline.meter);
-        const text = `${bar}:${beat}`;
+        const recording = this.fRecorder?.state == "recording";
+        const text = recording
+            ? `${bar}:${beat} \u25CF${Math.floor(this.fRecorder!.elapsedBars()) + 1}${this.fRecorder!.bars ? "/" + this.fRecorder!.bars : ""}`
+            : `${bar}:${beat}`;
         if (text != this.fShown) {
             this.fShown = text;
             this.fPosition.textContent = text;

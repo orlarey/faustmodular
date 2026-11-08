@@ -7,6 +7,7 @@
     each one is bound to a module of the patch by its moduleId.
 */
 
+import type { Recorder } from "../audio/Recorder";
 import type { FaustDspFactory } from "@grame/faustwasm";
 
 import { AccelerometerHandler, Axis } from "../Accelerometer";
@@ -85,6 +86,8 @@ interface ModuleDescription {
 export class Scene {
     isMute: boolean = false;
     masterVolume: MasterVolume | null = null;
+    // ● Record of the transport (audio/Recorder.ts), once the timeline is ready
+    recorder: Recorder | null = null;
     // faust-sync: the timeline shared with the other Faust applications of the browser, and its Timeline node
     // that feeds the reserved inputs of the modules (Documentation/FAUST-SYNC-SPEC.md)
     sync: SharedTimeline | null = null;
@@ -667,6 +670,8 @@ export class Scene {
     }
 
     private fMicrophone: MediaStream | null = null;
+    // Whether the microphone is open (a recording notes it: the recipe does not replay it).
+    get microphoneOn(): boolean { return this.fMicrophone !== null; }
 
     private getDevice(device: MediaStream): void {
         this.fMicrophone = device;

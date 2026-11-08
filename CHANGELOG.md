@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.51.0 (2026-11-08)
+
+- **● Record**, in the transport (`src/audio/Recorder.ts`): the main output of the scene, after the volume and the
+  limiter (what one hears), sample by sample, by an AudioWorklet in parallel of the device. Its menu: *Record until
+  stopped*, or *Record 1, 2, 4, 8, 16, 32 bars* (the last choice is remembered).
+  - It starts **at the start of a bar**, to the sample: the next one while the transport plays; when it is stopped,
+    the transport starts and the recording with it. The sample is computed exactly, in big integers, from the rule of
+    the shared timeline (`src/audio/Recording.ts`): the very sample where the Sync Clocks see the bar begin.
+  - It lasts its bars exactly (one bar of 4/4 at 120 BPM: 2 s, to the sample; a change of tempo while recording moves
+    its end), or until stopped: ● again, or ■ of the transport, here or in another application.
+  - ● blinks while it waits for its bar, is red while it records; the position shows the bar recorded (`●2/4`).
+  - The file, **WAV PCM 24 bits** (as faustcode), is downloaded: `<scene>-YYYYMMDD-HHMMSS.wav`. Its description is
+    kept, as a material of a store (`Documentation/STORE-SPEC.md`, "Les matériaux"): rate, channels, frames, its
+    place in the timeline in ticks (tempo, meter, start, length), what the recipe does not replay (`microphone`,
+    `sync`), for publishing it with its scene later.
+
 ## 3.50.1 (2026-11-08)
 
 - **faustwasm 0.20.1** (from 0.19.6), with faustcode 0.18.1: the same libfaust (2.90.19) and the same Faust libraries
