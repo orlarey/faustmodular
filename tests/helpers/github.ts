@@ -7,6 +7,7 @@ export function github(initial: Record<string, string>, token = "good") {
     let n = 0;
     const commits = new Map<string, { files: Map<string, string>; parents: string[]; message: string }>();
     const trees = new Map<string, Map<string, string>>();
+    const blobs = new Map<string, string>();
     const id = () => (++n).toString(16).padStart(40, "0");
     const first = id();
     commits.set(first, { files: new Map(Object.entries(initial)), parents: [], message: "init" });
@@ -44,10 +45,17 @@ export function github(initial: Record<string, string>, token = "good") {
         }
         if (!auth) return json(401, {});
         const body = JSON.parse(String(init?.body ?? "{}"));
+        if (rest == "/git/blobs" && method == "POST") {
+            // a blob in base64: kept as a binary string (latin1), its git sha computed on its bytes
+            const content = Buffer.from(body.content, body.encoding == "base64" ? "base64" : "utf8").toString("latin1");
+            const sha = "b" + id().slice(1);
+            blobs.set(sha, content);
+            return json(201, { sha });
+        }
         if (rest == "/git/trees" && method == "POST") {
             const base = commits.get(body.base_tree.slice(1))!.files;
             const files = new Map(base);
-            for (const e of body.tree) files.set(e.path, e.content);
+            for (const e of body.tree) files.set(e.path, e.sha ? blobs.get(e.sha)! : e.content);
             const sha = "x" + id().slice(1);
             trees.set(sha, files);
             return json(201, { sha });

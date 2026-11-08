@@ -10,7 +10,15 @@ import { StoreRef } from "./StoreFormat";
 import { TreeEntry } from "./StoreIndex";
 
 export interface Branch { name: string; commit: string; tree: TreeEntry[] }
-export interface Publication { files: Array<{ path: string; content: string }>; message: string }
+// A file published: text (inline in the tree), or bytes (a media: a blob of the API first, in base64).
+export type PublishedFile = { path: string; content: string } | { path: string; bytes: Uint8Array };
+export interface Publication { files: PublishedFile[]; message: string }
+
+function base64(bytes: Uint8Array): string {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+}
 
 // Why one cannot publish: no token or not valid, no right to write, the repository empty, GitHub not reachable.
 export class PublishError extends Error {
@@ -64,9 +72,12 @@ export class StorePublisher {
             const branch = await this.branch(ref, token, name);
             const { files, message } = await make(branch);
             const base = (await this.call(ref, token, `/git/commits/${branch.commit}`)).tree.sha;
-            const tree = await this.call(ref, token, "/git/trees", {
-                method: "POST", body: { base_tree: base, tree: files.map((f) => ({ path: f.path, mode: "100644", type: "blob", content: f.content })) },
-            });
+            const entries = await Promise.all(files.map(async (f) => {
+                if ("content" in f) return { path: f.path, mode: "100644", type: "blob", content: f.content };
+                const blob = await this.call(ref, token, "/git/blobs", { method: "POST", body: { content: base64(f.bytes), encoding: "base64" } });
+                return { path: f.path, mode: "100644", type: "blob", sha: blob.sha };
+            }));
+            const tree = await this.call(ref, token, "/git/trees", { method: "POST", body: { base_tree: base, tree: entries } });
             const commit = await this.call(ref, token, "/git/commits", { method: "POST", body: { message, tree: tree.sha, parents: [branch.commit] } });
             try {
                 await this.call(ref, token, `/git/refs/heads/${encodeURIComponent(name)}`, { method: "PATCH", body: { sha: commit.sha, force: false } });

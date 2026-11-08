@@ -135,6 +135,44 @@ describe("store: publishing", () => {
         expect(stores.get("o/r")!.store!.index.scenes.map((s) => s.name)).toEqual(["Nappe"]);
     });
 
+    it("publishes a scene and its recording in one commit: the media (bytes), its description, recordingOf both ways", async () => {
+        const gh = github({ "fauststore.json": MANIFEST, "README.md": "#" });
+        const { p, stores } = publishing(gh);
+        await p.configure("o/r", "good");
+        const scene = JSON.stringify({ format: "faustplayground-patch", version: 2, sceneName: "Nappe", modules: [], connections: [] });
+        const flac = new Uint8Array([0x66, 0x4c, 0x61, 0x43, 0, 0xff, 0x80, 0x7f, 200]);     // bytes, not UTF-8
+        const before = gh.head;
+        const done = await p.publishRecording("o/r", "Nappe", scene, new Map([["modules/Osc/Osc.dsp", code("Osc")]]), {
+            name: "Nappe-20261108-101500", flac,
+            description: { sampleRate: 48000, channels: 2, frames: 96000, timeline: { tempo: 120, meter: 4, startTick: 0, lengthTicks: 3840 }, live: [], generator: "faustmodular 3.52.0", date: "2026-11-08T10:15:00Z" },
+        });
+        expect(gh.commit(done.commit).parents).toEqual([before]);                    // one commit
+        expect(gh.commit(done.commit).message).toBe("Publish the scene Nappe, its recording Nappe-20261108-101500 and 1 module (Osc) (faustmodular)");
+        expect(done.material).toBe("materials/Nappe-20261108-101500/Nappe-20261108-101500.json");
+        // the media, byte for byte
+        const media = gh.files().get("materials/Nappe-20261108-101500/Nappe-20261108-101500.flac")!;
+        expect([...Buffer.from(media, "latin1")]).toEqual([...flac]);
+        // its description: the media (its SHA-1, its size), the recipe (path, SHA-1 of its content)
+        const fiche = JSON.parse(gh.files().get(done.material!)!);
+        const { createHash } = await import("crypto");
+        expect(fiche).toMatchObject({
+            format: "fauststore-material", kind: "recording", name: "Nappe-20261108-101500", sampleRate: 48000, frames: 96000,
+            media: { path: "Nappe-20261108-101500.flac", type: "audio/flac", size: flac.length, sha1: createHash("sha1").update(flac).digest("hex") },
+            recordingOf: "scenes/Nappe/Nappe.jfaust",
+            from: { path: "scenes/Nappe/Nappe.jfaust", sha1: createHash("sha1").update(scene).digest("hex") },
+            timeline: { tempo: 120, meter: 4, startTick: 0, lengthTicks: 3840 },
+        });
+        // the index: the material, and the scene that knows its recordings
+        const index = parseIndex(JSON.parse(gh.files().get("index.json")!))!;
+        expect(index.materials).toMatchObject([{ path: done.material, kind: "recording", recordingOf: "scenes/Nappe/Nappe.jfaust", media: { path: "materials/Nappe-20261108-101500/Nappe-20261108-101500.flac", type: "audio/flac" } }]);
+        expect(index.scenes).toMatchObject([{ path: "scenes/Nappe/Nappe.jfaust", recordings: [done.material] }]);
+        expect(stores.get("o/r")!.store!.index.materials!.length).toBe(1);
+        // too large: refused, nothing published
+        const head = gh.head;
+        await expect(p.publishRecording("o/r", "Nappe", scene, new Map(), { name: "Big", flac: new Uint8Array(50 * 1024 * 1024 + 1), description: {} })).rejects.toThrow(/50 MB/);
+        expect(gh.head).toBe(head);
+    });
+
     it("publishes a module again: a new version, its code before kept with the commit that contains it", async () => {
         const gh = github({ "fauststore.json": MANIFEST });
         const { p } = publishing(gh);

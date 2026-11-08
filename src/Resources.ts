@@ -150,6 +150,11 @@ export class Resources {
     recordDone: string;
     recordClipped: string;
     recordFailed: string;
+    recordFlac: string;
+    recordWav: string;
+    publishRecording: string;
+    recordingPublished: string;
+    recordingPublishedLink: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

@@ -113,11 +113,32 @@ export interface StoreScene {
     sha?: string;
     codes?: string[];           // the SHA-1 of the codes of its modules
     updated?: string;
+    recordings?: string[];      // the materials that are recordings of it (recordingOf, read the other way)
+}
+
+// A material (Documentation/STORE-SPEC.md, "Les matériaux"): its description (materials/<Name>/<Name>.json), its media
+// beside it, and the recipe it comes from.
+export interface StoreMaterial {
+    path: string;               // its description
+    name: string;
+    kind: string;               // "recording"
+    media?: { path: string; type: string; sha1?: string; size?: number };
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    recordingOf?: string;       // the path of the scene, in this store
+    from?: { store?: string; path: string; sha1?: string; commit?: string };
+    generator?: string;
+    timeline?: { tempo: number; meter: number; startTick: number; lengthTicks: number };
+    live?: string[];
+    date?: string;
+    sha?: string;               // the git blob of its description
 }
 
 export interface StoreIndex {
     modules: StoreModule[];
     scenes: StoreScene[];
+    materials?: StoreMaterial[];
 }
 
 // The index, checked: the entries with a safe path, their texts bounded; null if it is not one.
@@ -141,8 +162,38 @@ export function parseIndex(json: unknown): StoreIndex | null {
         preview: safePath(s.preview) ? s.preview : undefined,
         sha: sha(s.sha), updated: date(s.updated),
         codes: Array.isArray(s.codes) ? s.codes.filter((c: unknown) => sha(c)) : undefined,
+        recordings: Array.isArray(s.recordings) ? s.recordings.filter((m: unknown) => safePath(m)) : undefined,
     }));
-    return { modules, scenes };
+    const materials = Array.isArray(x.materials)
+        ? x.materials.map((m: any) => (m && safePath(m.path) ? parseMaterial(m, m.path, sha(m.sha)) : null)).filter((m: StoreMaterial | null): m is StoreMaterial => !!m)
+        : undefined;
+    return materials ? { modules, scenes, materials } : { modules, scenes };
+}
+
+const num = (v: unknown) => (typeof v == "number" && Number.isFinite(v) ? v : undefined);
+
+// The description of a material (its file, or its entry of the index), checked; null if it is not one.
+export function parseMaterial(json: unknown, path: string, blob?: string): StoreMaterial | null {
+    const m = json as any;
+    if (!m || !safePath(path) || !/^materials\/.+\.json$/i.test(path)) return null;
+    if (m.format !== undefined && m.format != "fauststore-material") return null;
+    const dir = path.slice(0, path.lastIndexOf("/") + 1);
+    const mediaPath = typeof m.media?.path == "string" ? (m.media.path.includes("/") ? m.media.path : dir + m.media.path) : undefined;
+    const out: StoreMaterial = {
+        path, name: text(m.name, 200) || nameOfPath(path), kind: text(m.kind, 40) ?? "recording",
+        media: mediaPath && safePath(mediaPath) ? { path: mediaPath, type: text(m.media.type, 60) ?? "application/octet-stream", sha1: sha(m.media.sha1), size: num(m.media.size) } : undefined,
+        sampleRate: num(m.sampleRate), channels: num(m.channels), frames: num(m.frames),
+        recordingOf: safePath(m.recordingOf) ? m.recordingOf : undefined,
+        from: m.from && safePath(m.from.path) ? { store: text(m.from.store, 200), path: m.from.path, sha1: sha(m.from.sha1), commit: sha(m.from.commit) } : undefined,
+        generator: text(m.generator, 100),
+        timeline: m.timeline && [m.timeline.tempo, m.timeline.meter, m.timeline.startTick, m.timeline.lengthTicks].every((v: unknown) => num(v) !== undefined)
+            ? { tempo: m.timeline.tempo, meter: m.timeline.meter, startTick: m.timeline.startTick, lengthTicks: m.timeline.lengthTicks } : undefined,
+        live: Array.isArray(m.live) ? texts(m.live) : undefined,
+        date: date(m.date),
+        sha: blob,
+    };
+    if (!out.recordingOf && out.from && !out.from.store) out.recordingOf = out.from.path;
+    return out;
 }
 
 // The name of a file, without its folder and its extension.
@@ -170,12 +221,13 @@ export function moduleEntry(path: string, code: string): StoreModule {
     };
 }
 
-// The files of a repository that are modules and scenes (the index rebuilt from the repository).
-export function contentsOf(paths: string[]): { modules: string[]; scenes: string[] } {
+// The files of a repository that are modules, scenes and descriptions of materials (the index rebuilt from it).
+export function contentsOf(paths: string[]): { modules: string[]; scenes: string[]; materials: string[] } {
     const safe = paths.filter(safePath);
     return {
         modules: safe.filter((p) => p.startsWith("modules/") && /\.dsp$/i.test(p)).sort(),
         scenes: safe.filter((p) => p.startsWith("scenes/") && /\.jfaust$/i.test(p)).sort(),
+        materials: safe.filter((p) => /^materials\/[^/]+\/[^/]+\.json$/i.test(p)).sort(),
     };
 }
 
@@ -189,6 +241,7 @@ export function slug(name: string): string {
 
 export const modulePath = (name: string) => `modules/${slug(name)}/${slug(name)}.dsp`;
 export const scenePath = (name: string) => `scenes/${slug(name)}/${slug(name)}.jfaust`;
+export const materialPath = (name: string) => `materials/${slug(name)}/${slug(name)}.json`;
 
 // The git blob of a text: the SHA-1 of "blob <length>\0" and its bytes (UTF-8), as git names it.
 export async function gitBlobSha(text: string): Promise<string> {
@@ -207,5 +260,6 @@ export function serializeIndex(index: StoreIndex, updated: string): string {
     return JSON.stringify({
         format: "fauststore-index", version: 1, updated,
         modules: index.modules.map(clean), scenes: index.scenes.map(clean),
+        ...(index.materials?.length ? { materials: index.materials.map((m) => clean({ ...m, media: m.media && clean(m.media) })) } : {}),
     }, null, 1) + "\n";
 }

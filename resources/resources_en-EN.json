@@ -296,7 +296,12 @@
   "recordWaiting": "Waiting for the start of the next bar… (click: cancel)",
   "recording": "Recording (%n bars)",
   "recordStop": "Click: stop the recording",
-  "recordDone": "Recorded: %f, %s s, %c channels (WAV 24 bits).",
+  "recordDone": "Recorded: %f, %s s, %c channels (%t 24 bits).",
   "recordClipped": "%n samples clipped.",
-  "recordFailed": "Recording impossible: %s"
+  "recordFailed": "Recording impossible: %s",
+  "recordFlac": "File: FLAC (lossless, smaller)",
+  "recordWav": "File: WAV",
+  "publishRecording": "Publish the scene and its recording",
+  "recordingPublished": "Published to %s: %p, with its recording %m. The link to share it is copied.",
+  "recordingPublishedLink": "Published to %s: %p, with its recording %m. Link to share it: %l"
 }

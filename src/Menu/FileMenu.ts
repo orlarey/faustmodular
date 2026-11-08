@@ -30,6 +30,7 @@ import type { Publishing } from "../store/Publishing";
 import { shareLink } from "../store/Publishing";
 import { StoreDialog, publishErrorText } from "./StoreDialog";
 import { Confirm } from "../Messages";
+import { encodeFlacAsync } from "../audio/Flac";
 
 // the examples of public/json
 const EXAMPLES: Array<{ key: "exampleSmall" | "exampleBig" | "exampleMultichannel" | "exampleModulation"; file: string }> = [
@@ -83,8 +84,11 @@ export class FileMenu {
             let copied = false;
             try { await navigator.clipboard.writeText(link); copied = true; } catch { /* not allowed */ }
             const modules = (done as { modules?: string[] }).modules ?? [];
+            const material = (done as { material?: string }).material;
             const also = modules.length ? " " + t.storePublishedModules.replace("%n", String(modules.length)).replace("%m", modules.map((m) => m.split("/")[1]).join(", ")) : "";
-            new Message((copied ? t.storePublished : t.storePublishedLink).replace("%s", done.store).replace("%p", done.path + also).replace("%l", link), undefined, 8000);
+            const text = material ? (copied ? t.recordingPublished : t.recordingPublishedLink).replace("%m", material.split("/")[1])
+                : (copied ? t.storePublished : t.storePublishedLink);
+            new Message(text.replace("%s", done.store).replace("%p", done.path + also).replace("%l", link), undefined, 8000);
         } catch (e) {
             new Message(publishErrorText(e, store), undefined, 8000);
         } finally {
@@ -120,6 +124,35 @@ export class FileMenu {
         else go(rows);
     }
 
+    // The last recording (● of the transport) and the scene as it was recorded, with its modules, to a store: one commit,
+    // the recording linked to its scene (recordingOf). The modules as for a scene (store/ScenePlan.ts).
+    async publishRecording(store: string): Promise<void> {
+        const rec = Utilitary.currentScene.recorder?.last;
+        const recipe = rec?.recipe;
+        if (!rec || !recipe || !this.publishing || !this.stores) return;
+        Utilitary.showFullPageLoading();
+        let rows: PlanRow[] = [], replaced = false;
+        try {
+            const state = await this.stores.refresh(store);
+            const index = state?.store?.index ?? null;
+            let library = new Map<string, string>();
+            try { library = libraryShas(await (await fetch("faust-modules/library-index.json")).json()); } catch { /* unknown: all published */ }
+            const modules = await Promise.all(recipe.modules.map(async (m) => ({ ...m, sha: await sha1(m.code) })));
+            rows = planSceneModules(modules, index, library);
+            replaced = !!index?.scenes.some((s) => s.path == scenePathOf(recipe.name));
+        } finally {
+            Utilitary.hideFullPageLoading();
+        }
+        const { format, version, kind, name, ...description } = rec.material;
+        void format; void version; void kind;
+        const go = (chosen: PlanRow[]) => this.publishWith(store, async (p) => {
+            const flac = rec.flac ?? await encodeFlacAsync(rec.samples, rec.sampleRate);
+            return p.publishRecording(store, recipe.name, recipe.content, planFiles(chosen), { name, flac, description });
+        });
+        if (replaced || rows.some((r) => r.status == "new" || r.status == "conflict")) showPublishDialog(store, recipe.name, replaced, rows, go);
+        else go(rows);
+    }
+
     constructor(private fDocuments: () => Documents | null) { }
 
     show(anchor: HTMLElement): void {
@@ -143,6 +176,7 @@ export class FileMenu {
             this.storeItem(),
             "separator",
             this.publishItem(t.publishScene, (store) => this.publishScene(store), !!current),
+            this.publishItem(t.publishRecording, (store) => this.publishRecording(store), !!Utilitary.currentScene.recorder?.last?.recipe),
         ];
         showMenuBelow(anchor, items);
     }
@@ -276,7 +310,7 @@ export class FileMenu {
     }
 
     // The scene as a patch file, as the documents keep it (the model is not changed).
-    private content(): string {
+    content(): string {
         return JSON.stringify(Utilitary.currentScene.describePatch(), null, 1);
     }
 

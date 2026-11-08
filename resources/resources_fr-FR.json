@@ -296,7 +296,12 @@
   "recordWaiting": "En attente du début de la prochaine mesure… (clic : annuler)",
   "recording": "Enregistrement (%n mesures)",
   "recordStop": "Clic : arrêter l'enregistrement",
-  "recordDone": "Enregistré : %f, %s s, %c canaux (WAV 24 bits).",
+  "recordDone": "Enregistré : %f, %s s, %c canaux (%t 24 bits).",
   "recordClipped": "%n échantillons écrêtés.",
-  "recordFailed": "Enregistrement impossible : %s"
+  "recordFailed": "Enregistrement impossible : %s",
+  "recordFlac": "Fichier : FLAC (sans perte, plus petit)",
+  "recordWav": "Fichier : WAV",
+  "publishRecording": "Publier la scène et son enregistrement",
+  "recordingPublished": "Publié dans %s : %p, avec son enregistrement %m. Le lien de partage est copié.",
+  "recordingPublishedLink": "Publié dans %s : %p, avec son enregistrement %m. Lien de partage : %l"
 }

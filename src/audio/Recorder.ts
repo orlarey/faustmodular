@@ -7,11 +7,14 @@
       stopped, the transport starts and the recording with it (at the start of the bar if it stood there).
     - It lasts a number of bars, or until it is stopped (● again, or ■ of the transport, here or in another
       application). A change of tempo while recording moves its end to the right sample.
-    - The file, WAV 24 bits, is downloaded: `<scene>-YYYYMMDD-HHMMSS.wav`. The recording is kept with its
-      description (the material of the store, its timeline in ticks), for publishing it with its scene later.
+    - The file, FLAC 24 bits (lossless, about half the size; src/audio/Flac.ts) or WAV 24 bits, is downloaded:
+      `<scene>-YYYYMMDD-HHMMSS.flac`. The recording is kept with its description (the material of the store, its
+      timeline in ticks) and its recipe: the scene as it was when the recording started (its file and the codes of
+      its modules), for publishing them together (File ▸ Publish the scene and its recording).
 */
 
 import { barsEnd, barStart, encodePcm24Wav, joinBlocks, recordingName, ticksPerBar } from "./Recording";
+import { encodeFlacAsync } from "./Flac";
 import type { SharedTimeline } from "../sync/SharedTimeline";
 import type { TimelineRule } from "../sync/TimelineCore";
 
@@ -71,10 +74,19 @@ registerProcessor("faustmodular-recorder", class extends AudioWorkletProcessor {
 `;
 
 export type RecorderState = "idle" | "waiting" | "recording" | "writing";
+export type RecordFormat = "flac" | "wav";
+const FORMAT_KEY = "faustmodular-record-format";
+
+// The scene as it was when a recording started: its name, its file, the codes of its modules (without their group).
+export interface Recipe { name: string; content: string; modules: Array<{ name: string; code: string }> }
 
 export interface RecordingResult {
     name: string;
     blob: Blob;
+    format: RecordFormat;
+    flac: Uint8Array | null;            // its FLAC (the media of the store), made when the file is FLAC
+    samples: Float32Array[];            // its samples, for a FLAC made later (the file WAV)
+    recipe: Recipe | null;
     sampleRate: number;
     channels: number;
     frames: number;
@@ -98,6 +110,7 @@ export interface RecorderSetup {
     scene: () => string;
     generator: string;
     live: () => string[];                       // what the recipe does not replay (microphone, sync…)
+    recipe: () => Recipe | null;                // the scene, when the recording starts
     done: (result: RecordingResult) => void;
     failed: (error: unknown) => void;
 }
@@ -117,6 +130,8 @@ export class Recorder {
     private fRule: TimelineRule | null = null;
     private fDate = new Date();
     private fLive = new Set<string>();
+    private fRecipe: Recipe | null = null;
+    format: RecordFormat = storedFormat();
 
     constructor(private fSetup: RecorderSetup) {
         // the timeline changed (tempo, stop, another application): the end follows
@@ -170,6 +185,7 @@ export class Recorder {
             this.fBlocks = [];
             this.fDate = new Date();
             this.fLive = new Set(this.fSetup.live());
+            try { this.fRecipe = this.fSetup.recipe(); } catch { this.fRecipe = null; }
             if (sync.peers.length > 0) this.fLive.add("sync");     // another application plays with this one
             const node = new AudioWorkletNode(context, "faustmodular-recorder", {
                 numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
@@ -240,23 +256,35 @@ export class Recorder {
         }
     }
 
-    private finish(): void {
+    setFormat(format: RecordFormat): void {
+        this.format = format;
+        try { localStorage.setItem(FORMAT_KEY, format); } catch { /* not kept */ }
+        this.emit();
+    }
+
+    private async finish(): Promise<void> {
         const { context, sync } = this.fSetup;
         this.state = "writing";
         this.emit();
         try {
             const channels = joinBlocks(this.fBlocks, this.fChannels);
             const frames = channels[0]?.length ?? 0;
-            const { bytes, clipped } = encodePcm24Wav(channels, context.sampleRate);
-            const name = recordingName(this.fSetup.scene(), this.fDate);
+            const format = this.format;
+            const wav = format == "wav" ? encodePcm24Wav(channels, context.sampleRate) : null;
+            const flac = format == "flac" ? await encodeFlacAsync(channels, context.sampleRate) : null;
+            let clipped = wav?.clipped ?? 0;
+            if (!wav) for (const c of channels) for (let i = 0; i < c.length; i++) if (c[i] > 1 || c[i] < -1) clipped++;
+            const bytes = (wav?.bytes ?? flac)!;
+            const name = recordingName(this.fSetup.scene(), this.fDate, format);
             const t = sync.timeline;
             const rule = this.fRule;
             // its length in ticks, from its samples at the tempo it ended with
             const lengthTicks = rule ? Math.round(frames * rule.inc / rule.den) : 0;
             const result: RecordingResult = {
-                name, blob: new Blob([bytes.buffer as ArrayBuffer], { type: "audio/wav" }), sampleRate: context.sampleRate, channels: this.fChannels, frames, clipped,
+                name, blob: new Blob([bytes.slice().buffer as ArrayBuffer], { type: format == "flac" ? "audio/flac" : "audio/wav" }), format, flac, samples: channels, recipe: this.fRecipe,
+                sampleRate: context.sampleRate, channels: this.fChannels, frames, clipped,
                 material: {
-                    format: "fauststore-material", version: 1, kind: "recording", name: name.replace(/\.wav$/, ""),
+                    format: "fauststore-material", version: 1, kind: "recording", name: name.replace(/\.(wav|flac)$/, ""),
                     sampleRate: context.sampleRate, channels: this.fChannels, frames,
                     generator: this.fSetup.generator,
                     timeline: { tempo: rule?.tempo ?? t.tempo, meter: rule?.meter ?? t.meter, startTick: this.startTick, lengthTicks },
@@ -283,4 +311,8 @@ export class Recorder {
         this.state = "idle";
         this.emit();
     }
+}
+
+function storedFormat(): RecordFormat {
+    try { return localStorage.getItem(FORMAT_KEY) == "wav" ? "wav" : "flac"; } catch { return "flac"; }
 }

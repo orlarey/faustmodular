@@ -270,6 +270,20 @@ Le transport offre **● Enregistrer** : la sortie principale (après le volume 
 Restent : l'encodage FLAC, la publication avec la scène en un commit (`materials/`, la relation `recordingOf`), et la notation des gestes (`gestures`).
 :::
 
+::: note [Réalisé dans faustmodular 3.52.0]
+- **Le FLAC.** Le fichier est en FLAC 24 bits par défaut, encodé par `src/audio/Flac.ts` (RFC 9639 : prédicteurs fixes, codes de Rice partitionnés, décorrélation stéréo), sans perte, vérifié au bit près par un décodeur et par ffmpeg. Le WAV reste au choix.
+- **La publication.** *Publier la scène et son enregistrement* publie, en un commit :
+  - la scène telle qu'elle était au début de l'enregistrement, avec ses modules ;
+  - `materials/<Nom>/<Nom>.flac` et sa fiche, avec `recordingOf` et `from` (le chemin de la scène et l'empreinte de son contenu).
+
+  Le commit est celui même de la fiche : `from.commit` est omis.
+- **L'index.** Il recense les matériaux (`materials`), et chaque scène ses enregistrements (`recordings`).
+- **Restent :**
+  - l'aperçu Opus ;
+  - la lecture des matériaux dans faustmodular et faustdaw ;
+  - la notation des gestes.
+:::
+
 # Lire \label{sec:lire}
 
 Lire un magasin public ne demande **aucun compte** :

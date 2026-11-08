@@ -5,7 +5,7 @@
     versions, with the commit that contains it. Pure but for reading the files (given).
 */
 
-import { contentsOf, gitBlobSha, moduleEntry, nameOfPath, StoreIndex, StoreModule, StoreScene } from "./StoreFormat";
+import { contentsOf, gitBlobSha, moduleEntry, nameOfPath, parseMaterial, StoreIndex, StoreMaterial, StoreModule, StoreScene } from "./StoreFormat";
 import { unwrapModuleCode } from "../model/ModuleCode";
 import { sha1 } from "../documents/Sha1";
 
@@ -46,7 +46,7 @@ export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, r
     changes?: IndexChanges): Promise<StoreIndex> {
     const shas = new Map(tree.map((e) => [e.path, e.sha]));
     for (const path of changes?.files.keys() ?? []) if (!shas.has(path)) shas.set(path, undefined);
-    const { modules, scenes } = contentsOf([...shas.keys()]);
+    const { modules, scenes, materials } = contentsOf([...shas.keys()]);
     const previous = new Map((before?.modules ?? []).map((m) => [m.path, m]));
     const previousScenes = new Map((before?.scenes ?? []).map((s) => [s.path, s]));
     const builtModules = await Promise.all(modules.map(async (path): Promise<StoreModule | null> => {
@@ -87,5 +87,23 @@ export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, r
         }
         return entry;
     }));
-    return { modules: builtModules.filter((m): m is StoreModule => m !== null), scenes: builtScenes };
+    // the materials: an entry kept while its description is the same, read again otherwise
+    const previousMaterials = new Map((before?.materials ?? []).map((m) => [m.path, m]));
+    const builtMaterials = await Promise.all(materials.map(async (path): Promise<StoreMaterial | null> => {
+        const old = previousMaterials.get(path);
+        const published = changes?.files.get(path);
+        if (published === undefined && old && old.sha && old.sha == shas.get(path)) return old;
+        let content: string;
+        try { content = published ?? await read(path); } catch { return null; }
+        try { return parseMaterial(JSON.parse(content), path, await gitBlobSha(content)); } catch { return null; }
+    }));
+    const kept = builtMaterials.filter((m): m is StoreMaterial => m !== null);
+    // recordingOf, read the other way: the recordings of each scene
+    for (const scene of builtScenes) {
+        const recordings = kept.filter((m) => m.recordingOf == scene.path).map((m) => m.path);
+        scene.recordings = recordings.length ? recordings : undefined;
+    }
+    const index: StoreIndex = { modules: builtModules.filter((m): m is StoreModule => m !== null), scenes: builtScenes };
+    if (kept.length) index.materials = kept;
+    return index;
 }

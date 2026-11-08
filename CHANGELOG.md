@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.52.0 (2026-11-08)
+
+- **FLAC**: ● Record writes FLAC 24 bits by default (lossless, about half the size of the WAV; *File: WAV* in the menu
+  of ● for a WAV). The encoder is ours, without dependency (`src/audio/Flac.ts`, RFC 9639): fixed predictors of order
+  0 to 4, partitioned Rice codes, the best of the four stereo decorrelations, frames of 4096 samples with their CRCs;
+  about 2 s for a minute of stereo, without freezing the page. Tested bit for bit by a decoder written from the RFC
+  and by ffmpeg (its CRC checks on), from 1 to 8 channels, in 16 and 24 bits.
+- **Publish the scene and its recording** (File menu): the last recording, and the scene **as it was when the
+  recording started** (its file and its modules, as for a scene: ScenePlan), to a store, **in one commit**:
+  `materials/<Name>/<Name>.flac` and its description `<Name>.json` (`fauststore-material`: the media with its SHA-1
+  and size, the rate, the channels, the samples, its place in the timeline in ticks, what the recipe does not replay,
+  `recordingOf` the scene by its path and the SHA-1 of its content). The index lists the materials, and each scene
+  its recordings (the relation read both ways). A media above 50 MB is refused (GitHub's advice).
+- The library of the stores, `fauststore` 1.1.0: the materials in the index, the bytes of a media published as a
+  blob of the Git API (base64).
+
 ## 3.51.0 (2026-11-08)
 
 - **● Record**, in the transport (`src/audio/Recorder.ts`): the main output of the scene, after the volume and the

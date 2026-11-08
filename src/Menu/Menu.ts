@@ -19,6 +19,7 @@ import { Recorder } from "../audio/Recorder";
 import { APP_TITLE } from "../Version";
 import { saveAs } from "file-saver";
 import { OUTPUT_ID } from "../Scenes/SceneClass";
+import { storedCode } from "../documents/DocumentFormat";
 
 declare global {
     interface Document {
@@ -108,11 +109,20 @@ export class Menu {
                 scene: () => scene.sceneName,
                 generator: APP_TITLE,
                 live: () => (scene.microphoneOn ? ["microphone"] : []),
+                // the recipe: the scene as it is when the recording starts (its file, the codes of its modules)
+                recipe: () => {
+                    var current = this.documents?.current;
+                    if (!current) return null;
+                    return {
+                        name: current.name, content: this.fileMenu.content(),
+                        modules: scene.getModules().map((m: any) => { var n = m.moduleFaust.getName(); return { name: n, code: storedCode(n, m.moduleFaust.getSource()).code }; }),
+                    };
+                },
                 done: (result) => {
                     saveAs(result.blob, result.name);
                     var t = Utilitary.messageResource;
                     var seconds = (result.frames / result.sampleRate).toFixed(2);
-                    new Message(t.recordDone.replace("%f", result.name).replace("%s", seconds).replace("%c", String(result.channels))
+                    new Message(t.recordDone.replace("%f", result.name).replace("%s", seconds).replace("%c", String(result.channels)).replace("%t", result.format == "flac" ? "FLAC" : "WAV")
                         + (result.clipped ? " " + t.recordClipped.replace("%n", String(result.clipped)) : ""), undefined, 8000);
                 },
                 failed: (e) => new Message(Utilitary.messageResource.recordFailed.replace("%s", String((e as any)?.message ?? e))),
@@ -120,7 +130,7 @@ export class Menu {
             scene.recorder = recorder;
             this.menuView.transport.attachRecorder(recorder, () => {
                 var t = Utilitary.messageResource;
-                return { record: t.record, recordUntilStop: t.recordUntilStop, recordBars: t.recordBars, recordWaiting: t.recordWaiting, recording: t.recording, recordStop: t.recordStop };
+                return { record: t.record, recordUntilStop: t.recordUntilStop, recordBars: t.recordBars, recordWaiting: t.recordWaiting, recording: t.recording, recordStop: t.recordStop, recordFlac: t.recordFlac, recordWav: t.recordWav };
             });
         };
         if (Utilitary.currentScene.sync) attachTransport();

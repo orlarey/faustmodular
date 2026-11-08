@@ -12,6 +12,7 @@ import { showContextMenu } from "../view/ContextMenu";
 // The texts of ● Record.
 export interface RecordTexts {
     record: string; recordUntilStop: string; recordBars: string; recordWaiting: string; recording: string; recordStop: string;
+    recordFlac: string; recordWav: string;
 }
 
 const RECORD_BARS = "faustmodular-record-bars";
@@ -103,6 +104,9 @@ export class TransportView {
             { label: texts.recordUntilStop, checked: last === null, action: () => choose(null) },
             "separator",
             ...BAR_CHOICES.map((n) => ({ label: texts.recordBars.replace("%n", String(n)), checked: last === n, action: () => choose(n) })),
+            "separator",
+            { label: texts.recordFlac, checked: recorder.format == "flac", action: () => recorder.setFormat("flac") },
+            { label: texts.recordWav, checked: recorder.format == "wav", action: () => recorder.setFormat("wav") },
         ]);
     }
 

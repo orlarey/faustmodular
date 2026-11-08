@@ -9,6 +9,9 @@ import path from "path";
 import fs from "fs";
 import { frameOfTick } from "../../src/audio/Recording";
 import type { TimelineRule } from "../../src/sync/TimelineCore";
+import { github } from "../helpers/github";
+import { decodeFlac } from "../helpers/flac-decode";
+import { parseIndex } from "../../src/store/StoreFormat";
 
 let server: ViteDevServer;
 let browser: Browser;
@@ -45,13 +48,9 @@ function readWav(bytes: Buffer): { sampleRate: number; channels: number[][] } {
     return { sampleRate, channels };
 }
 
-describe("recording from the transport", () => {
-    it("records one bar from its start, to the sample, as a WAV 24 bits", async () => {
-        const context = await browser.newContext({ acceptDownloads: true });
-        const page = await context.newPage();
-        const errors: string[] = [];
-        page.on("pageerror", (e) => errors.push(e.message));
-        await page.goto(url + "?starter=0");
+// A page with a Sync Clock to the output (its gate on both channels).
+async function sceneWithClock(page: import("playwright").Page, search = "?starter=0"): Promise<void> {
+        await page.goto(url + search);
         await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene?.recorder && (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
         await page.evaluate(async () => {
             const { app, scene } = (globalThis as any).faustPlayground;
@@ -65,12 +64,26 @@ describe("recording from the transport", () => {
             await ac.resume();
             await new Promise((r) => setTimeout(r, 300));
         });
-        // the ● menu: one bar
+}
+
+// ● ▸ a choice of its menu.
+async function recordMenu(page: import("playwright").Page, item: string): Promise<void> {
+    await page.locator(".transportRecord").click();
+    await page.locator(".context-menu-item", { hasText: item }).click();
+}
+
+describe("recording from the transport", () => {
+    it("records one bar from its start, to the sample, as a WAV 24 bits", async () => {
+        const context = await browser.newContext({ acceptDownloads: true });
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await sceneWithClock(page);
+        // the ● menu: the file WAV, then one bar
         expect(await page.locator(".transportRecord").isVisible()).toBe(true);
         const download = page.waitForEvent("download", { timeout: 30_000 });
-        await page.locator(".transportRecord").click();
-        await page.locator(".context-menu-item", { hasText: "Record 1 bars" }).click();
-        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.recorder.state != "idle");
+        await recordMenu(page, "File: WAV");
+        await recordMenu(page, "Record 1 bars");
         const file = await download;
         const name = file.suggestedFilename();
         expect(name).toMatch(/^[A-Za-z0-9_-]+-\d{8}-\d{6}\.wav$/);
@@ -96,6 +109,62 @@ describe("recording from the transport", () => {
         expect(edges[0]).toBe(0);
         // its description, for the store
         expect(info.material).toMatchObject({ format: "fauststore-material", kind: "recording", channels: 2, frames: 2 * sampleRate, timeline: { tempo: 120, meter: 4, startTick: info.startTick, lengthTicks: 3840 } });
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("records in FLAC, then publishes the scene and its recording in one commit, linked", async () => {
+        const MANIFEST = JSON.stringify({ format: "fauststore", version: 1, name: "Test store" });
+        const gh = github({ "fauststore.json": MANIFEST, "README.md": "# store" });
+        const context = await browser.newContext({ acceptDownloads: true, permissions: ["clipboard-read", "clipboard-write"] });
+        const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, accept", "access-control-allow-methods": "GET, POST, PATCH" };
+        const handle = async (route: any) => {
+            const request = route.request();
+            if (request.method() == "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+            const headers = await request.allHeaders();
+            const response = await gh.fetch(request.url(), { method: request.method(), headers: headers.authorization ? { Authorization: headers.authorization } : {}, body: request.postData() ?? undefined } as any);
+            route.fulfill({ status: response.status, headers: cors, body: Buffer.from(await response.arrayBuffer()) });
+        };
+        await context.route("https://api.github.com/**", handle);
+        await context.route("https://raw.githubusercontent.com/**", handle);
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await sceneWithClock(page, "?starter=0&store=o/r");
+        await page.evaluate(async () => {
+            const { documents, publishing } = (globalThis as any).faustPlayground;
+            await documents.rename("Horloge");
+            await publishing.configure("o/r", "good");
+        });
+        // FLAC (the file by default)
+        const download = page.waitForEvent("download", { timeout: 30_000 });
+        await recordMenu(page, "File: FLAC");
+        await recordMenu(page, "Record 1 bars");
+        const file = await download;
+        expect(file.suggestedFilename()).toMatch(/^Horloge-\d{8}-\d{6}\.flac$/);
+        const local = decodeFlac(new Uint8Array(fs.readFileSync((await file.path())!)));
+        expect(local.channels.length).toBe(2);
+        expect(local.total).toBe(2 * local.sampleRate);
+        expect(local.channels[0][0]).toBeGreaterThan(0.4 * 8388607);    // a gate at the first sample
+        // File ▸ Publish the scene and its recording (one store in write: directly)
+        await page.waitForFunction(() => (globalThis as any).faustPlayground.scene.recorder.state == "idle");
+        const before = gh.head;
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: "Publish the scene and its recording" }).click();
+        for (let i = 0; i < 200 && gh.head == before; i++) await new Promise((r) => setTimeout(r, 50));
+        expect(gh.head).not.toBe(before);
+        expect(gh.commit(gh.head).parents).toEqual([before]);        // one commit
+        const files = gh.files();
+        expect(files.has("scenes/Horloge/Horloge.jfaust")).toBe(true);
+        const flacPath = [...files.keys()].find((k) => /^materials\/Horloge-\d{8}-\d{6}\/Horloge-\d{8}-\d{6}\.flac$/.test(k))!;
+        expect(flacPath).toBeTruthy();
+        // the media in the store: the same samples as the file downloaded
+        const stored = decodeFlac(new Uint8Array(Buffer.from(files.get(flacPath)!, "latin1")));
+        expect(Array.from(stored.channels[0])).toEqual(Array.from(local.channels[0]));
+        const fiche = JSON.parse(files.get(flacPath.replace(/\.flac$/, ".json"))!);
+        expect(fiche).toMatchObject({ kind: "recording", recordingOf: "scenes/Horloge/Horloge.jfaust", frames: 2 * local.sampleRate, timeline: { tempo: 120, meter: 4, lengthTicks: 3840 } });
+        const index = parseIndex(JSON.parse(files.get("index.json")!))!;
+        expect(index.scenes.find((s) => s.path == "scenes/Horloge/Horloge.jfaust")!.recordings).toEqual([flacPath.replace(/\.flac$/, ".json")]);
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

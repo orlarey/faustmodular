@@ -82,9 +82,10 @@ describe("store: references and formats", () => {
         expect(moduleEntry("modules/Bare/Bare.dsp", "process = _;")).toMatchObject({ name: "Bare", summary: "", functions: [] });
     });
 
-    it("finds the modules and the scenes of a repository", () => {
-        expect(contentsOf(["README.md", "modules/Drone/Drone.dsp", "scenes/Nappe/Nappe.jfaust", "scenes/Nappe/preview.png", "other/x.dsp", ".github/x.dsp"]))
-            .toEqual({ modules: ["modules/Drone/Drone.dsp"], scenes: ["scenes/Nappe/Nappe.jfaust"] });
+    it("finds the modules, the scenes and the descriptions of materials of a repository", () => {
+        expect(contentsOf(["README.md", "modules/Drone/Drone.dsp", "scenes/Nappe/Nappe.jfaust", "scenes/Nappe/preview.png", "other/x.dsp", ".github/x.dsp",
+            "materials/Nappe-1/Nappe-1.json", "materials/Nappe-1/Nappe-1.flac", "materials/x.json"]))
+            .toEqual({ modules: ["modules/Drone/Drone.dsp"], scenes: ["scenes/Nappe/Nappe.jfaust"], materials: ["materials/Nappe-1/Nappe-1.json"] });
     });
 });
 
