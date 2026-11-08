@@ -31,6 +31,8 @@ import { shareLink } from "../store/Publishing";
 import { StoreDialog, publishErrorText } from "./StoreDialog";
 import { Confirm } from "../Messages";
 import { encodeFlacAsync } from "../audio/Flac";
+import { recallScene } from "../store/Recall";
+import { faustWasmEnv } from "../Main";
 
 // the examples of public/json
 const EXAMPLES: Array<{ key: "exampleSmall" | "exampleBig" | "exampleMultichannel" | "exampleModulation"; file: string }> = [
@@ -80,11 +82,12 @@ export class FileMenu {
         Utilitary.showFullPageLoading();
         try {
             const done = await publish(p);
-            const link = shareLink(location.origin + location.pathname, parseStoreRef(done.store)!, done.commit, done.path);
+            const material = (done as { material?: string }).material;
+            // a recording: the link recalls its scene (?recording=)
+            const link = shareLink(location.origin + location.pathname, parseStoreRef(done.store)!, done.commit, material ?? done.path, material ? "recording" : "scene");
             let copied = false;
             try { await navigator.clipboard.writeText(link); copied = true; } catch { /* not allowed */ }
             const modules = (done as { modules?: string[] }).modules ?? [];
-            const material = (done as { material?: string }).material;
             const also = modules.length ? " " + t.storePublishedModules.replace("%n", String(modules.length)).replace("%m", modules.map((m) => m.split("/")[1]).join(", ")) : "";
             const text = material ? (copied ? t.recordingPublished : t.recordingPublishedLink).replace("%m", material.split("/")[1])
                 : (copied ? t.storePublished : t.storePublishedLink);
@@ -242,11 +245,22 @@ export class FileMenu {
             label: t.fileOpenFromStore,
             items: ready.map((state) => {
                 const scenes = state.store!.index.scenes;
+                const recordings = (state.store!.index.materials ?? []).filter((m) => m.kind == "recording");
+                const sceneItems: MenuItem[] = scenes.length == 0 ? [{ label: t.storeNoScene, enabled: false }] : scenes.map((scene) => ({
+                    label: scene.name, title: scene.summary ?? scene.path, action: () => { this.openFromStore(state.key, scene.path) },
+                }));
+                // the recordings (Documentation/MATERIALS-SPEC.md): their scene recalled, listened to, downloaded
+                const recordingItems: MenuItem[] = recordings.length == 0 ? [] : ["separator", { label: t.storeRecordings, enabled: false }, ...recordings.map((m) => ({
+                    label: m.name, title: [m.recordingOf, m.date].filter(Boolean).join(" · "),
+                    items: [
+                        { label: t.recordingOpenScene, enabled: !!(m.recordingOf ?? m.from?.path), action: () => { this.openRecording(state.key, m.path) } },
+                        { label: t.recordingListen, enabled: !!m.media, action: () => { this.listen(state.key, m.media!.path) } },
+                        { label: t.recordingDownload, enabled: !!m.media, action: () => { this.download(state.key, m.media!.path) } },
+                    ],
+                }))];
                 return {
-                    label: state.store!.manifest.name || state.key, title: state.key, enabled: scenes.length > 0,
-                    items: scenes.length == 0 ? [{ label: t.storeNoScene, enabled: false }] : scenes.map((scene) => ({
-                        label: scene.name, title: scene.summary ?? scene.path, action: () => { this.openFromStore(state.key, scene.path) },
-                    })),
+                    label: state.store!.manifest.name || state.key, title: state.key, enabled: scenes.length + recordings.length > 0,
+                    items: [...sceneItems, ...recordingItems],
                 };
             }),
         };
@@ -268,6 +282,50 @@ export class FileMenu {
         }
         // named as in its file (its name, not the name of its file in the store)
         return this.openText(text, sceneNameIn(text) ?? sceneNameOf(path.split("/").pop()!));
+    }
+
+    // The scene of a recording (`path`: its description or its media), as it was when the recording started
+    // (store/Recall.ts), as a new document; said if it is not that version, or if libfaust is another one.
+    async openRecording(store: string, path: string): Promise<boolean> {
+        const t = Utilitary.messageResource;
+        const ref = parseStoreRef(store);
+        if (!ref || !this.stores) return false;
+        let recalled;
+        try {
+            Utilitary.showFullPageLoading();
+            recalled = await recallScene(this.stores.reader, ref, path, this.publishing?.tokens.get(store) ?? undefined);
+        } catch {
+            Utilitary.hideFullPageLoading();
+            new Message(t.storeUnreadable.replace("%s", store + " : " + path));
+            return false;
+        }
+        const opened = await this.openText(recalled.content, sceneNameIn(recalled.content) ?? sceneNameOf(recalled.scene.split("/").pop()!));
+        if (!opened) return false;
+        let text = (recalled.exact ? t.recordingRecalled : t.recordingRecalledOther).replace("%r", recalled.material.name).replace("%s", recalled.scene);
+        const then = recalled.material.faust?.libfaust;
+        let now = "";
+        try { now = faustWasmEnv.faustCompiler.version(); } catch { /* unknown */ }
+        if (then && now && then != now) text += " " + t.recordingOtherLibfaust.replace("%a", then).replace("%b", now);
+        new Message(text, undefined, 8000);
+        return true;
+    }
+
+    // A media of a store, in a new tab (the browser plays it).
+    private listen(store: string, path: string): void {
+        const ref = parseStoreRef(store);
+        if (!ref || !this.stores) return;
+        const tab = window.open("", "_blank");
+        this.stores.reader.bytes(ref, path, this.publishing?.tokens.get(store) ?? undefined)
+            .then((bytes) => { const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mediaType(path) })); if (tab) tab.location.href = url; else window.open(url, "_blank"); })
+            .catch(() => { tab?.close(); new Message(Utilitary.messageResource.storeUnreadable.replace("%s", store + " : " + path)); });
+    }
+
+    private download(store: string, path: string): void {
+        const ref = parseStoreRef(store);
+        if (!ref || !this.stores) return;
+        this.stores.reader.bytes(ref, path, this.publishing?.tokens.get(store) ?? undefined)
+            .then((bytes) => saveAs(new Blob([bytes as BlobPart], { type: mediaType(path) }), path.split("/").pop()!))
+            .catch(() => new Message(Utilitary.messageResource.storeUnreadable.replace("%s", store + " : " + path)));
     }
 
     // The scene written to its file (or downloaded), then not modified any more.
@@ -318,4 +376,8 @@ export class FileMenu {
         Utilitary.showFullPageLoading();
         Utilitary.getXHR("json/" + file + ".json", (json: string) => { Utilitary.currentScene.recallScene(json) }, null as any);
     }
+}
+
+function mediaType(path: string): string {
+    return /\.flac$/i.test(path) ? "audio/flac" : /\.wav$/i.test(path) ? "audio/wav" : /\.opus$/i.test(path) ? "audio/ogg" : "application/octet-stream";
 }

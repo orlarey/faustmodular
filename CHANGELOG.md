@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.53.0 (2026-11-08)
+
+- **Recipes and materials**, a specification (`Documentation/MATERIALS-SPEC.md`): a recording is the materialization
+  of a scene; both kept, linked, form a graph of provenance (`recordingOf`, `uses`, `derivedFrom`) checked by
+  content hashes; the recall of a scene, a player module (Faust `soundfile`, on the shared timeline), the offline
+  rendering (reproducibility), the environment pinned; phases and criteria.
+- **Recalling the scene of a recording**: File ▸ Open from a store ▸ a store ▸ *Recordings* ▸ a recording ▸ *Open its
+  scene*, *Listen*, *Download*. Its scene opens **as it was when it was recorded**, even if published again since:
+  found by the SHA-1 of its content (`from.sha1`), at the head of the branch, else at the commit of the recording,
+  else in the versions of the scene (`src/store/Recall.ts`); said if that version cannot be found, and if libfaust
+  is another version than the one of the recording.
+- **`?recording=<the address of a recording on GitHub>`** (its description or its media) recalls its scene; the link
+  copied after publishing a recording is this one.
+- The description of a recording notes the version of libfaust (`faust.libfaust`).
+- `fauststore` 1.2.0: `recallScene`, `StoreReader.commitsOf` (the versions of a file), `StoreReader.bytes`.
+
 ## 3.52.0 (2026-11-08)
 
 - **FLAC**: ● Record writes FLAC 24 bits by default (lossless, about half the size of the WAV; *File: WAV* in the menu

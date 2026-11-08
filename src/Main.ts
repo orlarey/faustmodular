@@ -152,6 +152,13 @@ export function resumeInit(app: App) {
 
 // A link to a store (?store=…&scene=…): the scene opened as a new document, or the library on the store.
 function openStoreLink(app: App, stores: Stores) {
+    // ?recording=<the address of its description or of its media on GitHub>: its scene recalled (MATERIALS-SPEC.md)
+    var recording = storeLink(location.search, "recording");
+    if (recording?.scene) {
+        history.replaceState(history.state, "", withoutStoreLink(location.href, "recording"));
+        app.menu.fileMenu.openRecording(recording.store, recording.scene);
+        return;
+    }
     var link = storeLink(location.search);
     if (!link) return;
     history.replaceState(history.state, "", withoutStoreLink(location.href));

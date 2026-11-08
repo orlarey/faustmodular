@@ -165,6 +165,43 @@ describe("recording from the transport", () => {
         expect(fiche).toMatchObject({ kind: "recording", recordingOf: "scenes/Horloge/Horloge.jfaust", frames: 2 * local.sampleRate, timeline: { tempo: 120, meter: 4, lengthTicks: 3840 } });
         const index = parseIndex(JSON.parse(files.get("index.json")!))!;
         expect(index.scenes.find((s) => s.path == "scenes/Horloge/Horloge.jfaust")!.recordings).toEqual([flacPath.replace(/\.flac$/, ".json")]);
+        // the link copied recalls the scene of the recording (?recording=)
+        // (copied; when the page may not write the clipboard, the message gives it)
+        // (after the commit, the store is read again, then the link copied and said)
+        await page.waitForFunction(() => /Published to o\/r/.test(document.body.innerText), null, { timeout: 15_000 });
+        const link = await page.evaluate(async () => (await navigator.clipboard.readText().catch(() => "")) || (/https?:\S+\?recording=\S+/.exec(document.body.innerText)?.[0] ?? ""));
+        expect(link).toMatch(/\?recording=https:\/\/github\.com\/o\/r\/blob\/[0-9a-f]{40}\/materials\//);
+        // the scene changed (a second module) and published again: the recording keeps its own
+        await page.evaluate(async () => {
+            const { app, scene } = (globalThis as any).faustPlayground;
+            app.uploadUrl(app, null, 300, 400, location.origin + "/faust-modules/modular/SyncClock.dsp");
+            while (scene.getModules().length < 2) await new Promise((r) => setTimeout(r, 20));
+        });
+        await page.waitForTimeout(600);
+        const beforeAgain = gh.head;
+        await page.locator("#documentsButtonMenu").click();
+        await page.locator(".context-menu-item", { hasText: "Publish the scene to my store" }).click();
+        // already in the store: the dialog says it will be replaced
+        await page.locator(".publishDialog button", { hasText: "Publish" }).click();
+        for (let i = 0; i < 200 && gh.head == beforeAgain; i++) await new Promise((r) => setTimeout(r, 50));
+        expect(JSON.parse(gh.files().get("scenes/Horloge/Horloge.jfaust")!).modules.filter((m: any) => m.kind == "faust").length).toBe(2);
+        // ?recording= at the head of the branch: the version of the recording (one module), found by its SHA-1
+        const recall = await context.newPage();
+        recall.on("pageerror", (e) => errors.push(e.message));
+        await recall.goto(url + "?starter=0&recording=" + encodeURIComponent("https://github.com/o/r/blob/HEAD/" + flacPath));
+        await recall.waitForFunction(() => {
+            const fp = (globalThis as any).faustPlayground;
+            // a new document (named "Horloge 2" if the name is taken in this browser), with the one module of the recording
+            return /^Horloge( \d+)?$/.test(fp?.documents?.current?.name ?? "") && fp.scene.getModules().length == 1;
+        }, null, { timeout: 60_000 });
+        // said so: the scene of the recording, the one it was made with
+        await recall.waitForFunction(() => document.body.innerText.includes("as it was when it was recorded"), null, { timeout: 10_000 });
+        expect(new URL(recall.url()).searchParams.get("recording")).toBeNull();
+        // the File menu lists the recordings of the store, with their actions
+        await recall.locator("#documentsButtonMenu").click();
+        await recall.locator(".context-menu-item", { hasText: "Open from a store" }).hover();
+        await recall.locator(".context-menu-item", { hasText: "Test store" }).hover();
+        expect(await recall.locator(".context-menu-item", { hasText: "Recordings" }).count()).toBeGreaterThan(0);
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

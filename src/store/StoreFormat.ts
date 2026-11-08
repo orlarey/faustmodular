@@ -129,6 +129,7 @@ export interface StoreMaterial {
     recordingOf?: string;       // the path of the scene, in this store
     from?: { store?: string; path: string; sha1?: string; commit?: string };
     generator?: string;
+    faust?: { libfaust?: string };   // the version of libfaust it was made with (MATERIALS-SPEC.md, "L'environnement épinglé")
     timeline?: { tempo: number; meter: number; startTick: number; lengthTicks: number };
     live?: string[];
     date?: string;
@@ -186,6 +187,7 @@ export function parseMaterial(json: unknown, path: string, blob?: string): Store
         recordingOf: safePath(m.recordingOf) ? m.recordingOf : undefined,
         from: m.from && safePath(m.from.path) ? { store: text(m.from.store, 200), path: m.from.path, sha1: sha(m.from.sha1), commit: sha(m.from.commit) } : undefined,
         generator: text(m.generator, 100),
+        faust: m.faust && typeof m.faust.libfaust == "string" ? { libfaust: text(m.faust.libfaust, 40) } : undefined,
         timeline: m.timeline && [m.timeline.tempo, m.timeline.meter, m.timeline.startTick, m.timeline.lengthTicks].every((v: unknown) => num(v) !== undefined)
             ? { tempo: m.timeline.tempo, meter: m.timeline.meter, startTick: m.timeline.startTick, lengthTicks: m.timeline.lengthTicks } : undefined,
         live: Array.isArray(m.live) ? texts(m.live) : undefined,

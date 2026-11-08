@@ -6,7 +6,7 @@
     dependency, that faustcode keeps a copy of (webapp/vendor/fauststore/).
 */
 
-export const FAUSTSTORE_VERSION = "1.1.0";
+export const FAUSTSTORE_VERSION = "1.2.0";
 
 export * from "./StoreFormat";
 export * from "./StoreIndex";
@@ -16,5 +16,6 @@ export * from "./Stores";
 export * from "./Publishing";
 export * from "./StoreLink";
 export * from "./ScenePlan";
+export * from "./Recall";
 export { sha1, normalizeText } from "../documents/Sha1";
 export { wrapModuleCode, unwrapModuleCode, userCode } from "../model/ModuleCode";

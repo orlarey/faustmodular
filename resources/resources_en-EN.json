@@ -303,5 +303,12 @@
   "recordWav": "File: WAV",
   "publishRecording": "Publish the scene and its recording",
   "recordingPublished": "Published to %s: %p, with its recording %m. The link to share it is copied.",
-  "recordingPublishedLink": "Published to %s: %p, with its recording %m. Link to share it: %l"
+  "recordingPublishedLink": "Published to %s: %p, with its recording %m. Link to share it: %l",
+  "storeRecordings": "Recordings",
+  "recordingOpenScene": "Open its scene",
+  "recordingListen": "Listen",
+  "recordingDownload": "Download",
+  "recordingRecalled": "The scene of the recording %r, as it was when it was recorded (%s).",
+  "recordingRecalledOther": "The scene %s as it is now: the version of the recording %r was not found.",
+  "recordingOtherLibfaust": "Recorded with libfaust %a, played with %b: it may sound otherwise."
 }

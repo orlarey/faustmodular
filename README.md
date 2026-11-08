@@ -151,6 +151,9 @@ sample: the position is counted in audio samples, not with timers (see
 lossless; or WAV): until you stop it, or a number of bars, always from the start of a bar, to the sample. With the
 transport stopped, it starts it. The file is downloaded, named after the scene and the time; File ▸ *Publish the
 scene and its recording* puts both in your store, in one commit, the recording linked to the scene it came from.
+From a recording of a store (File ▸ *Open from a store* ▸ *Recordings*, or a link `?recording=`), *Open its scene*
+gives back the scene exactly as it was recorded, to make variants (see
+[recipes and materials](Documentation/MATERIALS-SPEC.md)).
 
 ## Scenes and files
 

@@ -96,6 +96,7 @@ export interface RecordingResult {
         format: "fauststore-material"; version: 1; kind: "recording"; name: string;
         sampleRate: number; channels: number; frames: number;
         generator: string;
+        faust: { libfaust: string };
         timeline: { tempo: number; meter: number; startTick: number; lengthTicks: number };
         live: string[];
         date: string;
@@ -111,6 +112,7 @@ export interface RecorderSetup {
     generator: string;
     live: () => string[];                       // what the recipe does not replay (microphone, sync…)
     recipe: () => Recipe | null;                // the scene, when the recording starts
+    libfaust: () => string;                     // the version of libfaust (the environment of the recipe)
     done: (result: RecordingResult) => void;
     failed: (error: unknown) => void;
 }
@@ -287,6 +289,7 @@ export class Recorder {
                     format: "fauststore-material", version: 1, kind: "recording", name: name.replace(/\.(wav|flac)$/, ""),
                     sampleRate: context.sampleRate, channels: this.fChannels, frames,
                     generator: this.fSetup.generator,
+                    faust: { libfaust: this.fSetup.libfaust() },
                     timeline: { tempo: rule?.tempo ?? t.tempo, meter: rule?.meter ?? t.meter, startTick: this.startTick, lengthTicks },
                     live: [...this.fLive].sort(),
                     date: this.fDate.toISOString().replace(/\.\d+Z$/, "Z"),

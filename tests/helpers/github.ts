@@ -33,6 +33,20 @@ export function github(initial: Record<string, string>, token = "good") {
         if (rest == "") return json(200, { default_branch: "master", private: false, permissions: { push: auth == `Bearer ${token}` } });
         if (rest.startsWith("/git/trees/HEAD")) return json(200, { tree: await treeOf(commits.get(head)!.files) });
         if (rest == "/git/ref/heads/master") return json(200, { object: { sha: head } });
+        // the commits that changed a file, the latest first (from the head, along the first parents)
+        const log = /^\/commits\?path=([^&]+)&sha=([^&]+)/.exec(rest);
+        if (log && method == "GET") {
+            const path = decodeURIComponent(log[1]);
+            const out: Array<{ sha: string }> = [];
+            for (let c: string | undefined = log[2] == "HEAD" ? head : log[2]; c;) {
+                const commit = commits.get(c)!;
+                const parent = commit.parents[0];
+                const before = parent ? commits.get(parent)!.files.get(path) : undefined;
+                if (commit.files.get(path) !== before) out.push({ sha: c });
+                c = parent;
+            }
+            return json(200, out);
+        }
         let c = /^\/git\/commits\/(\w+)$/.exec(rest);
         if (c && method == "GET") return json(200, { sha: c[1], tree: { sha: "t" + c[1] } });
         c = /^\/git\/trees\/t(\w+)\?recursive=1$/.exec(rest);
@@ -76,6 +90,12 @@ export function github(initial: Record<string, string>, token = "good") {
     return {
         fetch, calls,
         get head() { return head; },
+        // a file changed by hand (a commit on the branch)
+        put(path: string, content: string) {
+            const sha = id();
+            commits.set(sha, { files: new Map([...commits.get(head)!.files, [path, content]]), parents: [head], message: "by hand" });
+            head = sha;
+        },
         files: () => commits.get(head)!.files,
         commit: (sha: string) => commits.get(sha)!,
         // someone else publishes, between the commit made and the branch moved

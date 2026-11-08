@@ -20,6 +20,7 @@ import { APP_TITLE } from "../Version";
 import { saveAs } from "file-saver";
 import { OUTPUT_ID } from "../Scenes/SceneClass";
 import { storedCode } from "../documents/DocumentFormat";
+import { faustWasmEnv } from "../Main";
 
 declare global {
     interface Document {
@@ -108,6 +109,7 @@ export class Menu {
                 channels: () => recordedChannels(scene),
                 scene: () => scene.sceneName,
                 generator: APP_TITLE,
+                libfaust: () => { try { return faustWasmEnv.faustCompiler.version(); } catch { return ""; } },
                 live: () => (scene.microphoneOn ? ["microphone"] : []),
                 // the recipe: the scene as it is when the recording starts (its file, the codes of its modules)
                 recipe: () => {

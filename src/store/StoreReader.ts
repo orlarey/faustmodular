@@ -63,6 +63,22 @@ export class StoreReader {
         return response.text();
     }
 
+    // A file of a store, as bytes (a media).
+    async bytes(ref: StoreRef, path: string, token?: string): Promise<Uint8Array> {
+        let response: Response;
+        try {
+            const encoded = path.split("/").map(encodeURIComponent).join("/");
+            response = token
+                ? await this.api(this.apiUrl(ref, `contents/${encoded}`) + (ref.ref ? `?ref=${encodeURIComponent(ref.ref)}` : ""), token, "application/vnd.github.raw")
+                : await this.fFetch(this.rawUrl(ref, path));
+        } catch (e) {
+            throw new StoreError("network", String(e));
+        }
+        if (response.status == 404) throw new StoreError("notFound", path);
+        if (!response.ok) throw new StoreError("network", `${response.status} ${path}`);
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
     async open(ref: StoreRef, token?: string): Promise<OpenedStore> {
         let manifest: StoreManifest | null = null;
         try {
@@ -100,6 +116,19 @@ export class StoreReader {
         } catch {
             return null;
         }
+    }
+
+    // The commits that changed a file, the latest first (at most 100; one call of the API): the versions of an element.
+    async commitsOf(ref: StoreRef, path: string, token?: string): Promise<string[]> {
+        let response: Response;
+        try {
+            response = await this.api(this.apiUrl(ref, `commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(ref.ref ?? "HEAD")}&per_page=100`), token);
+        } catch (e) {
+            throw new StoreError("network", String(e));
+        }
+        if (!response.ok) throw new StoreError(response.status == 404 ? "notFound" : "network", `${response.status} commits`);
+        const list = await response.json();
+        return Array.isArray(list) ? list.map((c: any) => c?.sha).filter((s: unknown): s is string => typeof s == "string" && /^[0-9a-f]{40}$/.test(s)) : [];
     }
 
     // The files of the repository, with their git blobs (one call of the API).

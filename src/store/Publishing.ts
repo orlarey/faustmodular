@@ -76,8 +76,9 @@ export interface RecordingToPublish { name: string; flac: Uint8Array; descriptio
 
 // The link to open an element published, at its commit: the address of its file on GitHub after ?scene= (STORE-SPEC.md,
 // "Partager une scène par son adresse").
-export function shareLink(app: string, ref: StoreRef, commit: string, path: string): string {
-    return `${app}?scene=https://github.com/${ref.owner}/${ref.repo}/blob/${commit}/${path.split("/").map(encodeURIComponent).join("/")}`;
+// `param`: "scene" (a scene), "recording" (a recording: its scene recalled), "file" (faustcode).
+export function shareLink(app: string, ref: StoreRef, commit: string, path: string, param = "scene"): string {
+    return `${app}?${param}=https://github.com/${ref.owner}/${ref.repo}/blob/${commit}/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 export class Publishing {

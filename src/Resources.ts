@@ -155,6 +155,13 @@ export class Resources {
     publishRecording: string;
     recordingPublished: string;
     recordingPublishedLink: string;
+    storeRecordings: string;
+    recordingOpenScene: string;
+    recordingListen: string;
+    recordingDownload: string;
+    recordingRecalled: string;
+    recordingRecalledOther: string;
+    recordingOtherLibfaust: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;
