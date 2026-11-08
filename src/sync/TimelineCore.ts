@@ -20,7 +20,8 @@
     The outputs, one channel each, at every sample: the position in the bar (beats, from 0 to meter, continuous),
     running (0 or 1), start (1 for a sample when the playing starts from the beginning of the song), the tempo, the
     meter, the index (the tick in the bar, an integer from 0 to PPQ · meter − 1, exact in a float), tick (1 at the
-    sample of each tick).
+    sample of each tick), bar (the bar from the start of the song, an integer from 0: where a player plays its material,
+    Documentation/MATERIALS-SPEC.md).
 */
 
 export interface TimelineRule {
@@ -34,7 +35,7 @@ export interface TimelineRule {
     playing: boolean;
 }
 
-export const TIMELINE_CHANNELS = ["beat", "run", "start", "tempo", "meter", "index", "tick"];
+export const TIMELINE_CHANNELS = ["beat", "run", "start", "tempo", "meter", "index", "tick", "bar"];
 
 export class TimelineCore {
     static PPQ = 960;
@@ -148,6 +149,7 @@ export class TimelineCore {
             if (out[4]) out[4][i] = c.meter;
             if (out[5]) out[5][i] = index;
             if (out[6]) out[6][i] = this.previous !== null && k > this.previous ? 1 : 0;
+            if (out[7]) out[7][i] = Math.floor(k / bar);
             this.previous = k;
             this.started = false;
         }

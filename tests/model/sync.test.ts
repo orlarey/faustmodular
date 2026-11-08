@@ -130,6 +130,25 @@ describe("Timeline core", () => {
     });
 });
 
+describe("Timeline core: the bar", () => {
+    it("counts the bars from the start of the song, and changes at the very sample where a bar begins", async () => {
+        const { frameOfTick } = await import("../../src/audio/Recording");
+        const core = new TimelineCore(SR);
+        const r = TimelineCore.rule(0, 0, 0, 97, 3, true, SR);      // 97 BPM, 3/4: a bar is not a whole number of samples
+        core.schedule(r);
+        const n = SR * 6;
+        const out = Array.from({ length: 8 }, () => new Float32Array(n));
+        core.render(0, out, n);
+        const bar = out[7];
+        const changes: number[] = [];
+        for (let i = 1; i < n; i++) if (bar[i] != bar[i - 1]) { changes.push(i); expect(bar[i]).toBe(bar[i - 1] + 1); }
+        expect(bar[0]).toBe(0);
+        expect(changes).toEqual([1, 2, 3].map((b) => frameOfTick(r, b * 3 * PPQ)));
+        // the index starts again at the same samples
+        for (const f of changes) expect(out[5][f]).toBe(0);
+    });
+});
+
 describe("Timeline core: corrections", () => {
     const run = (core: TimelineCore, start: number, n: number) => {
         const out = Array.from({ length: 7 }, () => new Float32Array(n));
@@ -167,6 +186,7 @@ describe("reserved inputs", () => {
     it("are read from declare sync, as channels of the Timeline node", () => {
         expect(syncInputs('declare sync "beat; run; start; tempo; meter";\nprocess = _;')).toEqual([0, 1, 2, 3, 4]);
         expect(syncInputs('declare sync "index; tick";')).toEqual([5, 6]);
+        expect(syncInputs('declare sync "bar; index; run; start";')).toEqual([7, 5, 1, 2]);
         expect(syncInputs('declare sync "tempo beat";')).toEqual([3, 0]);
         expect(syncInputs("process = _;")).toEqual([]);
     });

@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.54.0 (2026-11-08)
+
+- **The player**: a recording of a store becomes a module of the scene (File ▸ Open from a store ▸ a store ▸
+  *Recordings* ▸ a recording ▸ *Add as a player*; `src/model/Player.ts`): the next layer
+  (`Documentation/MATERIALS-SPEC.md`). Its Faust code plays the media by the primitive `soundfile` (faustwasm fetches
+  it, the browser decodes the FLAC), **at a commit of the store** (always the same file), on the timeline shared by
+  the Faust applications: it starts at the very sample where its bar begins, and plays its sample k at the k-th
+  sample after. Its controls: *Bar* (where it starts; the bar of the recording by default), *Loop* (again every so
+  many bars, its length), *Gain*. At the tempo of the recording, it is played as recorded: a material played and
+  recorded again gives back its samples, to a step of 24 bits (tested on noise, where a sample off would show).
+- **A new channel of the timeline, `bar`**: the bar from the start of the song, an integer, changing at the very
+  sample where a bar begins (`declare sync "bar; …"`; `Documentation/FAUST-SYNC-SPEC.md`).
+- **The relation `uses`**: a player declares the material it plays (`declare uses "<store>:<path>"`); the index lists
+  the materials each scene plays (`uses`) and the scenes that play each material (`usedBy`); a recording notes the
+  materials its scene played: the layers below.
+- `fauststore` 1.3.0.
+
 ## 3.53.0 (2026-11-08)
 
 - **Recipes and materials**, a specification (`Documentation/MATERIALS-SPEC.md`): a recording is the materialization

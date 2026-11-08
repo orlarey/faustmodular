@@ -162,6 +162,8 @@ export class Resources {
     recordingRecalled: string;
     recordingRecalledOther: string;
     recordingOtherLibfaust: string;
+    recordingAddPlayer: string;
+    recordingPlayerFailed: string;
     titleDisplay: string;
     faustcodeLibfaustMismatch: string;
     moduleUpdate: string;

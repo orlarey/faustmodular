@@ -32,6 +32,8 @@ import { StoreDialog, publishErrorText } from "./StoreDialog";
 import { Confirm } from "../Messages";
 import { encodeFlacAsync } from "../audio/Flac";
 import { recallScene } from "../store/Recall";
+import { playerCode } from "../model/Player";
+import { TimelineCore } from "../sync/TimelineCore";
 import { faustWasmEnv } from "../Main";
 
 // the examples of public/json
@@ -254,6 +256,7 @@ export class FileMenu {
                     label: m.name, title: [m.recordingOf, m.date].filter(Boolean).join(" · "),
                     items: [
                         { label: t.recordingOpenScene, enabled: !!(m.recordingOf ?? m.from?.path), action: () => { this.openRecording(state.key, m.path) } },
+                        { label: t.recordingAddPlayer, enabled: !!m.media, action: () => { this.addPlayer(state.key, m.path) } },
                         { label: t.recordingListen, enabled: !!m.media, action: () => { this.listen(state.key, m.media!.path) } },
                         { label: t.recordingDownload, enabled: !!m.media, action: () => { this.download(state.key, m.media!.path) } },
                     ],
@@ -308,6 +311,33 @@ export class FileMenu {
         if (then && now && then != now) text += " " + t.recordingOtherLibfaust.replace("%a", then).replace("%b", now);
         new Message(text, undefined, 8000);
         return true;
+    }
+
+    // A player of a recording of a store (model/Player.ts), in the scene: its media at the commit of the store now (the
+    // same file for ever), at its bar of the shared timeline.
+    async addPlayer(store: string, path: string): Promise<boolean> {
+        const t = Utilitary.messageResource;
+        const ref = parseStoreRef(store);
+        const material = this.stores?.get(store)?.store?.index.materials?.find((m) => m.path == path);
+        if (!ref || !this.stores || !material?.media) return false;
+        Utilitary.showFullPageLoading();
+        try {
+            const token = this.publishing?.tokens.get(store) ?? undefined;
+            const commit = ref.ref && /^[0-9a-f]{40}$/.test(ref.ref) ? ref.ref : await this.stores.reader.commitOf(ref, token);
+            const url = this.stores.reader.rawUrl({ ...ref, ref: commit ?? ref.ref }, material.media.path);
+            const meter = material.timeline?.meter ?? 4;
+            const bar = TimelineCore.PPQ * meter;
+            const bars = material.timeline ? Math.max(1, Math.ceil(material.timeline.lengthTicks / bar - 1e-9)) : 1;
+            const code = playerCode({
+                name: material.name, url, channels: material.channels ?? 2, bars, bar: material.timeline ? Math.floor(material.timeline.startTick / bar) : 0,
+                store: `${ref.owner}/${ref.repo}`, path: material.path, sha1: material.media.sha1,
+            });
+            const module = await Utilitary.currentScene.addModuleFromCode(material.name, code);
+            if (typeof module == "string") { new Message(t.recordingPlayerFailed.replace("%s", module)); return false; }
+            return true;
+        } finally {
+            Utilitary.hideFullPageLoading();
+        }
     }
 
     // A media of a store, in a new tab (the browser plays it).

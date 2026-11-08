@@ -15,6 +15,7 @@
 
 import { barsEnd, barStart, encodePcm24Wav, joinBlocks, recordingName, ticksPerBar } from "./Recording";
 import { encodeFlacAsync } from "./Flac";
+import { usesOf } from "../model/Player";
 import type { SharedTimeline } from "../sync/SharedTimeline";
 import type { TimelineRule } from "../sync/TimelineCore";
 
@@ -99,6 +100,7 @@ export interface RecordingResult {
         faust: { libfaust: string };
         timeline: { tempo: number; meter: number; startTick: number; lengthTicks: number };
         live: string[];
+        uses?: string[];
         date: string;
     };
 }
@@ -292,6 +294,8 @@ export class Recorder {
                     faust: { libfaust: this.fSetup.libfaust() },
                     timeline: { tempo: rule?.tempo ?? t.tempo, meter: rule?.meter ?? t.meter, startTick: this.startTick, lengthTicks },
                     live: [...this.fLive].sort(),
+                    // the materials its players played: the layers below (MATERIALS-SPEC.md, uses)
+                    ...(this.fRecipe ? usesOfRecipe(this.fRecipe) : {}),
                     date: this.fDate.toISOString().replace(/\.\d+Z$/, "Z"),
                 },
             };
@@ -318,4 +322,10 @@ export class Recorder {
 
 function storedFormat(): RecordFormat {
     try { return localStorage.getItem(FORMAT_KEY) == "wav" ? "wav" : "flac"; } catch { return "flac"; }
+}
+
+// The materials played by the players of a recipe, if any.
+function usesOfRecipe(recipe: Recipe): { uses?: string[] } {
+    const uses = [...new Set(recipe.modules.map((m) => usesOf(m.code)).filter((u): u is string => !!u))];
+    return uses.length ? { uses } : {};
 }

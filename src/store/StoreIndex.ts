@@ -30,6 +30,18 @@ export async function sceneCodes(content: string): Promise<string[]> {
     }
 }
 
+// The materials the players of a scene play (`declare uses "<store>:<path>"` in the code of its modules).
+export function sceneUses(content: string): string[] {
+    try {
+        const file = JSON.parse(content);
+        const uses = (file.modules ?? []).filter((m: any) => m?.kind == "faust" && typeof m.code == "string")
+            .map((m: any) => /^\s*declare\s+uses\s+"([^"]+)"\s*;/m.exec(m.code)?.[1]).filter((u: unknown): u is string => typeof u == "string");
+        return [...new Set<string>(uses)];
+    } catch {
+        return [];
+    }
+}
+
 // The name of a scene in its file (sceneName), or null.
 export function sceneNameIn(content: string): string | null {
     try {
@@ -79,9 +91,12 @@ export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, r
             entry.name = sceneNameIn(published) ?? entry.name;
             entry.sha = await gitBlobSha(published);
             entry.codes = await sceneCodes(published);
+            const uses = sceneUses(published);
+            entry.uses = uses.length ? uses : undefined;
             entry.updated = changes!.date;
         } else {
             entry.codes = old?.codes;
+            entry.uses = old?.uses;
             entry.updated = old?.updated;
             return named(entry);
         }
@@ -98,10 +113,15 @@ export async function buildIndex(tree: TreeEntry[], before: StoreIndex | null, r
         try { return parseMaterial(JSON.parse(content), path, await gitBlobSha(content)); } catch { return null; }
     }));
     const kept = builtMaterials.filter((m): m is StoreMaterial => m !== null);
-    // recordingOf, read the other way: the recordings of each scene
+    // recordingOf, read the other way: the recordings of each scene; uses, read the other way: the scenes that play
+    // each material (a use names a store: "<store>:<path>", matched here by its path)
     for (const scene of builtScenes) {
         const recordings = kept.filter((m) => m.recordingOf == scene.path).map((m) => m.path);
         scene.recordings = recordings.length ? recordings : undefined;
+    }
+    for (const m of kept) {
+        const usedBy = builtScenes.filter((s) => s.uses?.some((u) => u.endsWith(":" + m.path))).map((s) => s.path);
+        m.usedBy = usedBy.length ? usedBy : undefined;
     }
     const index: StoreIndex = { modules: builtModules.filter((m): m is StoreModule => m !== null), scenes: builtScenes };
     if (kept.length) index.materials = kept;

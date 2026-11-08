@@ -310,5 +310,7 @@
   "recordingDownload": "Télécharger",
   "recordingRecalled": "La scène de l'enregistrement %r, telle qu'elle était quand il a été fait (%s).",
   "recordingRecalledOther": "La scène %s telle qu'elle est : la version de l'enregistrement %r est introuvable.",
-  "recordingOtherLibfaust": "Enregistré avec libfaust %a, joué avec %b : le son peut différer."
+  "recordingOtherLibfaust": "Enregistré avec libfaust %a, joué avec %b : le son peut différer.",
+  "recordingAddPlayer": "Ajouter comme lecteur",
+  "recordingPlayerFailed": "Le lecteur n'a pas pu être fait : %s"
 }

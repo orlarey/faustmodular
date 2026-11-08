@@ -310,5 +310,7 @@
   "recordingDownload": "Download",
   "recordingRecalled": "The scene of the recording %r, as it was when it was recorded (%s).",
   "recordingRecalledOther": "The scene %s as it is now: the version of the recording %r was not found.",
-  "recordingOtherLibfaust": "Recorded with libfaust %a, played with %b: it may sound otherwise."
+  "recordingOtherLibfaust": "Recorded with libfaust %a, played with %b: it may sound otherwise.",
+  "recordingAddPlayer": "Add as a player",
+  "recordingPlayerFailed": "The player could not be made: %s"
 }

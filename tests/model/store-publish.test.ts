@@ -173,6 +173,19 @@ describe("store: publishing", () => {
         expect(gh.head).toBe(head);
     });
 
+    it("indexes the relation uses both ways: a scene and the materials its players play, a material and its scenes", async () => {
+        const gh = github({ "fauststore.json": MANIFEST, "README.md": "#" });
+        const { p } = publishing(gh);
+        await p.configure("o/r", "good");
+        const below = await p.publishRecording("o/r", "Base", JSON.stringify({ format: "faustplayground-patch", version: 2, sceneName: "Base", modules: [], connections: [] }), new Map(),
+            { name: "Base-1", flac: new Uint8Array([1, 2, 3]), description: {} });
+        const player = 'process = vgroup("Base-1",environment{\ndeclare uses "o/r:' + below.material + '";\nprocess = 0;\n}.process);';
+        await p.publishScene("o/r", "Layer", JSON.stringify({ format: "faustplayground-patch", version: 2, sceneName: "Layer", modules: [{ kind: "faust", name: "Base-1", code: player }], connections: [] }));
+        const index = parseIndex(JSON.parse(gh.files().get("index.json")!))!;
+        expect(index.scenes.find((s) => s.path == "scenes/Layer/Layer.jfaust")!.uses).toEqual(["o/r:" + below.material]);
+        expect(index.materials!.find((m) => m.path == below.material)!.usedBy).toEqual(["scenes/Layer/Layer.jfaust"]);
+    });
+
     it("publishes a module again: a new version, its code before kept with the commit that contains it", async () => {
         const gh = github({ "fauststore.json": MANIFEST });
         const { p } = publishing(gh);

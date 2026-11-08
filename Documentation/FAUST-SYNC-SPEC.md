@@ -256,7 +256,9 @@ traduite dans son contexte, en entiers : `{ frame, tick, rem, inc, den, … }`, 
   exactement à partir de l'ancre, en grands entiers (`BigInt`).
 - **Les canaux**, à chaque échantillon : `beat` (la position dans la mesure, en temps, continue), `run` (0 ou 1),
   `start` (1 pendant un échantillon, quand la lecture part du début), `tempo`, `meter`, **`index`** (le tic dans la
-  mesure : un entier de 0 à PPQ · meter − 1, exact dans un flottant), **`tick`** (1 à l'échantillon de chaque tic).
+  mesure : un entier de 0 à PPQ · meter − 1, exact dans un flottant), **`tick`** (1 à l'échantillon de chaque tic),
+  **`bar`** (la mesure depuis le début du morceau, un entier à partir de 0 : où un lecteur joue son matériau,
+  `MATERIALS-SPEC.md` ; ajouté en faustmodular 3.54.0).
 - Une nouvelle ligne de temps prend effet à son `frame` (dans le futur, § 5) : le nœud la garde en attente jusqu'à
   cet échantillon, puis bascule, **exactement à l'échantillon**. La traduction n'est refaite qu'à l'arrivée d'une
   ligne de temps, ou quand δ change (provisoire, de plus de 2 ms, puis figé).

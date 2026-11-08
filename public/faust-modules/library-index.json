@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.53.0",
+ "version": "3.54.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",

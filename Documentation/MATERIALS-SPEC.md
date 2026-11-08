@@ -145,6 +145,14 @@ Phase 1 réalisée dans faustmodular 3.53.0 :
 - **Les tests.** Ils couvrent les quatre cas du rappel (la tête, la version de l'enregistrement après republication, l'historique, introuvable). Un test de bout en bout publie un enregistrement, republie la scène modifiée, puis rappelle la version de l'enregistrement par `?recording=`.
 :::
 
+::: note [État de la phase 2]
+Réalisée dans faustmodular 3.54.0.
+- **Le module.** *Ajouter comme lecteur* (`src/model/Player.ts`) fait un module dont le média est épinglé à un commit du magasin. Il lit le canal `bar` ajouté à la ligne de temps, et ses réglages sont *Bar*, *Loop* et *Gain*.
+- **La trace.** La relation `uses` figure dans le code du lecteur, dans l'index (`uses`, `usedBy`) et dans la fiche d'un enregistrement.
+- **Le critère, vérifié.** Un matériau de bruit joué par le lecteur, puis réenregistré sur sa mesure, redonne ses échantillons à un pas de 24 bits près.
+- **Un écart corrigé en chemin.** Le lissage du gain (`si.smoo`) restait bloqué en flottant 32 bits à 0,99997 au lieu de 1, soit une erreur relative de ε/(1 − p). Il rejoint désormais sa cible exacte une fois proche.
+:::
+
 1. **Le rappel** (faustmodular 3.53.0) :
    - les enregistrements dans *Ouvrir depuis un magasin* (*Ouvrir sa scène*, *Écouter*, *Télécharger*) ;
    - la version exacte retrouvée et vérifiée ;

@@ -114,6 +114,7 @@ export interface StoreScene {
     codes?: string[];           // the SHA-1 of the codes of its modules
     updated?: string;
     recordings?: string[];      // the materials that are recordings of it (recordingOf, read the other way)
+    uses?: string[];            // the materials its players play: "<store>:<path>" (MATERIALS-SPEC.md)
 }
 
 // A material (Documentation/STORE-SPEC.md, "Les matériaux"): its description (materials/<Name>/<Name>.json), its media
@@ -127,6 +128,8 @@ export interface StoreMaterial {
     channels?: number;
     frames?: number;
     recordingOf?: string;       // the path of the scene, in this store
+    uses?: string[];            // the materials the scene played ("<store>:<path>"): the layers below
+    usedBy?: string[];          // the scenes of this store that play it (uses, read the other way)
     from?: { store?: string; path: string; sha1?: string; commit?: string };
     generator?: string;
     faust?: { libfaust?: string };   // the version of libfaust it was made with (MATERIALS-SPEC.md, "L'environnement épinglé")
@@ -164,6 +167,7 @@ export function parseIndex(json: unknown): StoreIndex | null {
         sha: sha(s.sha), updated: date(s.updated),
         codes: Array.isArray(s.codes) ? s.codes.filter((c: unknown) => sha(c)) : undefined,
         recordings: Array.isArray(s.recordings) ? s.recordings.filter((m: unknown) => safePath(m)) : undefined,
+        uses: Array.isArray(s.uses) ? texts(s.uses) : undefined,
     }));
     const materials = Array.isArray(x.materials)
         ? x.materials.map((m: any) => (m && safePath(m.path) ? parseMaterial(m, m.path, sha(m.sha)) : null)).filter((m: StoreMaterial | null): m is StoreMaterial => !!m)
@@ -185,6 +189,8 @@ export function parseMaterial(json: unknown, path: string, blob?: string): Store
         media: mediaPath && safePath(mediaPath) ? { path: mediaPath, type: text(m.media.type, 60) ?? "application/octet-stream", sha1: sha(m.media.sha1), size: num(m.media.size) } : undefined,
         sampleRate: num(m.sampleRate), channels: num(m.channels), frames: num(m.frames),
         recordingOf: safePath(m.recordingOf) ? m.recordingOf : undefined,
+        uses: Array.isArray(m.uses) ? texts(m.uses) : undefined,
+        usedBy: Array.isArray(m.usedBy) ? m.usedBy.filter((p: unknown) => safePath(p)) : undefined,
         from: m.from && safePath(m.from.path) ? { store: text(m.from.store, 200), path: m.from.path, sha1: sha(m.from.sha1), commit: sha(m.from.commit) } : undefined,
         generator: text(m.generator, 100),
         faust: m.faust && typeof m.faust.libfaust == "string" ? { libfaust: text(m.faust.libfaust, 40) } : undefined,

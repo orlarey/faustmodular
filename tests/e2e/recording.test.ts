@@ -12,6 +12,7 @@ import type { TimelineRule } from "../../src/sync/TimelineCore";
 import { github } from "../helpers/github";
 import { decodeFlac } from "../helpers/flac-decode";
 import { parseIndex } from "../../src/store/StoreFormat";
+import { encodeFlac } from "../../src/audio/Flac";
 
 let server: ViteDevServer;
 let browser: Browser;
@@ -202,6 +203,72 @@ describe("recording from the transport", () => {
         await recall.locator(".context-menu-item", { hasText: "Open from a store" }).hover();
         await recall.locator(".context-menu-item", { hasText: "Test store" }).hover();
         expect(await recall.locator(".context-menu-item", { hasText: "Recordings" }).count()).toBeGreaterThan(0);
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 120_000);
+
+    it("plays a material with a player, at its bar, to the sample: recorded again, the same samples", async () => {
+        const MANIFEST = JSON.stringify({ format: "fauststore", version: 1, name: "Test store" });
+        const gh = github({ "fauststore.json": MANIFEST, "README.md": "# store" });
+        const context = await browser.newContext({ acceptDownloads: true });
+        const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, accept", "access-control-allow-methods": "GET, POST, PATCH" };
+        await context.route(/https:\/\/(api\.github\.com|raw\.githubusercontent\.com)\/.*/, async (route: any) => {
+            const request = route.request();
+            if (request.method() == "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+            const headers = await request.allHeaders();
+            const response = await gh.fetch(request.url(), { method: request.method(), headers: headers.authorization ? { Authorization: headers.authorization } : {}, body: request.postData() ?? undefined } as any);
+            route.fulfill({ status: response.status, headers: cors, body: Buffer.from(await response.arrayBuffer()) });
+        });
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(url + "?starter=0");
+        await page.waitForFunction(() => (globalThis as any).faustPlayground?.scene?.recorder && (globalThis as any).faustPlayground?.documents?.current, null, { timeout: 60_000 });
+        // a material of one bar at 120 BPM (2 s) at the rate of the page: noise, where a sample off would show
+        const sampleRate = await page.evaluate(() => (globalThis as any).faustPlayground.scene.masterVolume.node.context.sampleRate);
+        let seed = 7;
+        const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 31 - 1; };
+        const frames = 2 * sampleRate;
+        const signal = [new Float32Array(frames), new Float32Array(frames)];
+        for (let i = 0; i < frames; i++) { signal[0][i] = 0.4 * rnd(); signal[1][i] = 0.4 * rnd(); }
+        gh.putBytes("materials/Bruit/Bruit.flac", encodeFlac(signal, sampleRate));
+        gh.put("materials/Bruit/Bruit.json", JSON.stringify({ format: "fauststore-material", version: 1, kind: "recording", name: "Bruit",
+            media: { path: "Bruit.flac", type: "audio/flac" }, sampleRate, channels: 2, frames, timeline: { tempo: 120, meter: 4, startTick: 0, lengthTicks: 3840 } }));
+        // the store followed, the player added from its recording, looping on its bar, to the output
+        await page.evaluate(async () => {
+            const { stores, app, scene } = (globalThis as any).faustPlayground;
+            await stores.follow("o/r");
+            if (!(await app.menu.fileMenu.addPlayer("o/r", "materials/Bruit/Bruit.json"))) throw new Error("no player");
+            const module = scene.getModules()[0];
+            const id = module.moduleId;
+            while (!scene.audioGraph.getNode(id)) await new Promise((r) => setTimeout(r, 20));
+            const node = scene.audioGraph.getNode(id);
+            const loop = node.getParams().find((p: string) => p.endsWith("/Loop"));
+            node.setParamValue(loop, 1);
+            scene.patch.connect({ module: id, port: 0 }, { module: "output", port: 0 });
+            scene.patch.connect({ module: id, port: 1 }, { module: "output", port: 1 });
+            await (node.context as AudioContext).resume();
+            await new Promise((r) => setTimeout(r, 300));
+        });
+        // its code: the soundfile at a commit of the store, its trace
+        const code = await page.evaluate(() => (globalThis as any).faustPlayground.scene.getModules()[0].moduleFaust.getSource());
+        expect(code).toMatch(/soundfile\("\[url:\{'https:\/\/raw\.githubusercontent\.com\/o\/r\/[0-9a-f]{40}\/materials\/Bruit\/Bruit\.flac'\}\]", 2\)/);
+        expect(code).toContain('declare uses "o/r:materials/Bruit/Bruit.json";');
+        // one bar recorded (WAV): the material, sample for sample (one step of 24 bits apart at most)
+        const download = page.waitForEvent("download", { timeout: 30_000 });
+        await page.evaluate(() => { const r = (globalThis as any).faustPlayground.scene.recorder; r.setFormat("wav"); r.start(1); });
+        const recorded = readWav(fs.readFileSync((await (await download).path())!));
+        expect(recorded.sampleRate).toBe(sampleRate);
+        expect(recorded.channels[0].length).toBe(frames);
+        const step = 2 / 8388607;
+        for (let c = 0; c < 2; c++) {
+            let worst = 0;
+            for (let i = 0; i < frames; i++) worst = Math.max(worst, Math.abs(recorded.channels[c][i] - Math.round(signal[c][i] * 8388607) / 8388607));
+            expect(worst, `channel ${c}`).toBeLessThanOrEqual(step);
+        }
+        // the recording notes the material it played (uses)
+        const uses = await page.evaluate(() => (globalThis as any).faustPlayground.scene.recorder.last.material.uses);
+        expect(uses).toEqual(["o/r:materials/Bruit/Bruit.json"]);
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);
