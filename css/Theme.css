@@ -1116,6 +1116,98 @@ li.libraryFamily.selected {
 	background: var(--fp-accent-border-soft);
 }
 
+/* The quick add (view/QuickAdd.ts): a search field opened on the stage, the modules found below it */
+.quick-add {
+	position: fixed;
+	z-index: 1000;
+	width: 320px;
+	box-sizing: border-box;
+	padding: 6px;
+	background: var(--fp-panel);
+	border: 1px solid var(--fp-accent-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+	font: 13px var(--fp-sans);
+	color: var(--fp-pill-text);
+}
+.quick-add {
+	display: flex;
+	flex-direction: column;
+}
+.quick-add.above {
+	flex-direction: column-reverse;		/* the field at the point, the list above it */
+}
+.quick-add-input {
+	flex-shrink: 0;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 7px 9px;
+	border: 1px solid var(--fp-accent-border-soft);
+	border-radius: 5px;
+	background: var(--fp-value-bg);
+	color: var(--fp-value);
+	font: 13px var(--fp-sans);
+	outline: none;
+}
+.quick-add-input:focus {
+	border-color: var(--fp-accent-border);
+}
+.quick-add-list {
+	list-style: none;
+	margin: 4px 0;
+	padding: 0;
+	min-height: 0;
+	max-height: 320px;
+	overflow-y: auto;
+}
+.quick-add-list:empty {
+	display: none;
+}
+.quick-add-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 16px;
+	padding: 5px 9px;
+	border-radius: 5px;
+	cursor: pointer;
+}
+.quick-add-item.active {
+	background: var(--fp-menu-bg-selected);
+}
+.quick-add-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.quick-add-family {
+	flex-shrink: 0;
+	color: var(--fp-text-quiet);
+	font-size: 11px;
+}
+.quick-add-title,
+.quick-add-none {
+	padding: 5px 9px 3px;
+	color: var(--fp-text-quiet);
+	font-size: 11px;
+}
+.quick-add.above .quick-add-hint {
+	padding: 0 9px 4px;
+	border-top: 0;
+	border-bottom: 1px solid var(--fp-accent-border-soft);
+}
+.quick-add-title {
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+.quick-add-hint {
+	flex-shrink: 0;
+	padding: 4px 9px 0;
+	border-top: 1px solid var(--fp-accent-border-soft);
+	color: var(--fp-text-quiet);
+	font-size: 11px;
+}
+
 /* Alignment guides while modules are dragged (view/Alignment.ts): thin, light, as in Faust DAW */
 .alignment-guide {
 	stroke: rgba(86, 215, 255, 0.75);

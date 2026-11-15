@@ -51,6 +51,9 @@ The **Modules** menu holds more than 200 modules, in families:
 **Type to search**: the field is ready as soon as the menu opens. ↑ ↓ choose a module (its description is
 shown on the right), **Enter** adds it. Double click or drag a module to add it too.
 
+**Quicker**: double click on the empty stage (or press **Tab** with the pointer over it), type a few letters, **Enter**:
+the module is added right there. Before you type, the field offers the modules you added last.
+
 To play from a **MIDI keyboard**, add the **MIDI to CV** module (Chrome, Edge, Firefox): drop its *pitch* on the
 Pitch of a VCO and its *gate* on the Gate of an ADSR. It also gives the velocity, the modulation wheel and the
 aftertouch, and adds the pitch bend; one note at a time, on one channel or all. To play in time with a drum machine,
@@ -189,6 +192,7 @@ can open them; a name taken by another code asks what to do.
 
 | | |
 |---|---|
+| Add a module here | double click the empty stage, or Tab: type, ↑ ↓, Enter (empty: the modules added last) |
 | Add a module | Modules menu: type, ↑ ↓, Enter; or double click, drag |
 | Connect | drag from a port to a port, or onto a module |
 | Modulate a setting | drag from an output onto the setting |

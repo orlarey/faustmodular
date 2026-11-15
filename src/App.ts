@@ -38,12 +38,34 @@ import { faustWasmEnv } from "./Main";
 import { Message } from "./Messages";
 import { ModuleClass } from "./Modules/ModuleClass";
 import { wrapModuleCode } from "./model/ModuleCode";
+import { QuickAdd } from "./view/QuickAdd";
+import { recentKey, recentModules, recordRecent } from "./model/RecentModules";
 
 //object containg info necessary to compile faust code
+
+// the localStorage, when the browser gives it
+function storage(): Storage | null {
+    try { return localStorage; } catch { return null; }
+}
 
 export class App {
     menu: Menu;
     scenes: Scene[];
+
+    // the quick add: the modules of the search of the Modules menu, the ones added last first
+    readonly quickAdd = new QuickAdd({
+        find: (query) => this.menu.library.find(query),
+        recents: () => recentModules(storage()).map((key) => this.menu.library.entryFor(key)).filter((e): e is NonNullable<typeof e> => e !== null),
+        add: (entry, clientX, clientY) => {
+            var at = Utilitary.currentScene.toStage(clientX, clientY);
+            Utilitary.showFullPageLoading();
+            this.uploadUrl(this, null, at.x, at.y, entry.href);
+        },
+        texts: () => {
+            var t = Utilitary.messageResource;
+            return { placeholder: t.quickAddPlaceholder, recent: t.quickAddRecent, none: t.librarySearchNone, hint: t.quickAddHint };
+        },
+    });
 
     createAllScenes(): void {
         var sceneView: SceneView = new SceneView();
@@ -204,6 +226,12 @@ export class App {
 
         //custom double touch from library menu to load an effect or an intrument.
         document.addEventListener("dbltouchlib", (e: Event) => { this.dblTouchUpload(e as CustomEvent<string>) });
+
+        // the quick add (view/QuickAdd.ts): a double click on the empty stage, or Tab (Scene dispatches quickadd)
+        document.addEventListener("quickadd", (e: Event) => {
+            var at = (e as CustomEvent<{ clientX: number; clientY: number }>).detail;
+            this.quickAdd.open(at.clientX, at.clientY);
+        });
     }
 
     //-- Upload content dropped on the page and allocate the content to the right function
@@ -253,6 +281,8 @@ export class App {
 
     //used for Url pointing at a dsp file
     uploadUrl(app: App, module: ModuleClass | null, x: number, y: number, url: string) {
+        // a module added (the Modules menu, a drop, the quick add): offered first by the quick add
+        if (module == null) recordRecent(storage(), recentKey(url, location.href));
         // a user module of the library ("My modules"): its latest version
         var userModule = /#user-module:(.+)$/.exec(url);
         if (userModule) {

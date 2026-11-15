@@ -27,6 +27,9 @@ export class Resources {
     librarySearch: string;
     librarySearchNone: string;
     librarySearchHint: string;
+    quickAddPlaceholder: string;
+    quickAddRecent: string;
+    quickAddHint: string;
     microphoneIdle: string;
     microphoneOn: string;
     errorInputAPINotAvailable: string;

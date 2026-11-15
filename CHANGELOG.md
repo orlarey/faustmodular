@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.56.0 (2026-11-15)
+
+- **The quick add**: a double click on the empty stage, or Tab with the pointer over it, opens a search field at that
+  point; typing finds the modules as the Modules menu does, ↑ ↓ choose, Enter adds the module there (its top left
+  corner at the point), Escape closes (`src/view/QuickAdd.ts`).
+- **The modules added last**: before anything is typed, the field offers the eight modules added last, newest first,
+  remembered by the browser (`localStorage`, `faustmodular:recent-modules`; `src/model/RecentModules.ts`): a module
+  used again is a double click and Enter.
+
 ## 3.55.0 (2026-11-15)
 
 - **The view of each document is remembered**: its zoom and position, written by the browser (`localStorage`,

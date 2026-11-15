@@ -186,6 +186,16 @@ its description; the modules named after the words come first. The families show
 ready to type when the Modules menu opens: ↑ ↓ choose a module (it is described), Enter adds it, Escape clears
 the search; a click on a family leaves it (`src/model/LibrarySearch.ts`).
 
+**The quick add** (`src/view/QuickAdd.ts`): a double click on the empty stage (not on a module, a port or a
+cable), or Tab with the pointer over the stage and nothing focused, opens a search field at that point. It finds the
+modules as the field of the Modules menu does (the catalog, My modules, the modules of the stores opened), ten at
+most, with their family; ↑ ↓ choose, Enter or a click adds the module chosen with its top left corner at that point,
+Escape, Tab, a click elsewhere or the wheel closes it. Before anything is typed, it offers the eight modules added
+last (by the quick add, the Modules menu or a drop; not by an undo, a paste or a scene opened), newest first,
+remembered by the browser (`localStorage`, `faustmodular:recent-modules`; `src/model/RecentModules.ts`): a module of
+the library or a store by its address, one of My modules by its id. Low in the window, the field opens above the
+point, the list growing upwards, so that it does not move while typing.
+
 ## Documents
 
 The first visit (no document yet) opens on a SineVCO connected to the left and right outputs: its *gate*

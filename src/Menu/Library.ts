@@ -35,6 +35,16 @@ import type { StoreModule } from "../store/StoreFormat";
 import type { Publishing } from "../store/Publishing";
 import { showContextMenu } from "../view/ContextMenu";
 import { faustcodeUrl } from "../FaustcodeLink";
+import { recentKey } from "../model/RecentModules";
+
+// A module the search finds (the Modules menu, the quick add: view/QuickAdd.ts): its name, the label of its
+// family, its address (what App.uploadUrl adds), and its summary.
+export interface LibraryEntry {
+    name: string;
+    family: string;
+    href: string;
+    summary?: string;
+}
 
 interface CatalogModule {
     path: string;
@@ -498,24 +508,43 @@ export class Library {
         this.fActive = 0;
         this.fResults = [];
         if (query.trim() != "" && this.fCatalog) {
-            var base = location.href.split("#")[0];
-            var all = [
-                ...this.fCatalog.modules.filter((m) => m.family).map((m) => ({
-                    name: m.name, functions: m.functions, family: m.family!, familyLabel: this.familyLabel(m.family!),
-                    summary: m.summary, description: m.description, href: m.path, module: m,
-                })),
-                ...(this.documents?.store.listModules() ?? []).map((m) => ({
-                    name: m.name, family: USER_FAMILY, familyLabel: this.familyLabel(USER_FAMILY), href: base + "#user-module:" + encodeURIComponent(m.id),
-                })),
-                ...(this.stores?.list() ?? []).flatMap((state) => this.storeModules(state).map((m) => ({
-                    name: m.name, functions: m.functions, family: m.family!, familyLabel: this.familyLabel(m.family!),
-                    summary: m.summary, description: m.description, href: m.path, module: m,
-                }))),
-            ];
-            this.fResults = search(query, all.map((m) => ({ ...m, family: m.familyLabel, familyKey: m.family, key: m.family })))
+            this.fResults = search(query, this.allModules().map((m) => ({ ...m, family: m.familyLabel, familyKey: m.family, key: m.family })))
                 .map((m: any) => ({ name: m.name, family: m.key, href: m.href, module: m.module }));
         }
         this.renderFamilies();
+    }
+
+    // Every module the search looks in: the catalog, My modules, the stores followed.
+    private allModules(): Array<{ name: string; functions?: string[]; family: string; familyLabel: string; summary?: string; description?: string; href: string; module?: CatalogModule }> {
+        if (!this.fCatalog) return [];
+        var base = location.href.split("#")[0];
+        return [
+            ...this.fCatalog.modules.filter((m) => m.family).map((m) => ({
+                name: m.name, functions: m.functions, family: m.family!, familyLabel: this.familyLabel(m.family!),
+                summary: m.summary, description: m.description, href: m.path, module: m,
+            })),
+            ...(this.documents?.store.listModules() ?? []).map((m) => ({
+                name: m.name, family: USER_FAMILY, familyLabel: this.familyLabel(USER_FAMILY), href: base + "#user-module:" + encodeURIComponent(m.id),
+            })),
+            ...(this.stores?.list() ?? []).flatMap((state) => this.storeModules(state).map((m) => ({
+                name: m.name, functions: m.functions, family: m.family!, familyLabel: this.familyLabel(m.family!),
+                summary: m.summary, description: m.description, href: m.path, module: m,
+            }))),
+        ];
+    }
+
+    // The modules of a query, as the search of the Modules menu ranks them (the quick add).
+    find(query: string, limit = 12): LibraryEntry[] {
+        if (query.trim() == "") return [];
+        return search(query, this.allModules().map((m) => ({ ...m, family: m.familyLabel, familyKey: m.family })))
+            .slice(0, limit)
+            .map((m: any) => ({ name: m.name, family: m.family, href: m.href, summary: m.summary }));
+    }
+
+    // The module of a key of model/RecentModules.ts, if it is still there (a store unfollowed: no longer).
+    entryFor(key: string): LibraryEntry | null {
+        var m = this.allModules().find((m) => recentKey(m.href, location.href) == key);
+        return m ? { name: m.name, family: m.familyLabel, href: m.href, summary: m.summary } : null;
     }
 
     private renderResults() {

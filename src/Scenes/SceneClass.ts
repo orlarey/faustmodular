@@ -1081,6 +1081,7 @@ export class Scene {
     private fClipboard: string | null = null;
     // The last position of the pointer on the stage (stage coordinates): where a paste puts the modules.
     private fPointer: { x: number; y: number } | null = null;
+    private fPointerClient: { x: number; y: number } | null = null;    // in the window, while it is over the stage
     private fPastes = 0;
 
     // The selected modules as a patch file, kept as the clipboard: the connections between them only.
@@ -1106,7 +1107,29 @@ export class Scene {
         var t = () => Utilitary.messageResource;
         // keys typed in a text field, or in an Orbit (its keys: L, Delete of its presets, Esc), are not commands
         var editing = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input[type=text], input:not([type]), textarea, [contenteditable=true], .orbit-ui-root");
-        stage.addEventListener("pointermove", (e) => { this.fPointer = this.toStage(e.clientX, e.clientY); });
+        stage.addEventListener("pointermove", (e) => {
+            this.fPointer = this.toStage(e.clientX, e.clientY);
+            this.fPointerClient = { x: e.clientX, y: e.clientY };
+        });
+        stage.addEventListener("pointerleave", () => { this.fPointerClient = null; });
+        // the quick add (view/QuickAdd.ts, App): a double click on the empty stage, or Tab with the pointer
+        // over it, opens a search field there; the module chosen is added there
+        var quickAdd = (clientX: number, clientY: number) => document.dispatchEvent(new CustomEvent("quickadd", { detail: { clientX, clientY } }));
+        stage.addEventListener("dblclick", (e) => {
+            var target = e.target as HTMLElement;
+            if (this.patchView.moduleOf(target) !== undefined) return;
+            if (target.closest?.(".port, .cable, #menuContainer, #dialogue, .quick-add, .context-menu")) return;
+            e.preventDefault();
+            quickAdd(e.clientX, e.clientY);
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key != "Tab" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || !this.fPointerClient) return;
+            // the focus on a field, a button or a dialog: Tab moves it, as usual
+            var focused = document.activeElement;
+            if (focused && focused !== document.body && focused !== document.documentElement) return;
+            e.preventDefault();
+            quickAdd(this.fPointerClient.x, this.fPointerClient.y);
+        });
         this.patchView.onOutputClick = (id, port, x, y) => this.outputPortMenu(id, port, x, y);
         stage.addEventListener("contextmenu", (e) => {
             e.preventDefault();
