@@ -7,8 +7,9 @@
 
     It stays while the pointer is on it and goes back when the pointer leaves it. While a button is pressed (a
     slider moved, a module moved, a selection drawn) nothing changes, except while a cable is drawn: the
-    module under the cable is magnified, so that its widgets can be aimed at. A module moved is no longer
-    magnified (Patchview), as when the stage is zoomed or moved.
+    module under the cable is magnified, so that its widgets can be aimed at. A module moved keeps its size,
+    as when a widget is used: it is moved magnified, and aligned at its size on the stage (PatchView). It goes
+    back when the stage is zoomed or moved.
 */
 
 export const MAGNIFY_BELOW = 0.75;      // the zoom of the stage under which the modules are magnified

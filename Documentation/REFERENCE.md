@@ -58,12 +58,15 @@ channels.
   browser). A click on the name of the scene, at the top right, renames it. The Edit and Export menus, and the
   accelerometer button, are hidden for now.
 - Ctrl/Cmd + wheel (or a pinch) zooms the stage around the pointer, the wheel alone moves it; the − %
-  + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window.
+  + ⤢ buttons of the header zoom out, back to 100%, in, and fit the scene in the window. The browser remembers
+  the view (zoom and position) of each document: opened again, after a reload or from the Documents, a
+  document is shown as it was left (`localStorage`, as the volume: a setting of the view, not of the scene).
 - Zoomed out under 75 %, the module under the pointer is shown at its real size after 250 ms, above the
   others, as in the Dock of macOS (the point under the pointer stays, the module is kept inside the window):
   its widgets work, and it goes back when the pointer leaves it. While a cable is drawn, the module under it is
-  magnified too, so that a widget can be aimed at. Moving a module, zooming or moving the stage ends it
-  (`src/view/Magnifier.ts`).
+  magnified too, so that a widget can be aimed at. A module moved keeps its size, as when a widget is used: it
+  is moved magnified (aligned at its size on the stage) and goes back when the pointer leaves it. Zooming or
+  moving the stage ends it (`src/view/Magnifier.ts`).
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 

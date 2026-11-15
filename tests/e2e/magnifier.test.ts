@@ -1,7 +1,8 @@
 // The magnifier (src/view/Magnifier.ts): zoomed out under 75 %, the module under the pointer is shown at its
 // real size after 250 ms, above the others, and goes back when the pointer leaves it; it stays usable (a
-// slider moved, even out of it); a module moved is no longer magnified; while a cable is drawn, the module
-// under it is magnified, so that a widget can be aimed at (a modulation).
+// slider moved, even out of it); a module moved keeps its size, as a widget used, and is aligned at its size
+// on the stage; while a cable is drawn, the module under it is magnified, so that a widget can be aimed at
+// (a modulation).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
@@ -90,7 +91,7 @@ describe("magnifier", () => {
         await context.close();
     }, 120_000);
 
-    it("stays usable: a slider moved, even out of the module; a module moved is no longer magnified", async () => {
+    it("stays usable: a slider moved, even out of the module; a module moved keeps its size", async () => {
         const { context, page, errors, comp } = await open(0.45);
         const sel = await selector(page, comp);
         const small = await shown(page, sel);
@@ -109,7 +110,8 @@ describe("magnifier", () => {
         expect((await shown(page, sel)).magnified).toBe(true);
         await page.mouse.up();
         expect(Number(await value())).toBeLessThan(Number(before));
-        // moved by its title: back to its size, moved by the drag on the stage
+        // moved by its title: magnified all along, the point under the pointer staying under it, moved by
+        // the drag on the stage
         await page.waitForTimeout(100);
         const big = await shown(page, sel);
         const x0 = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.x, comp);
@@ -117,10 +119,22 @@ describe("magnifier", () => {
         await page.waitForTimeout(50);
         await page.mouse.down();
         await page.mouse.move(big.left + big.width / 2 + 45, big.top + 14, { steps: 5 });
-        expect((await shown(page, sel)).magnified).toBe(false);
+        const moving = await shown(page, sel);
+        expect(moving.magnified).toBe(true);
+        expect(moving.width).toBeCloseTo(big.width, 0);
+        expect(moving.left - big.left).toBeCloseTo(45, 0);
         await page.mouse.up();
+        await page.mouse.move(big.left + big.width / 2 + 47, big.top + 15, { steps: 2 });
+        await page.waitForTimeout(400);
+        expect((await shown(page, sel)).magnified).toBe(true);      // still under the pointer
         const x1 = await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleView.x, comp);
         expect(x1 - x0).toBeCloseTo(45 / 0.45, -1);
+        // the pointer leaves it: back to its size on the stage, where it was dropped
+        await page.mouse.move(5, 790, { steps: 4 });
+        await page.waitForTimeout(400);
+        const back = await shown(page, sel);
+        expect(back.magnified).toBe(false);
+        expect(back.width).toBeCloseTo(back.real * 0.45, 0);
         expect(errors).toEqual([]);
         await context.close();
     }, 120_000);

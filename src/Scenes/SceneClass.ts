@@ -51,9 +51,23 @@ interface SceneSnapshot {
     connections: string[];                                      // "from:port>to:port", sorted
 }
 
+// The view of each document (zoom and position of the stage), remembered by the browser.
+const VIEW_KEY = "faustmodular:view:";
+const VIEW_DELAY = 400;     // ms without change before it is written
+
+function readView(id: string): { zoom: number; x: number; y: number } | null {
+    try {
+        var view = JSON.parse(localStorage.getItem(VIEW_KEY + id) ?? "null");
+        return view && [view.zoom, view.x, view.y].every((v) => typeof v == "number" && isFinite(v)) && view.zoom > 0 ? view : null;
+    } catch {
+        return null;
+    }
+}
+
 // The documents of the scene (documents/Documents.ts), once the storage is open.
 export interface SceneDocuments {
     readonly dirty: boolean;
+    readonly current: { id: string } | null;       // the open document
     changed(): void;                                // a new state of the scene (history)
     importPatch(json: string): Promise<boolean>;    // a patch file opened: a new document
     flush(): Promise<void>;                         // pending saves written
@@ -177,6 +191,8 @@ export class Scene {
             }
         }, { passive: false });
         this.setView(1, 0, 0);
+        // the view of the document opened (documents/Documents.ts emits documentchange)
+        document.addEventListener("documentchange", () => this.recallView());
         this.history = new History({
             capture: () => this.captureSnapshot(),
             restore: (state) => this.restoreSnapshot(state),
@@ -215,11 +231,14 @@ export class Scene {
 
     /*********************** ZOOM ***************************/
     // The stage (cables, modules) is shown at stage·zoom + (x, y): a view of the scene, not a change of
-    // it (no history, not saved with the document).
+    // it (no history, not saved with the document). The browser remembers the view of each document
+    // (localStorage, as the volume): opened again, a document is shown as it was left.
 
     static ZOOM_MIN = 0.2;
     static ZOOM_MAX = 3;
     private fView = { zoom: 1, x: 0, y: 0 };
+    private fViewDocument: string | null = null;   // the document whose view is shown, and remembered
+    private fViewTimer = 0;
 
     get view(): { zoom: number; x: number; y: number } {
         return { ...this.fView };
@@ -240,6 +259,28 @@ export class Scene {
         this.patchView.zoom = zoom;
         this.patchView.redrawAll();
         document.dispatchEvent(new CustomEvent("viewchange"));
+        this.rememberView();
+    }
+
+    // The view of the open document, written once it stops changing (a zoom by the wheel is many steps).
+    private rememberView(): void {
+        var id = this.fViewDocument;
+        if (!id) return;
+        var view = { ...this.fView };
+        window.clearTimeout(this.fViewTimer);
+        this.fViewTimer = window.setTimeout(() => {
+            try { localStorage.setItem(VIEW_KEY + id, JSON.stringify(view)); } catch { /* not kept */ }
+        }, VIEW_DELAY);
+    }
+
+    // Another document is open: its view, if the browser remembers one (else the view stays).
+    private recallView(): void {
+        var id = this.documents?.current?.id ?? null;
+        if (!id || id == this.fViewDocument) return;
+        window.clearTimeout(this.fViewTimer);
+        this.fViewDocument = id;
+        var view = readView(id);
+        if (view) this.setView(view.zoom, view.x, view.y);
     }
 
     // Zooms by a factor, the point under (clientX, clientY) staying in place.

@@ -115,8 +115,9 @@ You can also:
 ## Large patches
 
 - **Zoom** with Ctrl/Cmd + the wheel (or a pinch), move with the wheel; ⤢ fits the whole patch in the window.
-- Zoomed out, the module under the pointer is **magnified** to its real size: you can read and play it without
-  zooming in. While you draw a cable, it lets you aim at a precise setting.
+  Each scene opens again at the zoom and place you left it.
+- Zoomed out, the module under the pointer is **magnified** to its real size: you can read and play it, or move
+  it, without zooming in. While you draw a cable, it lets you aim at a precise setting.
 - Modules snap to the **edges and centres** of the others while you move them (Alt: no snapping).
 - Drag a rectangle on the empty stage, or Shift-click, to select several modules.
 - **Undo** anything with Ctrl/Cmd-Z.

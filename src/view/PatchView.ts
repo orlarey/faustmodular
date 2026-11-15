@@ -500,9 +500,23 @@ export class PatchView {
     // The stage is scaled by the zoom (Scene.setView): its rectangles are on screen, its coordinates not.
     zoom = 1;
 
-    // The rectangle of a module on the stage (its box, without the ports astride its edges).
+    // The rectangle of a module on the stage (its box, without the ports astride its edges). A magnified
+    // module (view/Magnifier.ts) at its size on the stage, where it is aligned: its box is measured without
+    // the magnifier, and without the transition, so that it does not move on the screen.
     private stageRect(container: HTMLElement): Rect {
-        const box = container.getBoundingClientRect();
+        const transform = container.style.transform;
+        let box: DOMRect;
+        if (transform) {
+            const transition = container.style.transition;
+            container.style.transition = "none";
+            container.style.transform = "none";
+            box = container.getBoundingClientRect();
+            container.style.transform = transform;
+            void container.offsetWidth;        // the magnifier applied again, without the transition
+            container.style.transition = transition;
+        } else {
+            box = container.getBoundingClientRect();
+        }
         const a = this.toCanvas(box.left, box.top), b = this.toCanvas(box.right, box.bottom);
         return { left: a.x, top: a.y, right: b.x, bottom: b.y };
     }
@@ -659,8 +673,8 @@ export class PatchView {
     }
 
     private startModuleDrag(e: PointerEvent, module: ModuleClass): void {
-        // a magnified module is moved at its size on the stage (the point under the pointer stays)
-        this.magnifier.release(true);
+        // a magnified module is moved magnified, as a widget is used: it keeps its size while the pointer
+        // is on it (the magnifier does not change during a drag), and is aligned at its size on the stage
         const id = module.moduleId;
         if (e.shiftKey || e.ctrlKey || e.metaKey) {
             // adds the module to the selection or removes it

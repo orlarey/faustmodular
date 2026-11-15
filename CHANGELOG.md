@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.55.0 (2026-11-15)
+
+- **The view of each document is remembered**: its zoom and position, written by the browser (`localStorage`,
+  `faustmodular:view:<document>`, as the volume) once they stop changing, and shown again when the document is
+  opened again (a reload, the Documents). A setting of the view, not of the scene: no history, not in the file.
+- **A magnified module keeps its size when it is moved**, as when one of its widgets is used: zoomed out, a module
+  magnified under the pointer is moved magnified (the point under the pointer staying under it), aligned at its
+  size on the stage, and goes back when the pointer leaves it.
+
 ## 3.54.0 (2026-11-08)
 
 - **The player**: a recording of a store becomes a module of the scene (File ▸ Open from a store ▸ a store ▸
