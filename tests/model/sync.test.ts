@@ -86,7 +86,10 @@ describe("Timeline core", () => {
         expect(core.k).toBe(TimelineCore.advance(0, 0, last, r.inc, r.den).tick);
         expect(core.r).toBe(TimelineCore.advance(0, 0, last, r.inc, r.den).rem);
         expect(core.jumps).toBe(0);
-    });
+        // 158.76 million samples, each by the integer step of the node: about 4.5 s alone, more on a loaded runner of
+        // the CI (the browser and end-to-end tests at the same time), over the 5 s by default; the cost is that of an
+        // hour, not of the blocks (the same by blocks of 4096 or 44100)
+    }, 30_000);
 
     it("switches to a rule exactly at its frame, with a start, and gives the position, the index and the ticks", () => {
         const core = new TimelineCore(SR);
