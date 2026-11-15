@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.57.0 (2026-11-15)
+
+- **The stage scrolls by itself** while something is dragged near an edge of the window: a module or a selection
+  moved, a selection rectangle drawn, a cable drawn. In a band of 40 px along each edge (under the toolbar), the
+  faster as the pointer is deeper in it (up to 1000 px/s), not before the pointer has moved. What is dragged stays
+  under the pointer; a magnified module moved stays magnified (`src/view/AutoScroll.ts`).
+
 ## 3.56.0 (2026-11-15)
 
 - **The quick add**: a double click on the empty stage, or Tab with the pointer over it, opens a search field at that

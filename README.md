@@ -119,6 +119,8 @@ You can also:
 
 - **Zoom** with Ctrl/Cmd + the wheel (or a pinch), move with the wheel; ⤢ fits the whole patch in the window.
   Each scene opens again at the zoom and place you left it.
+- Drag a module, a selection, a rectangle or a cable **to an edge of the window**: the stage scrolls, the faster
+  the closer to the edge.
 - Zoomed out, the module under the pointer is **magnified** to its real size: you can read and play it, or move
   it, without zooming in. While you draw a cable, it lets you aim at a precise setting.
 - Modules snap to the **edges and centres** of the others while you move them (Alt: no snapping).
@@ -201,7 +203,7 @@ can open them; a name taken by another code asks what to do.
 | Type a value | double click it |
 | Depth of a modulation | drag its port vertically (Shift: finer; double click: default) |
 | Volume / mute | drag the speaker vertically / double click it |
-| Zoom / move | Ctrl/Cmd + wheel, pinch / wheel |
+| Zoom / move | Ctrl/Cmd + wheel, pinch / wheel; or drag to an edge |
 | Select | rectangle on the stage, Shift-click |
 | Move without snapping | Alt while dragging |
 | Undo / redo | Ctrl/Cmd-Z / Ctrl/Cmd-Shift-Z |

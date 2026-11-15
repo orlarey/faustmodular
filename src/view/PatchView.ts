@@ -28,7 +28,8 @@
     Modulation cables end on these ports; dropping a cable on one adds a source to the modulation.
 */
 
-import { Magnifier } from "./Magnifier";
+import { Magnifier, TOP } from "./Magnifier";
+import { AutoScroll } from "./AutoScroll";
 import type { ModulationMode } from "../model/Modulation";
 import { defaultDepth, depthRange, hasDepth } from "../model/Modulation";
 import { align, Guide, Rect } from "./Alignment";
@@ -175,6 +176,45 @@ export class PatchView {
         },
     });
 
+    // Moves the view by (dx, dy) screen pixels (Scene.setView); `keep`: a magnified module stays so (it is moved).
+    pan?: (dx: number, dy: number, keep: boolean) => void;
+    // near an edge, a drag scrolls the stage (view/AutoScroll.ts); its last pointer event, to follow the scroll
+    private fLastDrag?: PointerEvent;
+    private readonly fAutoScroll = new AutoScroll({
+        bounds: () => ({ left: 0, top: TOP, right: window.innerWidth, bottom: window.innerHeight }),
+        scroll: (dx, dy) => this.autoScroll(dx, dy),
+    });
+
+    private autoScroll(dx: number, dy: number): void {
+        const e = this.fLastDrag;
+        if (!this.pan || !e) return;
+        this.pan(dx, dy, this.fModuleDrags.size > 0);
+        // what was pressed moves with the stage, what is dragged stays under the pointer
+        this.fModuleDrags.forEach((drag) => { drag.startX += dx; drag.startY += dy; });
+        if (this.fBand) {
+            this.fBand.drag.startX += dx;
+            this.fBand.drag.startY += dy;
+            if (this.fBand.pointer == e.pointerId) this.moveBand(e);
+        }
+        if (this.fModuleDrags.has(e.pointerId) || this.fCableDrags.has(e.pointerId)) this.onPointerMove(e);
+    }
+
+    private beginAutoScroll(e: PointerEvent): void {
+        this.fLastDrag = e;
+        this.fAutoScroll.begin(e.clientX, e.clientY);
+    }
+
+    private trackAutoScroll(e: PointerEvent): void {
+        this.fLastDrag = e;
+        this.fAutoScroll.track(e.clientX, e.clientY);
+    }
+
+    private endAutoScroll(): void {
+        if (this.fModuleDrags.size > 0 || this.fCableDrags.size > 0 || this.fBand) return;
+        this.fAutoScroll.end();
+        this.fLastDrag = undefined;
+    }
+
     getSelection(): ModuleId[] {
         return Array.from(this.fSelection);
     }
@@ -207,15 +247,19 @@ export class PatchView {
             this.fBand = { pointer: e.pointerId, drag: { startX: e.clientX, startY: e.clientY, element: band, base: additive ? new Set(this.fSelection) : new Set() } };
             this.select(this.fBand.drag.base);
             stage.setPointerCapture(e.pointerId);
+            this.beginAutoScroll(e);
             this.moveBand(e);
         });
         stage.addEventListener("pointermove", (e) => {
-            if (this.fBand?.pointer == e.pointerId) this.moveBand(e);
+            if (this.fBand?.pointer != e.pointerId) return;
+            this.moveBand(e);
+            this.trackAutoScroll(e);
         });
         const end = (e: PointerEvent) => {
             if (this.fBand?.pointer != e.pointerId) return;
             this.fBand.drag.element.remove();
             this.fBand = undefined;
+            this.endAutoScroll();
         };
         stage.addEventListener("pointerup", end);
         stage.addEventListener("pointercancel", end);
@@ -610,6 +654,7 @@ export class PatchView {
                 ? align(moduleDrag.rects, moduleDrag.others, rawX, rawY, { threshold: ALIGN_THRESHOLD / this.zoom, snap: !e.altKey, epsilon: 0.5 / this.zoom, extend: ALIGN_EXTEND / this.zoom })
                 : { dx: rawX, dy: rawY, guides: [] };
             this.showGuides(guides);
+            if (moduleDrag.moved) this.trackAutoScroll(e);
             for (const item of moduleDrag.items) {
                 const view = item.module.moduleView;
                 view.x = item.left + dx;
@@ -622,6 +667,7 @@ export class PatchView {
         const cableDrag = this.fCableDrags.get(e.pointerId);
         if (cableDrag) {
             this.moveCable(cableDrag, e);
+            this.trackAutoScroll(e);
         }
     }
 
@@ -661,6 +707,7 @@ export class PatchView {
             this.setTarget(cableDrag, undefined);
             cableDrag.path.remove();
         }
+        this.endAutoScroll();
     }
 
     // A drag of a module started elsewhere (the speaker of the output module, a drag that starts horizontally):
@@ -698,6 +745,7 @@ export class PatchView {
             (moving.has(container) ? rects : others).push(this.stageRect(container));
         });
         this.fModuleDrags.set(e.pointerId, { clicked: module, startX: e.clientX, startY: e.clientY, items, moved: false, rects, others });
+        this.beginAutoScroll(e);
     }
 
     private startCableDrag(e: PointerEvent, module: ModuleClass, port: HTMLElement): void {
@@ -708,6 +756,7 @@ export class PatchView {
         this.fSvg.appendChild(path);
         const drag: CableDrag = { module, dir: port.dataset.dir as Dir, port: Number(port.dataset.port), element: port, path, startX: e.clientX, startY: e.clientY, moved: false };
         this.fCableDrags.set(e.pointerId, drag);
+        this.beginAutoScroll(e);
         this.moveCable(drag, e);
     }
 

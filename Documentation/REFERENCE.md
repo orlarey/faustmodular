@@ -67,6 +67,12 @@ channels.
   magnified too, so that a widget can be aimed at. A module moved keeps its size, as when a widget is used: it
   is moved magnified (aligned at its size on the stage) and goes back when the pointer leaves it. Zooming or
   moving the stage ends it (`src/view/Magnifier.ts`).
+- A drag near an edge of the window scrolls the stage (a module or a selection moved, a selection rectangle
+  drawn, a cable drawn): in a band of 40 px along each edge (under the toolbar at the top), the faster as the
+  pointer is deeper in it, up to 1000 px/s at the edge and beyond, but not before the pointer has moved 8 px (a
+  drag that starts near an edge does not scroll at once). What is dragged stays under the pointer: a module moved
+  goes on the stage with the scroll (and is aligned, and written once released, there), the selection rectangle
+  grows, a cable follows; a magnified module moved stays magnified (`src/view/AutoScroll.ts`).
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 

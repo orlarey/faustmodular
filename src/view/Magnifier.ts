@@ -15,7 +15,7 @@
 export const MAGNIFY_BELOW = 0.75;      // the zoom of the stage under which the modules are magnified
 export const MAGNIFY_DELAY = 250;       // ms on a module before it is magnified
 const MARGIN = 8;                       // px between a magnified module and the edges of the window
-const TOP = 48;                         // px of the toolbar, not covered
+export const TOP = 48;                  // px of the toolbar, not covered
 const GLIDE = 120;                      // ms of the change of size
 
 export interface MagnifierHost {

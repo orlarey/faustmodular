@@ -178,6 +178,8 @@ export class Scene {
         });
         // selection rectangle on the empty stage, undo and redo
         this.patchView.attachStage(this.sceneView.fSceneContainer);
+        // a drag near an edge scrolls the stage (view/AutoScroll.ts)
+        this.patchView.pan = (dx, dy, keep) => this.setView(this.fView.zoom, this.fView.x + dx, this.fView.y + dy, keep);
         this.attachCommands(this.sceneView.fSceneContainer);
         // zoom (Ctrl/Cmd + wheel, pinch) around the pointer; the wheel alone moves the stage
         this.sceneView.fSceneContainer.addEventListener("wheel", (e) => {
@@ -244,7 +246,8 @@ export class Scene {
         return { ...this.fView };
     }
 
-    setView(zoom: number, x: number, y: number): void {
+    // `keepMagnified`: the magnified module stays so (a module moved magnified, while the stage scrolls under it).
+    setView(zoom: number, x: number, y: number, keepMagnified = false): void {
         zoom = Math.min(Scene.ZOOM_MAX, Math.max(Scene.ZOOM_MIN, zoom));
         this.fView = { zoom, x, y };
         var stage = this.sceneView.fStage;
@@ -255,7 +258,7 @@ export class Scene {
         // the grid of the background follows
         document.body.style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
         document.body.style.backgroundPosition = `${x}px ${y}px`;
-        this.patchView.magnifier.release(true);
+        if (!keepMagnified) this.patchView.magnifier.release(true);
         this.patchView.zoom = zoom;
         this.patchView.redrawAll();
         document.dispatchEvent(new CustomEvent("viewchange"));
