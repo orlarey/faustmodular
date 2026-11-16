@@ -244,6 +244,13 @@ export class DocumentStore {
 
     /******************** FILES OF RESOURCES ********************/
 
+    // A file of resources of a document (null: none).
+    async readResourceFile(id: string, file: string): Promise<string | null> {
+        if (!/^[^/\\]+\.dsp$/.test(file)) return null;
+        const text = await this.files.read(`${resourcesPath(id)}/${file}`);
+        return text === null ? null : normalizeText(text);
+    }
+
     // The files of resources of a document: file -> text.
     async readResourceFiles(id: string): Promise<Map<string, string>> {
         const files = new Map<string, string>();

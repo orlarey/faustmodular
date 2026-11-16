@@ -29,7 +29,6 @@ import { setControlerValue } from "../Modules/FaustInterface";
 import { CompileFaust, PositionModule, Utilitary } from "../Utilitary";
 import { PatchView } from "../view/PatchView";
 import { MenuItem, shortcut, showContextMenu } from "../view/ContextMenu";
-import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
 import { rewrapModuleCode, unwrapModuleCode, userCode, userError, wrapModuleCode } from "../model/ModuleCode";
 import { History } from "./History";
 import { normalizePatch, storedCode } from "../documents/DocumentFormat";
@@ -90,6 +89,8 @@ export interface SceneDocuments {
     codeEdited(previous: string, code: string, name: string): void;   // stored codes (DocumentFormat.storedCode)
     updateInstance(id: string): Promise<string | null>;
     moduleCode(id: string): Promise<{ name: string; code: string } | null>;
+    resourceRenamed(from: string, to: string): void;                    // told to faustcode
+    openInFaustcode(name: string): Promise<"tab" | "window" | "blocked" | "unavailable">;
 }
 
 // The code of a new module (the context menu of the stage), to be written in faustcode.
@@ -133,7 +134,6 @@ export class Scene {
     audioGraph: AudioGraph;
     patchView: PatchView;
     history: History;
-    faustcodeLink: FaustcodeLink<ModuleClass>;
     //-- Audio Input/Output
     fAudioOutput: ModuleClass;
     fAudioInput: ModuleClass;
@@ -163,15 +163,6 @@ export class Scene {
         this.startSync();
         this.patch.subscribe(() => this.markModified());     // modules, connections, positions, code, modulations
         var svgCanvas = this.sceneView.fSceneContainer.querySelector("#svgCanvas") as SVGSVGElement;
-        this.faustcodeLink = new FaustcodeLink<ModuleClass>(faustcodeUrl(), {
-            isAlive: (module) => this.fModuleList.includes(module),
-            nameOf: (module) => module.moduleFaust.getName(),
-            codeOf: (module) => userCode(module.moduleFaust.getSource()),
-            apply: (module, code) => this.editModuleCode(module, code),
-            notify: (message) => { new Message(message) },
-            libfaust: () => faustWasmEnv.faustCompiler.version(),
-            importModule: (name, code) => this.addModuleFromCode(name, code),
-        });
         this.patchView = new PatchView(this.patch, svgCanvas, (id) => this.getModuleById(id), {
             allowedModes: (moduleId, widget) => this.allowedModesOf(moduleId, widget),
             modulate: (from, moduleId, widget, mode) => this.modulate(from, moduleId, widget, mode),
@@ -591,7 +582,6 @@ export class Scene {
     }
 
     removeModule(module: ModuleClass): void {
-        this.faustcodeLink.forget(module);
         var index = this.fModuleList.indexOf(module);
         if (index >= 0) {
             this.fModuleList.splice(index, 1);
@@ -1010,6 +1000,7 @@ export class Scene {
             if (!resource) return "unknown resource";
             for (var m of snapshot.modules.filter((m) => m.name == from)) renameSnapshotModule(m, resource, to);
             resource.name = to;
+            this.documents?.resourceRenamed(from, to);
             return null;
         });
     }
@@ -1829,8 +1820,46 @@ export class Scene {
         }
     }
 
+    // The pencil: the resource of the module opened in faustcode (documents/ResourceLink.ts).
     editInFaustcode(module: ModuleClass): void {
-        this.faustcodeLink.edit(module);
+        var name = module.moduleFaust.getName();
+        if (!this.documents) return;
+        this.documents.openInFaustcode(name).then((how) => {
+            var t = Utilitary.messageResource;
+            if (how == "blocked") new Message(t.faustcodePopupBlocked);
+            else if (how == "tab") new Message(t.faustcodeOpenedInTab.replace("{name}", name), undefined, 4000);
+            else if (how == "unavailable") new Message(t.faustcodeUnavailable);
+        });
+    }
+
+    // A resource given a new code by faustcode: all its instances (R4), or the table only if it has none.
+    async applyResourceCode(name: string, code: string): Promise<{ error: string | null; instances: number }> {
+        var instances = this.instancesOf(name);
+        if (instances.length == 0) {
+            var resource = this.fResources.find((r) => r.name == name);
+            if (!resource) return { error: "unknown resource", instances: 0 };
+            resource.code = code;
+            this.markModified();
+            return { error: null, instances: 0 };
+        }
+        var error = await this.editModuleCode(instances[0], code);
+        return { error, instances: error ? 0 : this.lastEditedInstances };
+    }
+
+    // A resource added by faustcode (Save as ▸ faustmodular): in the table, and an instance if `place`.
+    async adoptResource(name: string, code: string, place: boolean): Promise<string | null> {
+        if (!this.fResources.some((r) => r.name == name)) {
+            this.fResources.push({ name, code, wrapped: true, provenance: { kind: "none" } });
+            this.markModified();
+        }
+        if (!place) return null;
+        var module = await this.addModuleFromCode(name, code);
+        return typeof module == "string" ? module : null;
+    }
+
+    resourceNames(): string[] {
+        this.syncResources();
+        return this.fResources.map((r) => r.name);
     }
 
     // A module made from the code of the user (faustcode, a new module) at a point of the stage (the center
@@ -1848,7 +1877,7 @@ export class Scene {
     // A new module, at a point of the stage, opened in faustcode to be written.
     async newModule(at: { x: number; y: number }): Promise<void> {
         var module = await this.addModuleFromCode(Utilitary.messageResource.newModuleName, NEW_MODULE_CODE, at);
-        if (typeof module != "string") this.faustcodeLink.edit(module);
+        if (typeof module != "string") this.editInFaustcode(module);
     }
 
     // Creates a module from its description: precompiled factory if any, otherwise compilation.

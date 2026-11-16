@@ -245,16 +245,31 @@ Patches with modulations are saved in format version 3.
 
 ## Editing the code of a module
 
-The pencil, in the title bar of a module, opens its code in [faustcode](https://github.com/orlarey/faustcode), in a window
-reused for all the modules: each save that compiles (Cmd/Ctrl-S) updates the module in place, keeping its
-sound, slider values, modulations and connections; a code with errors stays in faustcode. The faustcode URL can be set
-with `?faustcode=<url>` (e.g. a local faustcode).
+**Resources** (`Documentation/SCENE-RESOURCES-SPEC.md`, 3.59.0). A scene holds its resources, a name and a code
+each, and its modules are instances of them: the modules of the same name have the same code, each with its own
+values and modulations. Adding a module of the same code and name as a resource adds an instance of it; another code
+under a taken name gets a free name (`VCO-2`). Editing the code of a module, in faustcode or by dropping a file on
+it, edits its resource: all its instances are recompiled, keeping their values, connections and modulations, in one
+step of the history. *Make unique* (menu of a module) gives a module a copy of its resource under a free name, its
+parameters renamed with its group; *Rename the module* renames the resource and its instances. The family *This
+scene* of the Modules menu lists the resources: a double click adds an instance, and a resource without instance (it
+stays when its last instance is removed) can be removed. A file whose modules hold two codes under one name is
+opened as two resources (`VCO`, `VCO-2`). Documents are of format 5: the resources (name, file, code, provenance)
+and the instances that name them; format 4 is migrated when read; the files saved are patch files of version 4,
+with their resources.
 
-The other way, the *faustmodular* button of faustcode opens its session here, as a module of the open document
-(faustcode opens faustmodular with `?link=faustcode` if needed): the session is linked to the module, each save
-that compiles updates it, and its pencil edits it in that faustcode. faustmodular takes code this way only from the
-page that opened it, with the origin of the official faustcode (or a local one). A new module (right-click on the
-stage, *New module*) is a pass-through `process = _;` opened in faustcode to be written.
+**Editing in faustcode.** faustcode is served by the same origin (`../faustcode/`, or `?faustcode=<path>` of the
+same origin; in development, the server of faustmodular serves `FAUSTCODE_DIR`, or `../faustcode`, under
+`/faustcode/`): the two share the storage of the browser. The working code of each resource is a file,
+`faustmodular/documents/<document>/resources/<file>.dsp` in OPFS, which faustcode edits; both write it under the
+Web Lock `faustmodular:document:<document>` and conditionally (a file changed by the other is never overwritten),
+and ring the `BroadcastChannel` `faustmodular-resources` (`src/documents/ResourceLink.ts`). The pencil asks a
+faustcode tab to open the resource, or opens `faustcode/?open=faustmodular:<document>/<file>`. A save in faustcode
+updates every instance and is answered (*applied*: how many, or the error: the instances then keep their code,
+and the file the code of faustcode); a save while the scene is not open is read when it opens (the document is then
+modified). faustmodular rings what it changes itself (an undo, a file dropped, a rename, a resource removed). A new
+module (right-click on the stage, *New module*) is a pass-through `process = _;` opened in faustcode to be
+written.
 
 The export generates a single Faust program equivalent to the patch (`src/export/FaustExporter.ts`):
 one instance per module, sums at the inputs, feedback cables delayed by one sample, and only the

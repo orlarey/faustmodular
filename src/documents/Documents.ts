@@ -21,6 +21,7 @@
 
 import { PatchFileV2, PATCH_FORMAT, PATCH_VERSION } from "../model/PatchFormat";
 import { NO_PROVENANCE, Provenance } from "../model/Resources";
+import { ResourceLink, ResourceLinkHost, ResourceMessage } from "./ResourceLink";
 import { DocumentFormatError, DocumentV5, FaustEnvironment, documentContent, documentFromPatch, mergeResourceFiles, patchFromDocument, resourceTexts } from "./DocumentFormat";
 import { DocumentEntry, DocumentStore, UserModule } from "./DocumentStore";
 import { sha1 } from "./Sha1";
@@ -35,6 +36,12 @@ export interface DocumentsScene {
     replaceScene(json: string, options: { keepIds?: boolean }): Promise<boolean>;
     showUpdate?(id: string, available: boolean): void;              // an update for this instance
     updateModuleCode?(id: string, code: string): Promise<string | null>;   // as an edit in faustcode
+    // a resource given a new code by faustcode: all its instances (R4); how many were updated, or why not
+    applyResourceCode?(name: string, code: string): Promise<{ error: string | null; instances: number }>;
+    // a resource added by faustcode, with an instance at the center of the view if `place`
+    adoptResource?(name: string, code: string, place: boolean): Promise<string | null>;
+    resourceNames?(): string[];
+    instancesOf?(name: string): unknown[];
 }
 
 // public/faust-modules/library-index.json (scripts/build-library-index.mjs)
@@ -54,6 +61,8 @@ export interface DocumentsOptions {
     libraryCode?: (path: string) => Promise<string>;    // the code of a module of the library
     // files of resources of the open document changed by someone else (faustcode): file -> text
     externalResources?: (files: Map<string, string>) => void;
+    // the channel with faustcode (documents/ResourceLink.ts): none in the tests of Node
+    link?: (host: ResourceLinkHost) => ResourceLink;
 }
 
 export const LEGACY_KEY = "FaustPlayground";
@@ -71,6 +80,10 @@ export class Documents {
     private fLibraryHistory = new Map<string, string>(); // hash of a past version -> path
     private fUpdates = new Map<string, string>();       // instance id -> hash of its code
     private fFiles = new Map<string, string>();         // files of resources of the open document: file -> hash last read or written
+    private fFileOf = new Map<string, string>();        // their resources: name -> file
+    private fRejected = new Map<string, string>();      // file -> hash of a code of faustcode the scene could not compile
+    private fRenames: Array<[string, string]> = [];     // resources renamed since the last write of the files
+    private fLink: ResourceLink | null = null;
 
     private constructor(readonly store: DocumentStore, private fScene: DocumentsScene, private fEnvironment: FaustEnvironment, private fOptions: DocumentsOptions) {
         this.fFaust = fEnvironment;
@@ -84,6 +97,7 @@ export class Documents {
             return { libfaust: "", libraries: null };
         }) : { libfaust: "", libraries: null };
         const documents = new Documents(store, scene, environment, options);
+        documents.fLink = options.link?.({ receive: (message) => documents.onLink(message) }) ?? null;
         if (options.library) {
             try {
                 documents.setLibrary(await options.library());
@@ -143,6 +157,8 @@ export class Documents {
     // those changed by someone else meanwhile (faustcode) are not overwritten. `force`: Revert.
     private async syncFiles(id: string, document: DocumentV5, codes: Map<string, string>, force = false): Promise<void> {
         const wanted = resourceTexts(document, codes);
+        const previous = this.fFiles;
+        const previousFileOf = this.fFileOf;
         const { written, external } = await this.store.writeResourceFiles(id, wanted, this.fFiles, force);
         const known = new Map(written);
         for (const file of external.keys()) {
@@ -150,7 +166,103 @@ export class Documents {
             if (before !== undefined) known.set(file, before);
         }
         this.fFiles = known;
-        if (external.size > 0) this.fOptions.externalResources?.(external);
+        this.fFileOf = new Map(document.resources.map((r) => [r.name, r.file]));
+        if (id == this.fCurrent?.id) this.ring(id, previous, previousFileOf, written, external);
+        // the files changed meanwhile by faustcode (a bell missed): applied as if it had rung; not those the scene
+        // could not compile already
+        for (const [file, text] of external) {
+            if (this.fRejected.has(file) && this.fRejected.get(file) == await sha1(text)) external.delete(file);
+        }
+        if (external.size > 0) {
+            this.fOptions.externalResources?.(external);
+            if (id == this.fCurrent?.id && this.fScene.applyResourceCode) for (const file of external.keys()) setTimeout(() => void this.receiveFile(id, file, false), 0);
+        }
+    }
+
+    // The bells of the files faustmodular wrote: changed, renamed, removed.
+    private ring(id: string, previous: Map<string, string>, previousFileOf: Map<string, string>, written: Map<string, string>, external: Map<string, string>): void {
+        const link = this.fLink;
+        const renames = this.fRenames;
+        this.fRenames = [];
+        if (!link) return;
+        const nameOf = new Map(Array.from(this.fFileOf, ([name, file]) => [file, name]));
+        const handled = new Set<string>();
+        for (const [from, to] of renames) {
+            const before = previousFileOf.get(from), after = this.fFileOf.get(to);
+            if (!before || !after) continue;
+            handled.add(before);
+            link.post({ type: "resource-renamed", document: id, from: before, to: after, name: to });
+        }
+        for (const [file, hash] of written) {
+            if (previous.has(file) && previous.get(file) != hash) link.post({ type: "resource-changed", document: id, file, name: nameOf.get(file) ?? file.replace(/\.dsp$/, ""), sha1: hash });
+        }
+        const previousNameOf = new Map(Array.from(previousFileOf, ([name, file]) => [file, name]));
+        for (const file of previous.keys()) {
+            if (written.has(file) || external.has(file) || handled.has(file)) continue;
+            link.post({ type: "resource-removed", document: id, file, name: previousNameOf.get(file) ?? file.replace(/\.dsp$/, "") });
+        }
+    }
+
+    /******************** FAUSTCODE ********************/
+    // Documentation/SCENE-RESOURCES-SPEC.md, "Le contrat avec faustcode".
+
+    // A bell of faustcode: a file of the open document changed or added.
+    private onLink(message: ResourceMessage): void {
+        const id = this.fCurrent?.id;
+        if (!id || (message.type != "resource-changed" && message.type != "resource-added") || message.document != id) return;
+        void this.receiveFile(id, message.file, message.type == "resource-added" && !!message.place);
+    }
+
+    // A file of resource written by faustcode: its code applied to the scene (all the instances of its resource), or
+    // a new resource; the answer `applied`.
+    private async receiveFile(id: string, file: string, place: boolean): Promise<void> {
+        await this.flush();
+        if (this.fCurrent?.id != id) return;
+        const text = await this.store.readResourceFile(id, file);
+        if (text === null) return;
+        const hash = await sha1(text);
+        let name = Array.from(this.fFileOf).find(([, f]) => f == file)?.[0];
+        const answer = (ok: boolean, instances: number, error?: string) =>
+            this.fLink?.post({ type: "applied", document: id, file, name: name ?? file, sha1: hash, ok, instances, ...(error ? { error } : {}) });
+        const before = this.fFiles.get(file);
+        if (name !== undefined && before == hash) {
+            answer(true, this.fScene.instancesOf?.(name).length ?? 0);
+            return;
+        }
+        this.fFiles.set(file, hash);            // known: the autosave that follows does not take it for a change of faustcode
+        if (name === undefined) {
+            const base = file.replace(/\.dsp$/, "");
+            name = (this.fScene.resourceNames?.() ?? []).includes(base) ? `${base}-${Date.now()}` : base;
+            const error = this.fScene.adoptResource ? await this.fScene.adoptResource(name, text, place) : "faustmodular cannot add a resource";
+            this.fFileOf.set(name, file);
+            answer(error == null, error == null && place ? 1 : 0, error ?? undefined);
+            return;
+        }
+        const result = await this.fScene.applyResourceCode?.(name, text) ?? { error: "faustmodular cannot apply it", instances: 0 };
+        if (result.error) {
+            // the file keeps the code of faustcode, the instances theirs: not written back, not applied again
+            if (before !== undefined) this.fFiles.set(file, before); else this.fFiles.delete(file);
+            this.fRejected.set(file, hash);
+        } else {
+            this.fRejected.delete(file);
+        }
+        answer(result.error == null, result.instances, result.error ?? undefined);
+    }
+
+    // A resource renamed (Scene.renameResource): told to faustcode at the next write of the files.
+    resourceRenamed(from: string, to: string): void {
+        this.fRenames.push([from, to]);
+    }
+
+    // The pencil: the resource opened in faustcode, its file written first.
+    async openInFaustcode(name: string): Promise<"tab" | "window" | "blocked" | "unavailable"> {
+        const link = this.fLink;
+        const current = this.fCurrent;
+        if (!link || !current) return "unavailable";
+        await this.flush();
+        const file = this.fFileOf.get(name);
+        if (!file) return "unavailable";
+        return link.open(current.id, file, name);
     }
 
     // The pending step of the history recorded, and the saves written.

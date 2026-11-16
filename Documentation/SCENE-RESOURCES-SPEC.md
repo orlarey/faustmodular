@@ -135,15 +135,15 @@ faustcode et faustmodular sont servis par la **même origine** (`orlarey.github.
 
 | `type` | Émetteur | Champs | Effet chez l'autre |
 | :-- | :-- | :-- | :-- |
-| `resource-changed` | les deux | `document`, `name`, `sha1` | faustmodular relit le fichier et recompile les instances (R4) ; faustcode recharge son document s'il n'est pas modifié, sinon le bandeau |
-| `resource-added` | faustcode | `document`, `name`, `sha1`, `place?` | faustmodular adopte la ressource, et pose une instance si `place` |
-| `resource-renamed` | faustmodular | `document`, `from`, `to` | faustcode change l'origine de son document |
-| `resource-removed` | faustmodular | `document`, `name` | le document de faustcode devient sans origine (bandeau) |
-| `applied` | faustmodular | `document`, `name`, `sha1`, `ok`, `instances`, `error?` | faustcode affiche « VCO mis à jour (4 instances) », ou l'erreur |
-| `open-resource` | faustmodular | `document`, `name`, `request` | un onglet faustcode ouvre le document de cette ressource |
+| `resource-changed` | les deux | `document`, `file`, `name`, `sha1` | faustmodular relit le fichier et recompile les instances (R4) ; faustcode recharge son document s'il n'est pas modifié, sinon le bandeau |
+| `resource-added` | faustcode | `document`, `file`, `name`, `sha1`, `place?` | faustmodular adopte la ressource, et pose une instance si `place` |
+| `resource-renamed` | faustmodular | `document`, `from`, `to`, `name` | faustcode change l'origine de son document (`from`, `to` : les fichiers) |
+| `resource-removed` | faustmodular | `document`, `file`, `name` | le document de faustcode devient sans origine (bandeau) |
+| `applied` | faustmodular | `document`, `file`, `name`, `sha1`, `ok`, `instances`, `error?` | faustcode affiche « VCO mis à jour (4 instances) », ou l'erreur |
+| `open-resource` | faustmodular | `document`, `file`, `name`, `request` | un onglet faustcode ouvre le document de cette ressource |
 | `opened` | faustcode | `request` | réponse à `open-resource` |
 
-Chaque message porte `channel: "faustmodular-resources"` et `version: 1`. Un message mal formé est ignoré. Le canal ne transporte jamais de code : le code est dans le fichier.
+Chaque message porte `channel: "faustmodular-resources"`, `version: 1` et `sender` (`"faustmodular"` ou `"faustcode"`). Une ressource y est désignée par son **fichier** (`VCO-2.dsp`, sans chemin), et `name` ne sert qu'à l'affichage. Un message mal formé est ignoré, comme un fichier qui contient `/` ou `\` ou ne finit pas par `.dsp`. Le canal ne transporte jamais de code : le code est dans le fichier (`src/documents/ResourceLink.ts`).
 
 **Ce que fait faustmodular à la sonnette.**
 - **La scène est ouverte** dans l'onglet qui écrit (le second onglet d'un même document est en lecture seule, `DOCUMENT-SPEC.md`) : il relit le fichier, recompile les instances, ajoute l'étape à l'historique, marque la scène modifiée et répond `applied`.
@@ -156,7 +156,7 @@ Chaque message porte `channel: "faustmodular-resources"` et `version: 1`. Un mes
 # Le crayon
 
 1. faustmodular envoie `open-resource` sur le canal. Si un onglet faustcode répond `opened` dans les 500 ms, c'est lui qui ouvre la ressource. Si faustmodular a lui-même ouvert cette fenêtre, il la met au premier plan ; sinon il affiche « Ouvert dans l'onglet faustcode ».
-2. Sans réponse, faustmodular ouvre `<faustcode>?open=faustmodular:<uuid>/<Nom>` dans une fenêtre nommée `faustcode`.
+2. Sans réponse, faustmodular ouvre `<faustcode>?open=faustmodular:<uuid>/<fichier>` dans une fenêtre nommée `faustcode`.
 3. `<faustcode>` est `../faustcode/` relativement à faustmodular, donc `https://orlarey.github.io/faustcode/` en production. Le paramètre `?faustcode=<chemin>` est accepté s'il désigne la même origine. En développement, le serveur de faustmodular sert faustcode sous `/faustcode/` (`FAUSTCODE_DIR`), pour que les deux aient la même origine.
 4. Le crayon d'une scène qui n'a pas encore d'identifiant de document (aucun document ouvert) est grisé. Ce cas n'existe pas avec les documents.
 

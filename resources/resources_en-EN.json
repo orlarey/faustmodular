@@ -16,6 +16,8 @@
   "quickAddPlaceholder": "Add a module…",
   "quickAddRecent": "Recent",
   "quickAddHint": "↑ ↓ choose · Enter adds it here · Esc",
+  "faustcodeOpenedInTab": "{name} is open in the faustcode tab.",
+  "faustcodeUnavailable": "faustcode is not available here: it must be served by the same site as faustmodular.",
   "resourceNameInvalid": "A name cannot hold \" or \\.",
   "resourceNameTaken": "The scene already has a module named {name}.",
   "menuMakeUnique": "Make unique",

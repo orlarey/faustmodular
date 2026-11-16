@@ -22,6 +22,7 @@ import { Utilitary } from "./Utilitary";
 import { Message } from "./Messages";
 import { APP_TITLE } from "./Version";
 import { Documents } from "./documents/Documents";
+import { ResourceLink } from "./documents/ResourceLink";
 import { shippedEnvironment } from "./documents/Environment";
 
 //@ts-ignore
@@ -120,6 +121,8 @@ export function resumeInit(app: App) {
         notify: (message) => { new Message(message) },
         library: async () => (await fetch("faust-modules/library-index.json")).json(),
         libraryCode: async (path) => (await fetch(path)).text(),
+        // faustcode edits the resources of the scenes (documents/ResourceLink.ts)
+        link: (host) => new ResourceLink(host),
         // the first visit: a SineVCO to the outputs, in the middle of the stage (not with ?starter=0)
         starter: () => starterWanted(location.search)
             ? JSON.stringify(starterPatch(Utilitary.currentScene.describePatch(), STARTER_CENTERED(Utilitary.currentScene.positionDblTapModule())))
@@ -127,8 +130,6 @@ export function resumeInit(app: App) {
     }).then((documents) => {
         access.documents = documents;
         app.menu.setDocuments(documents);
-        // opened by faustcode (?link=faustcode): ready to receive its code (FaustcodeLink)
-        Utilitary.currentScene.faustcodeLink.announce();
         openStoreLink(app, stores);
     }).catch((e) => {
         console.error("documents unavailable", e);

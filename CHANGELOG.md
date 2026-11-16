@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.59.0 (2026-11-16)
+
+- **The resources of a scene** (`Documentation/SCENE-RESOURCES-SPEC.md`): a module is defined once per scene, and
+  its copies are instances of it. Editing one (in faustcode, or by dropping a file on it) updates them all, in one
+  step of the history. *Make unique* and *Rename the module* in the menu of a module; the family *This scene* of the
+  Modules menu. A file holding two codes under one name opens as two resources. Documents of format 5 (format 4 is
+  migrated), files of version 4.
+- **Editing in faustcode through the storage of the browser**: the code of each resource is a file that faustcode
+  edits (same origin, a lock, a conditional write), and a `BroadcastChannel` rings the changes both ways. Reloading
+  faustcode or faustmodular breaks nothing; a save while the scene is closed is read when it opens. The link by
+  windows (`?link=faustcode`, `FaustcodeLink`) and *Open in faustcode* of a module of a store are removed.
+- A silent module started again after a removal tries again a little later if needed.
+
 ## 3.58.0 (2026-11-16)
 
 - **The limit of modules is shown**: a browser tab runs about 120 Faust modules (each has a WebAssembly memory of

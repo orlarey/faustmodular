@@ -105,15 +105,19 @@ click away.
 
 ## Writing your own modules
 
-The **✎** pencil of a module opens its code in [faustcode](https://orlarey.github.io/faustcode/), the Faust
-editor in the browser. Each time you save there (Ctrl/Cmd-S), the module is updated in place, with its settings,
-cables and modulations. A changed module is kept in **My modules**.
+A module is defined once per scene: its copies share its code. The **✎** pencil of a module opens that code in
+[faustcode](https://orlarey.github.io/faustcode/), the Faust editor in the browser. Each time you save there
+(Ctrl/Cmd-S), every copy of the module is updated in place, with its settings, cables and modulations; reloading
+either page breaks nothing. **Make unique**, in the menu of a module, gives it a code of its own; **Rename the
+module** renames all its copies. The modules of the scene are listed in **This scene**, in the Modules menu. A
+changed module is kept in **My modules**.
 
 You can also:
 
 - right click the stage and choose **New module**: an empty module, opened in faustcode to be written;
-- open a program you edit in faustcode directly in faustmodular, with its **faustmodular** button;
-- **import a Faust file** (.dsp) from the File menu, or drop it on the stage.
+- send a program you edit in faustcode to faustmodular, with its **faustmodular** button;
+- **import a Faust file** (.dsp) from the File menu, or drop it on the stage; dropped on a module, it replaces the
+  code of all its copies.
 
 ## Large patches
 

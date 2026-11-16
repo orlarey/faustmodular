@@ -30,6 +30,8 @@ export class Resources {
     quickAddPlaceholder: string;
     quickAddRecent: string;
     quickAddHint: string;
+    faustcodeOpenedInTab: string;
+    faustcodeUnavailable: string;
     resourceNameInvalid: string;
     resourceNameTaken: string;
     menuMakeUnique: string;
