@@ -190,6 +190,10 @@ Chaque message porte `channel: "faustmodular-resources"` et `version: 1`. Un mes
 
 # Décisions à valider
 
+::: note [Validées le 16 novembre 2026]
+Les six décisions ci-dessous ont été validées telles quelles.
+:::
+
 1. **Le nom de la ressource est le nom du groupe Faust** de ses instances (R1). Renommer une ressource renomme les adresses de leurs paramètres.
 2. **Une ressource sans instance reste au catalogue de la scène.** Une famille *Cette scène* du menu Modules la montre, et propose *Retirer de la scène*. Supprimer la dernière instance ne supprime donc pas la ressource, et un document faustcode qui l'édite reste valable.
 3. **Ajouter un module réutilise une ressource** de même provenance et de même code.
