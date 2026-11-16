@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.57.1 (2026-11-16)
+
+- **The audio input and output modules open again where they were left**, even out of the window: a large scene,
+  zoomed out or moved, no longer gets them back at the edges of the window, under its modules. They were saved
+  where they were, but brought back into the window when the scene was opened (a rule older than the zoom). A
+  scene saved since then with them moved to the edges keeps them there: moved once, they stay.
+
 ## 3.57.0 (2026-11-15)
 
 - **The stage scrolls by itself** while something is dragged near an edge of the window: a module or a selection

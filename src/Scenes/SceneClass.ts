@@ -924,14 +924,14 @@ export class Scene {
     private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>, keepIds: boolean): Promise<string[]> {
         this.sceneName = sceneName;
         var warnings: string[] = [];
-        // positions of the physical input and output, kept in the window. (0, 0) is no position: the
-        // files and documents saved before 3.1.1 had no other, and the modules stay where they are.
+        // positions of the physical input and output, on the stage as the other modules: where they were saved,
+        // even out of the window (a large scene, zoomed out or moved; until 3.57.0 they were brought back into the
+        // window, under the modules). (0, 0) is no position: the files and documents saved before 3.1.1 had no
+        // other, and the modules stay where they are.
         for (var io of file.getModules()) {
             var physical = io.kind == "input" ? this.fAudioInput : io.kind == "output" ? this.fAudioOutput : undefined;
             if (!physical || (io.x == 0 && io.y == 0)) continue;
-            var x = Math.max(0, Math.min(io.x, window.innerWidth - 98));
-            var y = Math.max(50, Math.min(io.y, window.innerHeight - 100));
-            this.moveModule(physical, x, y);
+            this.moveModule(physical, io.x, io.y);
         }
         var ids = await this.recallModules(file.getModules().filter((m) => m.kind == "faust"), warnings, keepIds);
         for (var c of file.getConnections()) {

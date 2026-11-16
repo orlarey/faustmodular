@@ -89,6 +89,11 @@ describe("documents", () => {
         await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
         await reload(page);
         expect(await physical()).toEqual([placed[0], [900, 300]]);
+        // out of the window (a large scene, zoomed out or moved): kept there, not brought back into the window
+        await page.evaluate(() => { const s = (globalThis as any).faustmodular.scene; s.moveModule(s.fAudioInput, -400, 1500); s.moveModule(s.fAudioOutput, 2600, 1700); });
+        await page.evaluate(() => (globalThis as any).faustmodular.documents.flush());
+        await reload(page);
+        expect(await physical()).toEqual([[-400, 1500], [2600, 1700]]);
 
         await page.mouse.click(700, 860);                   // the stage has the focus
         await page.keyboard.press("Control+s");
