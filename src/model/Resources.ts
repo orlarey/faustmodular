@@ -113,7 +113,7 @@ export function compareIds(a: string, b: string): number {
 
 export function migrateInstances<I extends InstanceWithCode>(
     instances: I[],
-    provenanceOf: (code: string, wrapped: boolean) => Provenance = () => NO_PROVENANCE,
+    provenanceOf: (code: string, wrapped: boolean, name: string) => Provenance = () => NO_PROVENANCE,
 ): { resources: Resource[]; instances: Array<InstanceOfResource<I>> } {
     const resources: Resource[] = [];
     const byKey = new Map<string, Resource>();
@@ -126,7 +126,7 @@ export function migrateInstances<I extends InstanceWithCode>(
                 name: uniqueName(instance.name, resources.map((r) => r.name)),
                 code: instance.code,
                 wrapped: instance.wrapped,
-                provenance: provenanceOf(instance.code, instance.wrapped),
+                provenance: provenanceOf(instance.code, instance.wrapped, instance.name),
             };
             resources.push(resource);
             byKey.set(key, resource);

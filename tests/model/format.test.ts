@@ -51,7 +51,8 @@ describe("patch file v2", () => {
     });
 
     it.each([
-        ["wrong version", (f: any) => { f.version = 4; }, /unsupported patch version 4/],
+        ["wrong version", (f: any) => { f.version = 5; }, /unsupported patch version 5/],
+        ["bad provenance", (f: any) => { f.version = 4; f.resources = [{ name: "A", code: "", wrapped: true, provenance: { kind: "x" } }]; }, /resources\[0\]\.provenance\.kind: unknown provenance/],
         ["missing field", (f: any) => { delete f.modules[2].code; }, /modules\[2\]\.code: string expected/],
         ["unknown kind", (f: any) => { f.modules[2].kind = "midi"; }, /modules\[2\]\.kind: unknown module kind/],
         ["too many channels", (f: any) => { f.modules[2].inputs = 33; }, /modules\[2\]: number of inputs/],

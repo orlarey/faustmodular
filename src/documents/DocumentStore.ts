@@ -4,6 +4,8 @@
         index.json                      documents: id, name, dates, trash; migration state
         documents/<id>/committed.json   committed copy (what Save wrote)
         documents/<id>/working.json     working copy (absent when the document is clean)
+        documents/<id>/resources/<file> working code of each resource, edited by faustcode too
+                                        (Documentation/SCENE-RESOURCES-SPEC.md, "Le contrat avec faustcode")
         codes/<sha1>.dsp                codes, shared by all the documents
         libraries/<sha1>.lib            files of the Faust libraries
         environments/<sha1>.json        environments: name of a .lib file -> hash
@@ -13,7 +15,7 @@
     operations are serialized, so that two writes of the index never overlap.
 */
 
-import { DocumentFormatError, DocumentV4, parseDocument } from "./DocumentFormat";
+import { DocumentFormatError, DocumentV5, parseDocument } from "./DocumentFormat";
 import { FileStore } from "./FileStore";
 import { normalizeText, sha1 } from "./Sha1";
 
@@ -54,6 +56,22 @@ interface Index {
 const INDEX = "index.json";
 const committedPath = (id: string) => `documents/${id}/committed.json`;
 const workingPath = (id: string) => `documents/${id}/working.json`;
+const resourcesPath = (id: string) => `documents/${id}/resources`;
+
+// The lock of the files of resources of a document, shared with faustcode (Web Locks; none in Node).
+export const documentLock = (id: string) => `faustmodular:document:${id}`;
+
+async function withLock<T>(name: string, task: () => Promise<T>): Promise<T> {
+    const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+    return locks ? locks.request(name, task) as Promise<T> : task();
+}
+
+// What a write of the files of resources did: the hashes written (or found equal), and the files changed
+// by someone else (faustcode), or unknown to the caller, which were left as they are.
+export interface ResourceWrite {
+    written: Map<string, string>;       // file -> hash
+    external: Map<string, string>;      // file -> text
+}
 
 function newId(): string {
     return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -145,7 +163,7 @@ export class DocumentStore {
     }
 
     // A new document whose committed copy is `document` (its codes must be stored before).
-    create(name: string, document: DocumentV4): Promise<DocumentEntry> {
+    create(name: string, document: DocumentV5): Promise<DocumentEntry> {
         return this.serialized(async () => {
             const now = Date.now();
             const entry: DocumentEntry = { id: newId(), name: this.uniqueName(name), created: now, modified: now };
@@ -156,12 +174,12 @@ export class DocumentStore {
         });
     }
 
-    async read(id: string): Promise<{ committed: DocumentV4; working: DocumentV4 | null }> {
+    async read(id: string): Promise<{ committed: DocumentV5; working: DocumentV5 | null }> {
         const committedText = await this.files.read(committedPath(id));
         if (!committedText) throw new DocumentFormatError(`document ${id} not found`);
         const committed = parseDocument(JSON.parse(committedText));
         const workingText = await this.files.read(workingPath(id));
-        let working: DocumentV4 | null = null;
+        let working: DocumentV5 | null = null;
         if (workingText) {
             try {
                 working = parseDocument(JSON.parse(workingText));
@@ -173,7 +191,7 @@ export class DocumentStore {
     }
 
     // Writes the working copy (null: removes it, the document is clean).
-    writeWorking(id: string, document: DocumentV4 | null): Promise<void> {
+    writeWorking(id: string, document: DocumentV5 | null): Promise<void> {
         return this.serialized(async () => {
             const entry = this.fIndex.documents.find((d) => d.id == id);
             if (!entry) return;
@@ -188,7 +206,7 @@ export class DocumentStore {
     }
 
     // The committed copy becomes `document`; the working copy is removed.
-    commit(id: string, document: DocumentV4): Promise<void> {
+    commit(id: string, document: DocumentV5): Promise<void> {
         return this.serialized(async () => {
             const entry = this.fIndex.documents.find((d) => d.id == id);
             if (!entry) return;
@@ -213,11 +231,59 @@ export class DocumentStore {
         });
     }
 
-    // A copy of the document as it stands (working copy if any), clean, named "Name 2".
+    // A copy of the document as it stands (working copy if any), clean, named "Name 2", with its files of
+    // resources.
     async duplicate(id: string): Promise<DocumentEntry> {
         const { committed, working } = await this.read(id);
         const entry = this.get(id)!;
-        return this.create(entry.name, working ?? committed);
+        const copy = await this.create(entry.name, working ?? committed);
+        const files = await this.readResourceFiles(id);
+        for (const [file, text] of files) await this.files.write(`${resourcesPath(copy.id)}/${file}`, text);
+        return copy;
+    }
+
+    /******************** FILES OF RESOURCES ********************/
+
+    // The files of resources of a document: file -> text.
+    async readResourceFiles(id: string): Promise<Map<string, string>> {
+        const files = new Map<string, string>();
+        for (const file of await this.files.list(resourcesPath(id))) {
+            if (!file.endsWith(".dsp")) continue;
+            const text = await this.files.read(`${resourcesPath(id)}/${file}`);
+            if (text !== null) files.set(file, normalizeText(text));
+        }
+        return files;
+    }
+
+    // Writes the files of resources of a document, under its lock, conditionally: `wanted` (file -> text) is
+    // what the scene has; `known` (file -> hash) what the caller last read or wrote. A file whose content is
+    // no longer the known one (faustcode wrote it), or a file the caller does not know (faustcode added it),
+    // is left as it is and given back in `external`; a known file the scene no longer has is removed if it is
+    // unchanged. `force`: the files are written whatever they hold (Revert).
+    writeResourceFiles(id: string, wanted: Map<string, string>, known: Map<string, string>, force = false): Promise<ResourceWrite> {
+        return withLock(documentLock(id), async () => {
+            const written = new Map<string, string>();
+            const external = new Map<string, string>();
+            const present = new Set((await this.files.list(resourcesPath(id))).filter((f) => f.endsWith(".dsp")));
+            for (const file of new Set([...present, ...wanted.keys()])) {
+                const path = `${resourcesPath(id)}/${file}`;
+                const current = present.has(file) ? await this.files.read(path) : null;
+                const currentHash = current === null ? null : await sha1(normalizeText(current));
+                const knownHash = known.get(file);
+                const text = wanted.get(file);
+                const changedElsewhere = current !== null && !force && (knownHash === undefined ? text === undefined || currentHash != await sha1(text) : currentHash != knownHash);
+                if (changedElsewhere) {
+                    external.set(file, normalizeText(current!));
+                } else if (text !== undefined) {
+                    const hash = await sha1(text);
+                    if (currentHash != hash) await this.files.write(path, text);
+                    written.set(file, hash);
+                } else if (current !== null) {
+                    await this.files.remove(path);
+                }
+            }
+            return { written, external };
+        });
     }
 
     setTrashed(id: string, trashed: boolean): Promise<void> {
@@ -278,13 +344,13 @@ export class DocumentStore {
     }
 
     // The codes of the documents, as a map hash -> code (a code missing from the store is absent).
-    async codesOf(...documents: Array<DocumentV4 | null>): Promise<Map<string, string>> {
+    async codesOf(...documents: Array<DocumentV5 | null>): Promise<Map<string, string>> {
         const codes = new Map<string, string>();
         for (const d of documents) {
-            for (const i of d?.instances ?? []) {
-                if (codes.has(i.code)) continue;
-                const code = await this.getCode(i.code);
-                if (code !== null) codes.set(i.code, code);
+            for (const r of d?.resources ?? []) {
+                if (codes.has(r.code)) continue;
+                const code = await this.getCode(r.code);
+                if (code !== null) codes.set(r.code, code);
             }
         }
         return codes;
@@ -324,7 +390,7 @@ export class DocumentStore {
                     try {
                         const d = parseDocument(JSON.parse(text));
                         if (d.legacy) return 0;     // codes still inside an unconverted file: keep everything
-                        d.instances.forEach((i) => live.add(i.code));
+                        d.resources.forEach((r) => live.add(r.code));
                     } catch {
                         return 0;                   // a document that cannot be read: collect nothing
                     }

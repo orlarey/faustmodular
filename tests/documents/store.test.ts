@@ -30,25 +30,73 @@ function patch(code = 'import("stdfaust.lib");\nprocess = os.osc(440);'): PatchF
     };
 }
 
-describe("document format 4", () => {
-    it("replaces the codes by their hashes, unwrapped, and converts back to the same patch", async () => {
+describe("document format 5", () => {
+    it("replaces the codes by their hashes, unwrapped, in resources, and converts back to the same patch", async () => {
         const { document, codes } = await documentFromPatch(patch(), "Doc", faust);
-        expect(document.instances.map((i) => i.id)).toEqual(["1", "2", "3"]);           // in the order of the ids
+        expect(document.version).toBe(5);
+        expect(document.instances.map((i) => [i.id, i.resource])).toEqual([["1", "Osc"], ["2", "Volume"], ["3", "Raw"]]);  // in the order of the ids
         expect(document.io).toEqual({ input: { x: 10, y: 400 }, output: { x: 1300, y: 400 } });
         expect(document.connections).toEqual(["1:0>2:0", "2:0>output:0"]);
-        const osc = document.instances[0];
-        expect(osc.wrapped).toBe(true);
+        expect(document.resources.map((r) => [r.name, r.file, r.wrapped])).toEqual([["Osc", "Osc.dsp", true], ["Raw", "Raw.dsp", false], ["Volume", "Volume.dsp", true]]);
+        const osc = document.resources[0];
         expect(codes.get(osc.code)).toBe('import("stdfaust.lib");\nprocess = os.osc(440);');
         expect(osc.code).toBe(await sha1('import("stdfaust.lib");\nprocess = os.osc(440);'));
-        expect(document.instances[2]).toMatchObject({ name: "Raw", wrapped: false });   // not in the wrapped form: as it is
-        expect(codes.get(document.instances[2].code)).toBe("process = _;");
+        expect(codes.get(document.resources[1].code)).toBe("process = _;");                // not in the wrapped form: as it is
 
         const back = patchFromDocument(parseDocument(JSON.parse(JSON.stringify(document))), (h) => codes.get(h));
         const original = patch();
         const byId = (p: PatchFileV2) => Object.fromEntries(p.modules.map((m) => [m.id, { ...m, outputs: m.kind == "faust" ? m.outputs : 0, inputs: m.kind == "faust" ? m.inputs : 0 }]));
         expect(byId(back)).toEqual(byId(original));
         expect(back.connections.map((c) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort()).toEqual(["1:0>2:0", "2:0>output:0"]);
-        expect(back.version).toBe(3);
+        expect(back.version).toBe(4);
+        expect(back.resources!.map((r) => r.name)).toEqual(["Osc", "Raw", "Volume"]);
+    });
+
+    it("shares a resource among the instances of the same name and code; a name held by two codes is suffixed", async () => {
+        const file = patch();
+        const volume = file.modules.find((m) => m.id == "2")!;
+        file.modules.push({ ...volume, id: "4", params: { "/Volume/v": 0.75 } });
+        file.modules.push({ ...volume, id: "5", code: wrapModuleCode("Volume", "process = *(0.5);"), params: { "/Volume/v": 0.1 } });
+        const { document } = await documentFromPatch(file, "Doc", faust);
+        expect(document.resources.map((r) => r.name)).toEqual(["Osc", "Raw", "Volume", "Volume-2"]);
+        expect(document.instances.map((i) => [i.id, i.resource, i.params])).toEqual([
+            ["1", "Osc", {}], ["2", "Volume", { "/Volume/v": 0.25 }], ["3", "Raw", {}],
+            ["4", "Volume", { "/Volume/v": 0.75 }], ["5", "Volume-2", { "/Volume-2/v": 0.1 }],
+        ]);
+    });
+
+    it("keeps the provenance the file gives, the resources without instance, and asks for the others", async () => {
+        const file = patch();
+        file.resources = [
+            { name: "Volume", code: "process = *(hslider(\"v\",0.5,0,1,0.01));", wrapped: true, provenance: { kind: "builtin", path: "dyn/Volume.dsp" } },
+            { name: "Unused", code: "process = 0;", wrapped: true, provenance: { kind: "none" } },
+        ];
+        const { document } = await documentFromPatch(file, "Doc", faust, () => ({ kind: "user", module: "u", version: "v" }));
+        const by = Object.fromEntries(document.resources.map((r) => [r.name, r.provenance]));
+        expect(by.Volume).toEqual({ kind: "builtin", path: "dyn/Volume.dsp" });
+        expect(by.Osc).toEqual({ kind: "user", module: "u", version: "v" });
+        expect(by.Unused).toEqual({ kind: "none" });
+        expect(document.instances.some((i) => i.resource == "Unused")).toBe(false);
+    });
+
+    it("migrates a document of format 4", async () => {
+        const v4 = {
+            format: "faustmodular-document", version: 4, name: "Old", faust, generator: 1,
+            instances: [
+                { id: "1", name: "VCO", code: "h1", wrapped: true, x: 0, y: 0, inputs: 0, outputs: 1, params: { "/VCO/f": 1 }, acc: [], modulations: [] },
+                { id: "2", name: "VCO", code: "h2", wrapped: true, x: 0, y: 0, inputs: 0, outputs: 1, params: { "/VCO/f": 2 }, acc: [], modulations: [] },
+            ],
+            io: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } }, connections: [],
+        };
+        const d = parseDocument(v4);
+        expect(d.version).toBe(5);
+        expect(d.resources.map((r) => [r.name, r.file, r.code])).toEqual([["VCO", "VCO.dsp", "h1"], ["VCO-2", "VCO-2.dsp", "h2"]]);
+        expect(d.instances.map((i) => [i.resource, i.params])).toEqual([["VCO", { "/VCO/f": 1 }], ["VCO-2", { "/VCO-2/f": 2 }]]);
+    });
+
+    it("refuses an instance of an unknown resource", () => {
+        const d = { format: "faustmodular-document", version: 5, name: "X", faust, generator: 1, resources: [], instances: [{ id: "1", resource: "Nope", x: 0, y: 0, inputs: 0, outputs: 0, params: {}, acc: [], modulations: [] }], io: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } }, connections: [] };
+        expect(() => parseDocument(d)).toThrow(/unknown resource/);
     });
 
     it("gives the same hash to the same code whatever its line endings", async () => {
@@ -63,7 +111,8 @@ describe("document format 4", () => {
 
     it("rejects malformed documents with the location of the problem", () => {
         expect(() => parseDocument({ format: "faustmodular-document", version: 4, name: "x", instances: [{ id: "1" }], connections: [] })).toThrow(/instances\[0\]\.name/);
-        expect(() => parseDocument({ format: "faustmodular-document", version: 5, name: "x" })).toThrow(/version 5/);
+        expect(() => parseDocument({ format: "faustmodular-document", version: 6, name: "x" })).toThrow(/version 6/);
+        expect(() => parseDocument({ format: "faustmodular-document", version: 5, name: "x", instances: [], connections: [] })).toThrow(/resources/);
         expect(() => parseDocument({ format: "faustmodular-document", version: 4, name: "x", instances: [], connections: ["bad"] })).toThrow(/connections/);
         expect(parseDocument({ format: "faustmodular-document", version: 4, name: "Old", legacy: "{}" }).legacy).toBe("{}");
     });

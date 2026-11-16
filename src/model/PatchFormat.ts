@@ -14,11 +14,23 @@
 
 import { ModulationMode, ModulationSpec } from "./Modulation";
 import { AccMapping, ModuleKind, ModuleViewSettings, Patch, PatchError, PortRef, PrecompiledFactory } from "./Patch";
+import type { Provenance } from "./Resources";
 
 export const PATCH_FORMAT = "faustplayground-patch";
 export const PATCH_VERSION = 2;
 // Version of the files with widget modulations (a 2.0 application must not read them).
 export const PATCH_VERSION_MODULATIONS = 3;
+// Version of the files with the resources of the scene (Documentation/SCENE-RESOURCES-SPEC.md).
+export const PATCH_VERSION_RESOURCES = 4;
+
+// A resource of the scene: a name (the group of its instances), the user's code, its provenance. The
+// modules of the file are its instances: their name is the name of their resource.
+export interface ResourceFile {
+    name: string;
+    code: string;
+    wrapped: boolean;
+    provenance: Provenance;
+}
 
 export interface ModulationFile {
     widget: string;                 // address of the widget in the module's DSP
@@ -52,10 +64,11 @@ export interface ConnectionFileV2 {
 
 export interface PatchFileV2 {
     format: typeof PATCH_FORMAT;
-    version: 2 | 3;
+    version: 2 | 3 | 4;
     sceneName: string;
     modules: ModuleFileV2[];
     connections: ConnectionFileV2[];
+    resources?: ResourceFile[];         // version 4
 }
 
 export class PatchFormatError extends Error { }
@@ -72,11 +85,12 @@ export function encodeFactoryCode(code: Uint8Array | ArrayBuffer): string {
 }
 
 // `precompiled`: also save the precompiled factories, when the modules have one.
-export function serializePatch(patch: Patch, sceneName: string, precompiled: boolean = false): PatchFileV2 {
+export function serializePatch(patch: Patch, sceneName: string, precompiled: boolean = false, resources?: ResourceFile[]): PatchFileV2 {
     const modulated = patch.getModules().some((m) => m.modulations.length > 0);
     return {
         format: PATCH_FORMAT,
-        version: modulated ? PATCH_VERSION_MODULATIONS : PATCH_VERSION,
+        version: resources ? PATCH_VERSION_RESOURCES : modulated ? PATCH_VERSION_MODULATIONS : PATCH_VERSION,
+        ...(resources ? { resources: resources.map((r) => ({ ...r })) } : {}),
         sceneName,
         modules: patch.getModules().map((m) => {
             const module: ModuleFileV2 = {
@@ -115,13 +129,15 @@ export function isPatchFileV2(data: unknown): boolean {
 
 // Builds the patch described by a version 2 file; throws PatchFormatError with the
 // location of the first problem found.
-export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string } {
+export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string; resources?: ResourceFile[] } {
     if (!isObject(data) || data.format != PATCH_FORMAT) {
         throw new PatchFormatError("not a faustmodular patch file");
     }
-    if (data.version != PATCH_VERSION && data.version != PATCH_VERSION_MODULATIONS) {
+    if (data.version != PATCH_VERSION && data.version != PATCH_VERSION_MODULATIONS && data.version != PATCH_VERSION_RESOURCES) {
         throw new PatchFormatError(`unsupported patch version ${String(data.version)}`);
     }
+    const resources = data.resources === undefined ? undefined
+        : expectArray(data.resources, "resources").map((value, i) => parseResource(value, `resources[${i}]`));
     const sceneName = expectString(data.sceneName, "sceneName");
     const modules = expectArray(data.modules, "modules");
     const connections = expectArray(data.connections, "connections");
@@ -157,7 +173,29 @@ export function parsePatchV2(data: unknown): { patch: Patch; sceneName: string }
         const to = parsePortRef(c.to, `${where}.to`);
         wrap(where, () => patch.connect(from, to));
     });
-    return { patch, sceneName };
+    return resources ? { patch, sceneName, resources } : { patch, sceneName };
+}
+
+export function parseProvenance(value: unknown, where: string): Provenance {
+    const p = expectObject(value, where);
+    switch (p.kind) {
+        case "builtin": return { kind: "builtin", path: expectString(p.path, `${where}.path`) };
+        case "user": return { kind: "user", module: expectString(p.module, `${where}.module`), version: expectString(p.version, `${where}.version`) };
+        case "store": return { kind: "store", store: expectString(p.store, `${where}.store`), path: expectString(p.path, `${where}.path`), commit: expectString(p.commit, `${where}.commit`) };
+        case "none": return { kind: "none" };
+        default: throw new PatchFormatError(`${where}.kind: unknown provenance "${String(p.kind)}"`);
+    }
+}
+
+function parseResource(value: unknown, where: string): ResourceFile {
+    const r = expectObject(value, where);
+    if (typeof r.wrapped != "boolean") throw new PatchFormatError(`${where}.wrapped: boolean expected`);
+    return {
+        name: expectString(r.name, `${where}.name`),
+        code: expectString(r.code, `${where}.code`),
+        wrapped: r.wrapped,
+        provenance: parseProvenance(r.provenance, `${where}.provenance`),
+    };
 }
 
 // How a module is shown: { orbit: { width, height, state? } }.

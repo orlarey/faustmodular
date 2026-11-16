@@ -233,7 +233,8 @@ describe("migration of the localStorage", () => {
         expect(documents.dirty).toBe(false);
         const converted = (await documents.store.read(old.id)).committed;
         expect(converted.legacy).toBeUndefined();
-        expect(converted.instances[0]).toMatchObject({ name: "Osc", x: oscX(scene), wrapped: true });
+        expect(converted.instances[0]).toMatchObject({ resource: "Osc", x: oscX(scene) });
+        expect(converted.resources.find((r) => r.name == "Osc")).toMatchObject({ wrapped: true });
 
         const again = await start(files, storage);
         expect(again.documents.store.list()).toHaveLength(2);                      // not migrated twice
@@ -332,5 +333,67 @@ describe("user modules", () => {
         await scene.updateModuleCode("1", "process = os.osc(990);");
         await documents.flush();
         expect(await documents.moduleCode(documents.store.listModules()[0].id)).toEqual({ name: "Osc", code: "process = os.osc(990);" });
+    });
+});
+
+describe("files of resources (SCENE-RESOURCES-SPEC)", () => {
+    async function start(files = new MemoryStore(), externalResources?: (f: Map<string, string>) => void) {
+        const scene = new FakeScene();
+        const documents = await Documents.start(scene as any, { files, environment: faust, externalResources });
+        scene.documents = documents;
+        await documents.importPatch(JSON.stringify(patchFile("Res")));
+        await documents.flush();
+        return { scene, documents, files, id: documents.current!.id };
+    }
+    const resourceFile = (files: MemoryStore, id: string, file = "Osc.dsp") => files.read(`documents/${id}/resources/${file}`);
+
+    it("writes the code of each resource in a file of its name", async () => {
+        const { files, id } = await start();
+        expect(await resourceFile(files, id)).toBe("process = os.osc(440);");
+    });
+
+    it("follows the scene: a code changed in the scene is written in its file", async () => {
+        const { scene, documents, files, id } = await start();
+        scene.change((p) => { p.modules[2].code = wrapModuleCode("Osc", "process = os.osc(880);"); });
+        await documents.flush();
+        expect(await resourceFile(files, id)).toBe("process = os.osc(880);");
+    });
+
+    it("opens a document as its files make it: a file changed by faustcode, a file added; the document is modified", async () => {
+        const { documents, files, id, scene } = await start();
+        await documents.create();
+        await files.write(`documents/${id}/resources/Osc.dsp`, "process = os.osc(220);");
+        await files.write(`documents/${id}/resources/Noise.dsp`, "process = no.noise;");
+        expect(await documents.open(id)).toBe(true);
+        expect(documents.dirty).toBe(true);
+        expect(scene.patch.modules.find((m) => m.id == "1")!.code).toBe(wrapModuleCode("Osc", "process = os.osc(220);"));
+        expect(scene.patch.resources!.map((r) => r.name).sort()).toEqual(["Noise", "Osc"]);
+        expect(await resourceFile(files, id)).toBe("process = os.osc(220);");          // not overwritten
+    });
+
+    it("never overwrites a file changed meanwhile, and says so", async () => {
+        const seen: Array<Map<string, string>> = [];
+        const { scene, documents, files, id } = await start(new MemoryStore(), (f) => seen.push(f));
+        await files.write(`documents/${id}/resources/Osc.dsp`, "process = os.osc(330);");    // faustcode
+        scene.change((p) => { p.modules[2].x = 222; });
+        await documents.flush();
+        expect(await resourceFile(files, id)).toBe("process = os.osc(330);");
+        expect(seen.at(-1)?.get("Osc.dsp")).toBe("process = os.osc(330);");
+    });
+
+    it("Revert writes the files of the committed copy again", async () => {
+        const { scene, documents, files, id } = await start();
+        scene.change((p) => { p.modules[2].code = wrapModuleCode("Osc", "process = os.osc(990);"); });
+        await documents.flush();
+        await files.write(`documents/${id}/resources/Osc.dsp`, "process = os.osc(111);");
+        await documents.revert();
+        expect(await resourceFile(files, id)).toBe("process = os.osc(440);");
+        expect(documents.dirty).toBe(false);
+    });
+
+    it("duplicates the files with the document", async () => {
+        const { documents, files, id } = await start();
+        const copy = await documents.duplicate(id);
+        expect(await resourceFile(files, copy.id)).toBe("process = os.osc(440);");
     });
 });

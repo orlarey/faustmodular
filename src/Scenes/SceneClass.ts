@@ -22,7 +22,7 @@ import { Confirm, Message } from "../Messages";
 import { allowedModes, defaultDepthAt, depthWidget, hasDepth, isDepthAddress, isModulable, listWidgets, ModulationError, ModulationMode, ModulationSpec, modulatedCode, modulationSpec, WidgetDescription } from "../model/Modulation";
 import { AccMapping, Connection, MAX_CHANNELS, ModuleId, ModuleViewSettings, Patch, PortRef, PrecompiledFactory, totalInputs } from "../model/Patch";
 import { ORBIT_SIZE } from "../Modules/OrbitPanel";
-import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PatchFileV2, parsePatchV2, serializePatch } from "../model/PatchFormat";
+import { encodeFactoryCode, isPatchFileV2, ModuleFileV2, PATCH_FORMAT, PATCH_VERSION, PATCH_VERSION_MODULATIONS, PATCH_VERSION_RESOURCES, PatchFileV2, ResourceFile, parsePatchV2, serializePatch } from "../model/PatchFormat";
 import { connectV1Links, isPatchFileV1, matchParamPath, readV1 } from "../model/PatchFormatV1";
 import { ModuleClass } from "../Modules/ModuleClass";
 import { setControlerValue } from "../Modules/FaustInterface";
@@ -849,10 +849,11 @@ export class Scene {
         }
         return {
             format: PATCH_FORMAT,
-            version: modules.some((m) => m.modulations) ? PATCH_VERSION_MODULATIONS : PATCH_VERSION,
+            version: PATCH_VERSION_RESOURCES,
             sceneName: this.sceneName,
             modules,
             connections: this.patch.getConnections().map((c) => ({ from: { ...c.from }, to: { ...c.to } })),
+            resources: this.fResources.map((r) => ({ ...r })),
         };
     }
 
@@ -860,7 +861,7 @@ export class Scene {
     // isPrecompiled is used to save or not the compiled wasm code
     saveScene(isPrecompiled: boolean): string {
         this.updatePatchFromModules(isPrecompiled);
-        return JSON.stringify(serializePatch(this.patch, this.sceneName, isPrecompiled));
+        return JSON.stringify(serializePatch(this.patch, this.sceneName, isPrecompiled, this.fResources));
     }
 
     // A change the patch model does not see (a parameter value).
@@ -889,7 +890,12 @@ export class Scene {
     }
 
     // Removes every module and connection: an empty scene (the physical input and output stay).
+    // The resources of the scene (Documentation/SCENE-RESOURCES-SPEC.md), as the file opened gave them: their
+    // provenance, and those without instance. The documents (DocumentFormat) derive the others from the modules.
+    private fResources: ResourceFile[] = [];
+
     clearScene(): void {
+        this.fResources = [];
         var modules = this.getModules();
         while (modules.length != 0) {
             modules[0].deleteModule();      // removes it from the list and from the patch
@@ -964,8 +970,9 @@ export class Scene {
         return replaced;
     }
 
-    private async recallV2({ patch: file, sceneName }: ReturnType<typeof parsePatchV2>, keepIds: boolean): Promise<string[]> {
+    private async recallV2({ patch: file, sceneName, resources }: ReturnType<typeof parsePatchV2>, keepIds: boolean): Promise<string[]> {
         this.sceneName = sceneName;
+        this.fResources = (resources ?? []).map((r) => ({ ...r }));
         var warnings: string[] = [];
         // positions of the physical input and output, on the stage as the other modules: where they were saved,
         // even out of the window (a large scene, zoomed out or moved; until 3.57.0 they were brought back into the

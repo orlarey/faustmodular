@@ -20,7 +20,8 @@
 */
 
 import { PatchFileV2, PATCH_FORMAT, PATCH_VERSION } from "../model/PatchFormat";
-import { DocumentFormatError, DocumentV4, FaustEnvironment, documentContent, documentFromPatch, patchFromDocument } from "./DocumentFormat";
+import { NO_PROVENANCE, Provenance } from "../model/Resources";
+import { DocumentFormatError, DocumentV5, FaustEnvironment, documentContent, documentFromPatch, mergeResourceFiles, patchFromDocument, resourceTexts } from "./DocumentFormat";
 import { DocumentEntry, DocumentStore, UserModule } from "./DocumentStore";
 import { sha1 } from "./Sha1";
 import { FileStore, openFileStore } from "./FileStore";
@@ -51,6 +52,8 @@ export interface DocumentsOptions {
     library?: () => Promise<LibraryIndex>;              // the modules of the library
     starter?: () => string | null;                      // the patch of the first visit (documents/Starter.ts)
     libraryCode?: (path: string) => Promise<string>;    // the code of a module of the library
+    // files of resources of the open document changed by someone else (faustcode): file -> text
+    externalResources?: (files: Map<string, string>) => void;
 }
 
 export const LEGACY_KEY = "FaustPlayground";
@@ -67,6 +70,7 @@ export class Documents {
     private fLibraryPaths = new Map<string, string>();  // path -> hash
     private fLibraryHistory = new Map<string, string>(); // hash of a past version -> path
     private fUpdates = new Map<string, string>();       // instance id -> hash of its code
+    private fFiles = new Map<string, string>();         // files of resources of the open document: file -> hash last read or written
 
     private constructor(readonly store: DocumentStore, private fScene: DocumentsScene, private fEnvironment: FaustEnvironment, private fOptions: DocumentsOptions) {
         this.fFaust = fEnvironment;
@@ -131,8 +135,22 @@ export class Documents {
         if (typeof document != "undefined") document.dispatchEvent(new CustomEvent("documentchange"));
     }
 
-    private async snapshot(name: string, faust = this.fFaust): Promise<{ document: DocumentV4; codes: Map<string, string> }> {
-        return documentFromPatch(this.fScene.describePatch(), name, faust);
+    private async snapshot(name: string, faust = this.fFaust): Promise<{ document: DocumentV5; codes: Map<string, string> }> {
+        return documentFromPatch(this.fScene.describePatch(), name, faust, (hash) => this.provenanceOf(hash));
+    }
+
+    // The files of resources of the open document follow the scene (`document`, its codes), conditionally:
+    // those changed by someone else meanwhile (faustcode) are not overwritten. `force`: Revert.
+    private async syncFiles(id: string, document: DocumentV5, codes: Map<string, string>, force = false): Promise<void> {
+        const wanted = resourceTexts(document, codes);
+        const { written, external } = await this.store.writeResourceFiles(id, wanted, this.fFiles, force);
+        const known = new Map(written);
+        for (const file of external.keys()) {
+            const before = this.fFiles.get(file);
+            if (before !== undefined) known.set(file, before);
+        }
+        this.fFiles = known;
+        if (external.size > 0) this.fOptions.externalResources?.(external);
     }
 
     // The pending step of the history recorded, and the saves written.
@@ -150,6 +168,7 @@ export class Documents {
             const { document, codes } = await this.snapshot(current.name);
             const dirty = documentContent(document) != this.fCommitted;
             await this.store.putCodes(codes);
+            await this.syncFiles(current.id, document, codes);
             await this.resolve(document);
             if (dirty) {
                 await this.store.writeWorking(current.id, document);
@@ -185,7 +204,7 @@ export class Documents {
         return this.serialized(async () => {
             const entry = this.store.get(id);
             if (!entry) return false;
-            let copies: { committed: DocumentV4; working: DocumentV4 | null };
+            let copies: { committed: DocumentV5; working: DocumentV5 | null };
             try {
                 copies = await this.store.read(id);
             } catch (e) {
@@ -200,12 +219,19 @@ export class Documents {
                 const { document, codes } = await this.snapshot(entry.name);
                 await this.store.putCodes(codes);
                 await this.store.commit(id, document);
+                this.fFiles = new Map();
+                await this.syncFiles(id, document, codes);
                 await this.resolve(document);
                 this.fCommitted = documentContent(document);
                 this.fDirty = false;
             } else {
-                const shown = working ?? committed;
-                const codes = await this.store.codesOf(shown);
+                // the files of resources are the working state: faustcode may have changed or added some
+                const files = await this.store.readResourceFiles(id);
+                const codes = await this.store.codesOf(working ?? committed);
+                const merged = await mergeResourceFiles(working ?? committed, files, codes);
+                const shown = merged.document;
+                this.fFiles = new Map();
+                for (const [name, text] of files) this.fFiles.set(name, await sha1(text));
                 let file: PatchFileV2;
                 try {
                     file = patchFromDocument(shown, (hash) => codes.get(hash));
@@ -216,9 +242,13 @@ export class Documents {
                 }
                 if (!(await this.replace(JSON.stringify(file), true))) return false;
                 this.fFaust = shown.faust;
-                const loaded = (await this.snapshot(entry.name)).document;
+                const snapshot = await this.snapshot(entry.name);
+                const loaded = snapshot.document;
+                await this.store.putCodes(snapshot.codes);
+                await this.syncFiles(id, loaded, snapshot.codes);      // the files missing (a document of format 4)
                 await this.resolve(loaded);
-                if (working) {
+                if (merged.changed) await this.store.writeWorking(id, loaded);
+                if (working || merged.changed) {
                     this.fCommitted = documentContent(committed);
                     this.fDirty = true;
                 } else {
@@ -283,6 +313,8 @@ export class Documents {
         await this.store.putCodes(codes);
         await this.resolve(document);
         const entry = await this.store.create(document.name, document);
+        this.fFiles = new Map();
+        await this.syncFiles(entry.id, document, codes);
         this.fCurrent = entry;
         this.fCommitted = documentContent(document);
         this.fDirty = false;
@@ -312,6 +344,7 @@ export class Documents {
             const { document, codes } = await this.snapshot(current.name);
             await this.store.putCodes(codes);
             await this.store.commit(current.id, document);
+            await this.syncFiles(current.id, document, codes);
             this.fCommitted = documentContent(document);
             this.fDirty = false;
             this.emit();
@@ -323,7 +356,10 @@ export class Documents {
         await this.flush();
         return this.serialized(async () => {
             const original = this.fCurrent;
-            if (original) await this.store.writeWorking(original.id, null);
+            if (original) {
+                await this.store.writeWorking(original.id, null);
+                await this.resetFiles(original.id);
+            }
             return this.adopt(name);
         });
     }
@@ -333,8 +369,22 @@ export class Documents {
         await this.flush();
         const current = this.fCurrent;
         if (!current || !this.fDirty) return;
-        await this.serialized(() => this.store.writeWorking(current.id, null));
+        await this.serialized(async () => {
+            await this.store.writeWorking(current.id, null);
+            await this.resetFiles(current.id);
+        });
         await this.open(current.id);
+    }
+
+    // The files of resources of a document written again from its committed copy (Revert, Save as).
+    private async resetFiles(id: string): Promise<void> {
+        const { committed } = await this.store.read(id);
+        if (committed.legacy !== undefined) return;
+        const codes = await this.store.codesOf(committed);
+        const saved = this.fFiles;
+        this.fFiles = new Map();
+        await this.syncFiles(id, committed, codes, true);
+        if (this.fCurrent?.id != id) this.fFiles = saved;
     }
 
     async rename(name: string, id = this.fCurrent?.id): Promise<string | null> {
@@ -395,18 +445,27 @@ export class Documents {
         return this.store.moduleOf(hash);
     }
 
-    // Each instance of a library module or of a user module: a user module is created for the codes
-    // that are neither (named after the instance). The instances that can be updated are shown.
-    private async resolve(document: DocumentV4): Promise<void> {
+    // The provenance of a code: the library module that has it, or the user module that has it as a version.
+    provenanceOf(hash: string): Provenance {
+        const path = this.fLibrary.get(hash);
+        if (path !== undefined) return { kind: "builtin", path };
+        const module = this.store.moduleOf(hash);
+        return module ? { kind: "user", module: module.id, version: hash } : NO_PROVENANCE;
+    }
+
+    // Each resource of a library module or of a user module: a user module is created for the codes
+    // that are neither (named after the resource). The instances whose resource can be updated are shown.
+    private async resolve(document: DocumentV5): Promise<void> {
         let created = false;
-        for (const instance of document.instances) {
-            if (this.statusOf(instance.code) !== undefined) continue;
-            await this.store.createModule(instance.name, instance.code, this.fLibraryHistory.get(instance.code));
+        for (const resource of document.resources) {
+            if (this.statusOf(resource.code) !== undefined) continue;
+            await this.store.createModule(resource.name, resource.code, this.fLibraryHistory.get(resource.code));
             created = true;
         }
         if (created) this.emitLibrary();
-        this.fUpdates = new Map(document.instances.map((i) => [i.id, i.code]));
-        for (const instance of document.instances) this.fScene.showUpdate?.(instance.id, this.updateOf(instance.code) !== null);
+        const codeOf = new Map(document.resources.map((r) => [r.name, r.code]));
+        this.fUpdates = new Map(document.instances.map((i) => [i.id, codeOf.get(i.resource)!]));
+        for (const instance of document.instances) this.fScene.showUpdate?.(instance.id, this.updateOf(codeOf.get(instance.resource)!) !== null);
     }
 
     private emitLibrary(): void {
@@ -487,7 +546,7 @@ export class Documents {
                 console.warn("documents: scenes of the localStorage unreadable", e);
             }
             for (const [name, json] of scenes) {
-                await this.store.create(name, { format: "faustmodular-document", version: 4, name, legacy: json } as DocumentV4);
+                await this.store.create(name, { format: "faustmodular-document", version: 5, name, legacy: json } as unknown as DocumentV5);
             }
             await this.store.setMigration({ done: Date.now(), starts: 0 });
             if (scenes.length > 0) console.info(`documents: ${scenes.length} scenes of the localStorage migrated`);
