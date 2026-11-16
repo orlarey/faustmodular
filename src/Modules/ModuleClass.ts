@@ -17,9 +17,13 @@ import { faustWasmEnv } from "../Main";
 import { forgeAccMetadata, updateAccInFaustCode } from "../CodeFaustParser";
 import { DEPTH_METADATA, DRIVEN_METADATA, depthKey, listWidgets, widgetTarget } from "../model/Modulation";
 import { MAX_CHANNELS, ModuleId } from "../model/Patch";
+import { userCode } from "../model/ModuleCode";
 import { hasOrbitWidgets, orbitDescriptor, OrbitPanel, OrbitSettings } from "./OrbitPanel";
 
 interface DSPCallback { (): void; }
+
+// The delays (ms) of the new attempts to start a silent module, after a module was removed.
+const RETRY_DELAYS = [300, 1000, 3000];
 
 export class ModuleClass {
     //id of the module in the patch model (set when the module is added to the scene)
@@ -182,8 +186,16 @@ export class ModuleClass {
     private onAudioFailed(dsp: IfDSP, quiet: boolean): void {
         if (dsp !== this.moduleFaust.fDSP) return;
         this.setAudioFailed(true);
-        if (!quiet) Utilitary.currentScene?.reportAudioFailure(this);
+        if (!quiet) {
+            Utilitary.currentScene?.reportAudioFailure(this);
+        } else if (this.fAttempt < RETRY_DELAYS.length) {
+            // started again too early: the memory of the module removed is not given back yet (it is, once
+            // its processor is collected in the audio thread)
+            var attempt = this.fAttempt;
+            setTimeout(() => { if (this.audioFailed) void this.retryAudio(attempt + 1); }, RETRY_DELAYS[attempt]);
+        }
     }
+    private fAttempt = 0;
 
     private setAudioFailed(failed: boolean): void {
         this.audioFailed = failed;
@@ -195,8 +207,9 @@ export class ModuleClass {
 
     // Starts the audio of a silent module again (a module was removed: there may be room now); silent again,
     // it is not reported again.
-    async retryAudio(): Promise<void> {
+    async retryAudio(attempt = 0): Promise<void> {
         if (!this.audioFailed || this.fRetrying || !this.moduleFaust.factory) return;
+        this.fAttempt = attempt;
         this.fRetrying = true;
         this.setAudioFailed(false);
         try {
@@ -346,11 +359,14 @@ export class ModuleClass {
     // The code is edited in faustcode (the pencil, FaustcodeLink, Scene.editModuleCode).
 
     // Replaces the code of the module (code dropped on it): `code` is a complete module code.
-    update(name: string, code: string): Promise<boolean> {
-        // compiled with the widget modulations of the module, if any (Scene.compileModuleCode)
-        return Utilitary.currentScene.compileModuleCode(this, name, code)
-            .then((factory) => factory ? this.replaceDSP(factory, { name, code }) : false)
-            .then((done) => { Utilitary.hideFullPageLoading(); return done; });
+    // A code dropped on the module: it replaces the code of its resource, so of all its instances, which
+    // keep their name (Documentation/SCENE-RESOURCES-SPEC.md, R5).
+    update(_name: string, code: string): Promise<boolean> {
+        return Utilitary.currentScene.editModuleCode(this, userCode(code)).then((error) => {
+            if (error) new Message(error);
+            Utilitary.hideFullPageLoading();
+            return error == null;
+        });
     }
 
     /***************** CREATE/DELETE the DSP Interface ********************/

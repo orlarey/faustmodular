@@ -66,6 +66,9 @@ interface Catalog {
 
 // The family of the user modules, after those of the catalog; then one family per store followed.
 const USER_FAMILY = "My modules";
+// the resources of the open scene (Documentation/SCENE-RESOURCES-SPEC.md): an instance more, or one without
+// instance removed
+const SCENE_FAMILY = "This scene";
 const STORE = "store:";
 
 export class Library {
@@ -225,6 +228,7 @@ export class Library {
             const state = this.storeOf(family);
             return state?.store?.manifest.name || family.slice(STORE.length);
         }
+        if (family == SCENE_FAMILY) return Utilitary.messageResource.titleSceneResources;
         return family == USER_FAMILY ? Utilitary.messageResource.titleUserModules : (Utilitary.messageResource as any)["family_" + family] ?? family;
     }
 
@@ -289,6 +293,8 @@ export class Library {
                 if (count > 0) item(family, searching ? this.fResults.filter((r) => r.family == family).length : count);
             }
         }
+        item(SCENE_FAMILY, searching ? this.fResults.filter((r) => r.family == SCENE_FAMILY).length : Utilitary.currentScene?.getResources().length ?? 0);
+        list.lastElementChild!.classList.add("sceneFamily");
         item(USER_FAMILY, searching ? this.fResults.filter((r) => r.family == USER_FAMILY).length : this.documents?.store.listModules().length ?? 0);
         list.lastElementChild!.classList.add("userFamily");
         this.renderModules();
@@ -367,6 +373,12 @@ export class Library {
             this.renderStore(state);
             return;
         }
+        if (this.fFamily == SCENE_FAMILY) {
+            view.modules.style.display = "";
+            view.userLibrarySelect.style.display = "none";
+            this.renderSceneResources();
+            return;
+        }
         var user = this.fFamily == USER_FAMILY;
         view.modules.style.display = user ? "none" : "";
         view.userLibrarySelect.style.display = user ? "" : "none";
@@ -396,6 +408,52 @@ export class Library {
         }
         list.scrollTop = 0;
         if (modules[0]) this.describe(modules[0]);
+    }
+
+    // The resources of the scene: an instance more by a double click or a drag; those without instance can be
+    // removed from the scene.
+    private renderSceneResources() {
+        const t = Utilitary.messageResource;
+        const scene = Utilitary.currentScene;
+        const list = this.libraryView.modules;
+        list.replaceChildren();
+        const resources = scene?.getResources() ?? [];
+        if (resources.length == 0) {
+            const li = document.createElement("li");
+            li.className = "librarySearchNone";
+            li.textContent = t.sceneResourcesEmpty;
+            list.appendChild(li);
+        }
+        const base = location.href.split("#")[0];
+        for (const r of resources) {
+            const instances = scene.instancesOf(r.name).length;
+            const li = document.createElement("li");
+            li.className = "sceneResource" + (instances == 0 ? " unused" : "");
+            const a = document.createElement("a");
+            a.href = base + "#scene-resource:" + encodeURIComponent(r.name);
+            a.draggable = true;
+            a.title = t.hoverLibraryElement + " \u2014 " + t.sceneResourceInstances.replace("{n}", String(instances));
+            a.text = r.name;
+            a.addEventListener("click", (e) => { e.preventDefault() });
+            a.ondblclick = this.dispatchEventLibrary.bind(this, a.href);
+            a.ontouchstart = (e) => { this.dbleTouchMenu(e) };
+            li.appendChild(a);
+            if (instances == 0) {
+                const remove = document.createElement("span");
+                remove.className = "userModuleDelete";
+                remove.textContent = "\u2715";
+                remove.title = t.sceneResourceRemove;
+                remove.addEventListener("click", () => { scene.removeResource(r.name); this.renderFamilies(); });
+                li.appendChild(remove);
+            }
+            list.appendChild(li);
+        }
+        list.scrollTop = 0;
+        this.libraryView.description.replaceChildren();
+        const text = document.createElement("div");
+        text.className = "libraryText";
+        text.textContent = t.sceneResourcesDescription;
+        this.libraryView.description.appendChild(text);
     }
 
     // The modules of a store; while it is read, or if it cannot be, why.
@@ -522,6 +580,9 @@ export class Library {
             ...this.fCatalog.modules.filter((m) => m.family).map((m) => ({
                 name: m.name, functions: m.functions, family: m.family!, familyLabel: this.familyLabel(m.family!),
                 summary: m.summary, description: m.description, href: m.path, module: m,
+            })),
+            ...(Utilitary.currentScene?.getResources() ?? []).map((r) => ({
+                name: r.name, family: SCENE_FAMILY, familyLabel: this.familyLabel(SCENE_FAMILY), href: base + "#scene-resource:" + encodeURIComponent(r.name),
             })),
             ...(this.documents?.store.listModules() ?? []).map((m) => ({
                 name: m.name, family: USER_FAMILY, familyLabel: this.familyLabel(USER_FAMILY), href: base + "#user-module:" + encodeURIComponent(m.id),

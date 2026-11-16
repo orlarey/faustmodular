@@ -322,3 +322,35 @@ export async function mergeResourceFiles(document: DocumentV5, files: Map<string
     }
     return { document: changed ? { ...document, resources } : document, changed };
 }
+
+// A patch file whose modules are instances of resources (Documentation/SCENE-RESOURCES-SPEC.md, R1): the
+// modules of the same name and code share a resource; a name held by several codes is suffixed in the order
+// of the ids, its group renamed in the code and in the addresses (a precompiled factory is then dropped);
+// `resources` lists them all, with the provenance the file gave, and those without instance. A file that is
+// not well formed is given back as it is (parsePatchV2 tells what is wrong).
+export function normalizePatch(file: PatchFileV2): PatchFileV2 {
+    if (!Array.isArray(file?.modules) || file.modules.some((m) => typeof m != "object" || m === null)) return file;
+    const faust = file.modules.filter((m) => m.kind == "faust");
+    if (faust.some((m) => typeof m.name != "string" || typeof m.code != "string" || typeof m.id != "string")) return file;
+    const items = faust.map((m) => ({ ...m, ...storedCode(m.name, m.code), params: m.params ?? {}, acc: Array.isArray(m.acc) ? m.acc : [] }));
+    const declared = new Map((Array.isArray(file.resources) ? file.resources : []).map((r) => [r.name, r]));
+    const { resources, instances } = migrateInstances(items, (code, wrapped, name) => {
+        const d = declared.get(name);
+        return d && d.code == code && d.wrapped == wrapped ? d.provenance : NO_PROVENANCE;
+    });
+    for (const [name, r] of declared) {
+        if (resources.some((x) => x.name == name) || instances.some((i) => i.resource == name)) continue;
+        resources.push({ name, code: r.code, wrapped: r.wrapped, provenance: r.provenance });
+    }
+    const byName = new Map(resources.map((r) => [r.name, r]));
+    const byId = new Map(instances.map((i) => [i.id, i]));
+    const modules = file.modules.map((m) => {
+        if (m.kind != "faust") return m;
+        const { resource, ...rest } = byId.get(m.id)!;
+        const r = byName.get(resource)!;
+        const module: ModuleFileV2 = { ...(rest as Omit<ModuleFileV2, "name" | "code">), name: r.name, code: r.wrapped ? wrapModuleCode(r.name, r.code) : r.code };
+        if (r.name != m.name) delete module.factory;
+        return module;
+    });
+    return { ...file, version: PATCH_VERSION_RESOURCES, modules, resources: resources.map((r) => ({ ...r })) };
+}

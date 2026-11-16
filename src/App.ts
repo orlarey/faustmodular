@@ -283,6 +283,16 @@ export class App {
     uploadUrl(app: App, module: ModuleClass | null, x: number, y: number, url: string) {
         // a module added (the Modules menu, a drop, the quick add): offered first by the quick add
         if (module == null) recordRecent(storage(), recentKey(url, location.href));
+        // a resource of the scene ("This scene"): an instance more
+        var sceneResource = /#scene-resource:(.+)$/.exec(url);
+        if (sceneResource) {
+            var resource = Utilitary.currentScene.getResources().find((r) => r.name == decodeURIComponent(sceneResource![1]));
+            if (!resource || module != null) { Utilitary.hideFullPageLoading(); return; }
+            var code = resource.wrapped ? wrapModuleCode(resource.name, resource.code) : resource.code;
+            var rname = resource.name;
+            app.compileFaust({ name: rname, sourceCode: code, x: x, y: y, callback: (factory) => { app.createModule(factory, rname, code, x, y) } });
+            return;
+        }
         // a user module of the library ("My modules"): its latest version
         var userModule = /#user-module:(.+)$/.exec(url);
         if (userModule) {
@@ -290,9 +300,10 @@ export class App {
             if (!documents) { Utilitary.hideFullPageLoading(); return; }
             documents.moduleCode(decodeURIComponent(userModule[1])).then((found) => {
                 if (!found) { Utilitary.hideFullPageLoading(); return; }
-                var dsp_code = wrapModuleCode(found.name, found.code);
+                var name = module == null ? Utilitary.currentScene.resourceNameFor(found.name, found.code) : found.name;
+                var dsp_code = wrapModuleCode(name, found.code);
                 if (module == null) {
-                    app.compileFaust({ name: found.name, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, found.name, dsp_code, x, y) } });
+                    app.compileFaust({ name, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, name, dsp_code, x, y) } });
                 } else {
                     module.update(found.name, dsp_code);
                 }
@@ -302,6 +313,8 @@ export class App {
         var filename: string = url.toString().split('/').pop()!;
         filename = filename.toString().split('.').shift()!;
         Utilitary.getXHR(url, (codeFaust) => {
+            // an instance of a resource of the scene of the same code, or a new resource (SCENE-RESOURCES-SPEC)
+            if (module == null) filename = Utilitary.currentScene.resourceNameFor(filename, codeFaust);
             var dsp_code: string = wrapModuleCode(filename, codeFaust);
 
             if (module == null) {
@@ -314,9 +327,10 @@ export class App {
 
     // used for dsp code faust
     uploadCodeFaust(app: App, module: ModuleClass | null, x: number, y: number, e: DragEvent, dsp_code: string) {
-        dsp_code = wrapModuleCode("TEXT", dsp_code);
+        var name = module ? "TEXT" : Utilitary.currentScene.resourceNameFor("TEXT", dsp_code);
+        dsp_code = wrapModuleCode(name, dsp_code);
         if (!module) {
-            app.compileFaust({ name: "TEXT", sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, "TEXT", dsp_code, x, y) } });
+            app.compileFaust({ name, sourceCode: dsp_code, x: x, y: y, callback: (factory) => { app.createModule(factory, name, dsp_code, x, y) } });
         } else {
             module.update("TEXT", dsp_code);
         }
@@ -348,6 +362,7 @@ export class App {
         }
 
         reader.onloadend = (e) => {
+            if (!module && type == "dsp") filename = Utilitary.currentScene.resourceNameFor(filename, String(reader.result));
             dsp_code = wrapModuleCode(filename, String(reader.result));
 
             if (!module && type == "dsp") {

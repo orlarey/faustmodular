@@ -157,7 +157,9 @@ describe("application", () => {
         expect(before.modules).toHaveLength(6);
         expect(before.wires).toBe(9);
         const saved = await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(true));
-        expect(JSON.parse(saved)).toMatchObject({ format: "faustplayground-patch", version: 2 });
+        // version 4: with the resources of the scene (SCENE-RESOURCES-SPEC)
+        expect(JSON.parse(saved)).toMatchObject({ format: "faustplayground-patch", version: 4 });
+        expect(JSON.parse(saved).resources.length).toBeGreaterThan(0);
         await cleanScene(page);
         expect(await state(page)).toEqual({ modules: [], connections: [], wires: 0, paths: 0 });
         await page.evaluate((j) => (globalThis as any).faustPlayground.scene.recallScene(j), saved);
@@ -587,9 +589,9 @@ describe("widget modulation (scene API)", () => {
         expect(await outputOf(page, gain)).toBeCloseTo(0.6, 3);
         expect(await page.evaluate((m) => (globalThis as any).faustPlayground.scene.getModuleById(m).moduleFaust.getDSP() === (globalThis as any).dspBefore, gain)).toBe(true);
 
-        // saved in version 3, then recalled: same modulation, same values
+        // saved (version 4: with the resources), then recalled: same modulation, same values
         const saved = await page.evaluate(() => (globalThis as any).faustPlayground.scene.saveScene(false));
-        expect(JSON.parse(saved).version).toBe(3);
+        expect(JSON.parse(saved).version).toBe(4);
         await cleanScene(page);
         await page.evaluate((json) => (globalThis as any).faustPlayground.scene.recallScene(json), saved);
         const recalled = await page.evaluate(() => {
@@ -1579,7 +1581,7 @@ describe("library", () => {
             "# FaustPlayground", "Harps", "Winds", "Bars and bowls", "Noises and oscillators", "Instruments with reverb",
             "Filters", "Echoes and reverbs", "Modulations", "Level and dynamics", "Spatialization and multichannel", "Modulation sources",
             "# Faust libraries", "Lib reverbs", "Lib dynamics", "Lib filters", "Lib equalizers", "Lib pedals", "Lib saturation", "Lib delays", "Lib effects", "Lib oscillators", "Lib drums", "Lib physical models", "Lib analysis",
-            "My modules",
+            "This scene", "My modules",
         ]);
         // a family: its modules; a module pointed at: its description
         await page.locator('li.libraryFamily[data-family="Filters"]').click();

@@ -30,6 +30,16 @@ export class Resources {
     quickAddPlaceholder: string;
     quickAddRecent: string;
     quickAddHint: string;
+    resourceNameInvalid: string;
+    resourceNameTaken: string;
+    menuMakeUnique: string;
+    menuRenameResource: string;
+    renameResourcePrompt: string;
+    titleSceneResources: string;
+    sceneResourcesEmpty: string;
+    sceneResourceInstances: string;
+    sceneResourceRemove: string;
+    sceneResourcesDescription: string;
     audioFailed: string;
     audioFailedOthers: string;
     audioFailedLimit: string;

@@ -32,7 +32,8 @@ import { MenuItem, shortcut, showContextMenu } from "../view/ContextMenu";
 import { FaustcodeLink, faustcodeUrl } from "../FaustcodeLink";
 import { rewrapModuleCode, unwrapModuleCode, userCode, userError, wrapModuleCode } from "../model/ModuleCode";
 import { History } from "./History";
-import { storedCode } from "../documents/DocumentFormat";
+import { normalizePatch, storedCode } from "../documents/DocumentFormat";
+import { renameAddress, uniqueName } from "../model/Resources";
 import { SceneView } from "./SceneView";
 import { FailureBatch, LIMIT_LIKELY, MODULE_LIMIT, crossesWarning, listNames } from "../audio/ModuleLimit";
 
@@ -50,6 +51,20 @@ interface SceneSnapshot {
     }>;
     io: Array<{ id: ModuleId; x: number; y: number }>;        // physical input and output modules
     connections: string[];                                      // "from:port>to:port", sorted
+    resources?: ResourceFile[];                                 // the resources of the scene, by name
+}
+
+// A module of a snapshot moved to the group `to` (a renamed resource, a copy made unique): its code wrapped
+// in the new group, its parameters and modulations renamed.
+function renameSnapshotModule(m: SceneSnapshot["modules"][number], resource: ResourceFile, to: string): void {
+    var from = m.name;
+    m.name = to;
+    m.code = resource.wrapped ? wrapModuleCode(to, resource.code) : resource.code;
+    if (!resource.wrapped) return;
+    var params: Record<string, number> = {};
+    for (var address in m.params) params[renameAddress(address, from, to)] = m.params[address];
+    m.params = params;
+    m.modulations = m.modulations.map((x) => ({ ...x, widget: renameAddress(x.widget, from, to) }));
 }
 
 // The view of each document (zoom and position of the stage), remembered by the browser.
@@ -360,6 +375,8 @@ export class Scene {
         // in the order of the ids: a module created again (undo of a removal) is not at the same place in the patch
         snapshot.modules.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
         snapshot.connections = this.patch.getConnections().map((c) => `${c.from.module}:${c.from.port}>${c.to.module}:${c.to.port}`).sort();
+        this.syncResources();
+        snapshot.resources = this.fResources.map((r) => ({ ...r })).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
         return JSON.stringify(snapshot);
     }
 
@@ -368,6 +385,7 @@ export class Scene {
     async restoreSnapshot(json: string): Promise<void> {
         var target: SceneSnapshot = JSON.parse(json);
         await Promise.all(Array.from(this.fRecompilations.values()));
+        if (target.resources) this.fResources = target.resources.map((r) => ({ ...r }));
         var wanted = new Set(target.modules.map((m) => m.id));
         for (var module of this.fModuleList.slice()) {
             if (!wanted.has(module.moduleId)) module.deleteModule();
@@ -412,6 +430,7 @@ export class Scene {
                 console.warn(`undo/redo: connection ${k} not restored`, e);
             }
         }
+        this.syncResources();
     }
 
     // Parameter values through the interface (what the user sees, and saves).
@@ -566,6 +585,8 @@ export class Scene {
         if (syncInputs(module.moduleFaust.getSource()).length > 0) this.sync?.probe(dsp);
         this.patchView.addModule(module);
         this.midi.moduleAdded(module);          // a MIDI to CV module: the MIDI devices asked for (once)
+        this.fReserved.delete(module.moduleFaust.getName());
+        this.syncResources();
         if (this.fRecalling == 0) this.checkModuleLimit(this.fModuleList.length - 1);
     }
 
@@ -890,9 +911,123 @@ export class Scene {
     }
 
     // Removes every module and connection: an empty scene (the physical input and output stay).
-    // The resources of the scene (Documentation/SCENE-RESOURCES-SPEC.md), as the file opened gave them: their
-    // provenance, and those without instance. The documents (DocumentFormat) derive the others from the modules.
+    /******************** RESOURCES ********************/
+    // Documentation/SCENE-RESOURCES-SPEC.md: the modules are instances of resources (a name, the user's code,
+    // a provenance). The name of a resource is the name of its instances (their Faust group), and all its
+    // instances have its code (R1); a resource may have no instance (the family "This scene" of the
+    // Modules menu). Editing the code of a module edits its resource: all its instances follow (R4).
+
     private fResources: ResourceFile[] = [];
+    private fReserved = new Map<string, string>();      // names given to modules being created -> their code
+
+    getResources(): ResourceFile[] {
+        this.syncResources();
+        return this.fResources.map((r) => ({ ...r }));
+    }
+
+    // The instances of a resource.
+    instancesOf(name: string): ModuleClass[] {
+        return this.fModuleList.filter((m) => m.moduleFaust.getName() == name);
+    }
+
+    // The table follows the modules: each module has its resource, with the module's code (the modules are
+    // the truth: a code just edited); the provenance and the resources without instance are kept.
+    private syncResources(): void {
+        var byName = new Map(this.fResources.map((r) => [r.name, r]));
+        for (var module of this.fModuleList) {
+            var name = module.moduleFaust.getName();
+            var { code, wrapped } = storedCode(name, module.moduleFaust.getSource());
+            var resource = byName.get(name);
+            if (!resource) {
+                resource = { name, code, wrapped, provenance: { kind: "none" } };
+                this.fResources.push(resource);
+                byName.set(name, resource);
+            } else if (resource.code != code || resource.wrapped != wrapped) {
+                resource.code = code;
+                resource.wrapped = wrapped;
+            }
+        }
+    }
+
+    // The name a new module of this code gets: that of a resource of the same code and of this name (or of
+    // this name suffixed: VCO-2), whose instance it becomes; otherwise a name not taken.
+    resourceNameFor(name: string, code: string): string {
+        this.syncResources();
+        var family = new RegExp("^" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(-\\d+)?$");
+        var same = this.fResources.find((r) => r.code == code && family.test(r.name))
+            ?? Array.from(this.fReserved).map(([n, c]) => ({ name: n, code: c })).find((r) => r.code == code && family.test(r.name));
+        if (same) return same.name;
+        var given = uniqueName(name, [...this.fResources.map((r) => r.name), ...this.fReserved.keys()]);
+        this.fReserved.set(given, code);
+        return given;
+    }
+
+    // A module coming from elsewhere (pasted, maybe from another scene): an instance of the resource of the same
+    // name and code, or of a new resource, renamed if its name is taken by another code (its group, its
+    // addresses).
+    private adoptModule(m: ModuleFileV2): ModuleFileV2 {
+        var { code, wrapped } = storedCode(m.name, m.code);
+        if (!wrapped) return m;
+        var name = this.resourceNameFor(m.name, code);
+        if (name == m.name) return m;
+        var renamed: ModuleFileV2 = {
+            ...m, name, code: wrapModuleCode(name, code),
+            params: Object.fromEntries(Object.entries(m.params).map(([address, value]) => [renameAddress(address, m.name, name), value])),
+            acc: m.acc.map((x) => ({ ...x, address: renameAddress(x.address, m.name, name) })),
+        };
+        if (m.modulations) renamed.modulations = m.modulations.map((x) => ({ ...x, widget: renameAddress(x.widget, m.name, name) }));
+        delete renamed.factory;
+        return renamed;
+    }
+
+    // A resource without instance removed from the scene (the family "This scene").
+    removeResource(name: string): void {
+        if (this.instancesOf(name).length > 0) return;
+        this.fResources = this.fResources.filter((r) => r.name != name);
+        this.markModified();
+    }
+
+    // A change of the resources through the history: the snapshot edited, then restored, as one step.
+    private async editResources(edit: (snapshot: SceneSnapshot) => string | null): Promise<string | null> {
+        await this.history.flush();
+        var snapshot: SceneSnapshot = JSON.parse(await this.captureSnapshot());
+        var error = edit(snapshot);
+        if (error) return error;
+        await this.restoreSnapshot(JSON.stringify(snapshot));
+        this.history.touch();
+        await this.history.flush();
+        return null;
+    }
+
+    // Renames a resource: its instances change group, their parameters and modulations follow.
+    renameResource(from: string, to: string): Promise<string | null> {
+        to = to.trim();
+        if (!to || to == from) return Promise.resolve(null);
+        if (/["\\]/.test(to)) return Promise.resolve(Utilitary.messageResource.resourceNameInvalid);
+        if (this.fResources.some((r) => r.name == to)) return Promise.resolve(Utilitary.messageResource.resourceNameTaken.replace("{name}", to));
+        return this.editResources((snapshot) => {
+            var resource = snapshot.resources!.find((r) => r.name == from);
+            if (!resource) return "unknown resource";
+            for (var m of snapshot.modules.filter((m) => m.name == from)) renameSnapshotModule(m, resource, to);
+            resource.name = to;
+            return null;
+        });
+    }
+
+    // Gives a module a resource of its own (a copy of its resource, under a free name), for it to diverge.
+    makeUnique(module: ModuleClass): Promise<string | null> {
+        var from = module.moduleFaust.getName();
+        var id = module.moduleId;
+        return this.editResources((snapshot) => {
+            var resource = snapshot.resources!.find((r) => r.name == from);
+            var m = snapshot.modules.find((x) => x.id == id);
+            if (!resource || !m) return "unknown module";
+            var copy = { ...resource, name: uniqueName(from, snapshot.resources!.map((r) => r.name)) };
+            snapshot.resources!.push(copy);
+            renameSnapshotModule(m, resource, copy.name);
+            return null;
+        });
+    }
 
     clearScene(): void {
         this.fResources = [];
@@ -930,7 +1065,8 @@ export class Scene {
             // the file is read whole before the scene is cleared
             var recall: () => Promise<string[]>;
             if (isPatchFileV2(data)) {
-                var v2 = parsePatchV2(data);
+                // the modules are instances of resources: those of the same name have the same code
+                var v2 = parsePatchV2(normalizePatch(data as PatchFileV2));
                 recall = () => this.recallV2(v2, options.keepIds ?? false);
             } else if (isPatchFileV1(data)) {
                 var v1 = readV1(data);
@@ -1109,8 +1245,8 @@ export class Scene {
     // become the selection.
     private async insertFragment(fragment: PatchFileV2, dx: number, dy: number): Promise<ModuleId[]> {
         var inside = new Set(fragment.modules.map((m) => m.id));
-        var modules = fragment.modules.filter((m) => m.kind == "faust").map((m) => ({ ...m, x: m.x + dx, y: m.y + dy }));
-        var parsed = parsePatchV2({ ...fragment, modules, connections: [] });
+        var modules = fragment.modules.filter((m) => m.kind == "faust").map((m) => this.adoptModule({ ...m, x: m.x + dx, y: m.y + dy }));
+        var parsed = parsePatchV2({ ...fragment, version: PATCH_VERSION_RESOURCES, modules, connections: [], resources: undefined });
         var warnings: string[] = [];
         var created = await this.recallModules(parsed.patch.getModules().filter((m) => m.kind == "faust"), warnings);
         for (var c of fragment.connections) {
@@ -1211,6 +1347,8 @@ export class Scene {
             var faust = selection.some((m) => this.patch.getModule(m)?.kind == "faust");
             var plugged = this.patch.getConnections().some((c) => selection.indexOf(c.from.module) >= 0 || selection.indexOf(c.to.module) >= 0);
             var orbitable = selection.map((m) => this.getModuleById(m)).filter((m): m is ModuleClass => !!m && m.canShowOrbit());
+            var single = selection.length == 1 && this.patch.getModule(selection[0])?.kind == "faust" ? this.getModuleById(selection[0]) : undefined;
+            var report = (error: string | null) => { if (error) new Message(error); };
             var orbitShown = orbitable.length > 0 && orbitable.every((m) => m.orbit);
             var minimized = selection.map((m) => this.patch.getModule(m)?.kind == "faust" ? this.getModuleById(m) : undefined)
                 .filter((m): m is ModuleClass => !!m).every((m) => m.moduleView.fInterfaceContainer.classList.contains("mini"));
@@ -1220,6 +1358,14 @@ export class Scene {
                 paste,
                 { label: t().menuDuplicate, shortcut: shortcut("mod+D"), enabled: faust, action: () => this.duplicateModules(selection) },
                 { label: t().menuDuplicateAlone, shortcut: shortcut("shift+mod+D"), enabled: faust, action: () => this.duplicateModules(selection, false) },
+                "separator",
+                // the resource of the module (Documentation/SCENE-RESOURCES-SPEC.md)
+                { label: t().menuMakeUnique, enabled: !!single && this.instancesOf(single.moduleFaust.getName()).length > 1, action: () => this.makeUnique(single!).then(report) },
+                { label: t().menuRenameResource, enabled: !!single, action: () => {
+                    var from = single!.moduleFaust.getName();
+                    var to = window.prompt(t().renameResourcePrompt.replace("{n}", String(this.instancesOf(from).length)), from);
+                    if (to != null) this.renameResource(from, to).then(report);
+                } },
                 "separator",
                 { label: t().menuUnplug, enabled: plugged, action: () => this.unplugModules(selection) },
                 { label: t().moduleToSpeakers, enabled: selection.some((m) => this.canReachSpeakers(m)), action: () => { this.step(() => this.toSpeakers(selection)) } },
@@ -1609,16 +1755,42 @@ export class Scene {
         return factory;
     }
 
-    // Replaces the code of a module by edited user code (integrated editor, faustcode): rewrapped in
-    // the group of the module, so that its parameters keep their addresses and values; with its
-    // modulations; after the pending recompilations of the module. The scene keeps playing.
-    // Resolves with null when done, or with the reason of the failure (the module keeps its DSP).
-    editModuleCode(module: ModuleClass, edited: string): Promise<string | null> {
+    // Replaces the code of the resource of a module by edited user code (faustcode, a file dropped on the
+    // module, an update): all the instances of the resource are recompiled, the module first (R4). Each keeps
+    // its parameters, connections and modulations. Resolves with null when done, or with the reason of the
+    // failure of the module (the instances keep their DSP); `instances`: how many were updated.
+    async editModuleCode(module: ModuleClass, edited: string): Promise<string | null> {
+        var name = module.moduleFaust.getName();
+        var previous = storedCode(name, module.moduleFaust.getSource()).code;
+        var error = await this.editInstanceCode(module, edited);
+        if (error) return error;
+        this.fLastEdited = 1;
+        for (var other of this.instancesOf(name)) {
+            if (other === module) continue;
+            var failed = await this.editInstanceCode(other, edited);
+            if (failed) new Message(Utilitary.messageResource.moduleUpdateFailed.replace("{name}", name).replace("{error}", failed));
+            else this.fLastEdited++;
+        }
+        this.syncResources();
+        // a new version of the user module (documents/Documents.ts)
+        this.documents?.codeEdited(previous, storedCode(name, module.moduleFaust.getSource()).code, name);
+        return null;
+    }
+
+    // How many instances the last editModuleCode updated.
+    private fLastEdited = 0;
+    get lastEditedInstances(): number {
+        return this.fLastEdited;
+    }
+
+    // Replaces the code of one module by edited user code: rewrapped in the group of the module, so that its
+    // parameters keep their addresses and values; with its modulations; after the pending recompilations of
+    // the module. The scene keeps playing.
+    private editInstanceCode(module: ModuleClass, edited: string): Promise<string | null> {
         var id = module.moduleId;
         var task = async (): Promise<string | null> => {
             if (!this.getModules().includes(module)) return "the module was removed";
             var name = module.moduleFaust.getName();
-            var previous = storedCode(name, module.moduleFaust.getSource()).code;
             var code = rewrapModuleCode(module.moduleFaust.getSource(), edited);
             var error: string | null = null;
             var container = module.moduleView.getModuleContainer();
@@ -1631,8 +1803,6 @@ export class Scene {
             }
             if (!this.getModules().includes(module)) return "the module was removed";
             if (!(await module.replaceDSP(factory, { name, code }))) return module.lastError ?? Utilitary.messageResource.errorCreateDSP;
-            // a new version of the user module (documents/Documents.ts)
-            this.documents?.codeEdited(previous, storedCode(name, code).code, name);
             return null;
         };
         var result = (this.fRecompilations.get(id) ?? Promise.resolve(true)).then(task, task);
@@ -1666,7 +1836,7 @@ export class Scene {
     // A module made from the code of the user (faustcode, a new module) at a point of the stage (the center
     // of the window by default); the module, or why it could not be made (the error of the compiler).
     async addModuleFromCode(name: string, code: string, at?: { x: number; y: number }): Promise<ModuleClass | string> {
-        name = name.replace(/\.dsp$/i, "").trim() || "Module";
+        name = this.resourceNameFor(name.replace(/\.dsp$/i, "").trim() || "Module", code);
         var position = at ?? this.positionDblTapModule();
         var wrapped = wrapModuleCode(name, code);
         var error = "";
