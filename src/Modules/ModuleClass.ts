@@ -33,6 +33,9 @@ export class ModuleClass {
     // why the last createDSP failed (shown by the code editors)
     displays: ModuleDisplays | null = null;
     lastError: string | null = null;
+    // its audio could not start (its processor failed: past about 120 modules in a tab, audio/ModuleLimit.ts)
+    audioFailed = false;
+    private fRetrying = false;      // started again by the scene: a new failure is not reported again
     private fModuleInterfaceParams: { [label: string]: string } = {};
     // the Orbit interface, in place of the classic one (null: the classic one), and the widgets it shows
     orbit: OrbitPanel | null = null;
@@ -149,6 +152,12 @@ export class ModuleClass {
                 //faust.createDSPWorkletInstance(factory, Utilitary.audioContext, function(dsp) { moduleFaust.fDSP = dsp; callback(); });
                 if (dsp != null) {
                     moduleFaust.fDSP = dsp;
+                    // faustwasm throws the error of the processor, which nobody sees: the module is shown silent
+                    var node = dsp as unknown as AudioWorkletNode;
+                    if (typeof AudioWorkletNode != "undefined" && node instanceof AudioWorkletNode) {
+                        var quiet = this.fRetrying;
+                        node.onprocessorerror = () => this.onAudioFailed(node as unknown as IfDSP, quiet);
+                    }
                     // the names of the ports the module declares (declare inlets "..."; declare outlets "...";)
                     var meta: Array<Record<string, string>> = JSON.parse(factory.json).meta ?? [];
                     var names = (key: string) => (meta.find((m) => m[key] !== undefined)?.[key] ?? "").split(";").map((n) => n.trim()).filter(Boolean);
@@ -165,6 +174,35 @@ export class ModuleClass {
             this.lastError = Utilitary.messageResource.errorCreateDSP + " : " + e;
             new Message(this.lastError)
             Utilitary.hideFullPageLoading();
+        }
+    }
+
+    // The processor of a DSP failed: if it is the DSP of the module, the module is shown silent and the
+    // scene reports it (with the others of the moment).
+    private onAudioFailed(dsp: IfDSP, quiet: boolean): void {
+        if (dsp !== this.moduleFaust.fDSP) return;
+        this.setAudioFailed(true);
+        if (!quiet) Utilitary.currentScene?.reportAudioFailure(this);
+    }
+
+    private setAudioFailed(failed: boolean): void {
+        this.audioFailed = failed;
+        var container = this.moduleView.fModuleContainer;
+        container.classList.toggle("audio-failed", failed);
+        if (failed) container.title = Utilitary.messageResource.audioFailedTitle;
+        else container.removeAttribute("title");
+    }
+
+    // Starts the audio of a silent module again (a module was removed: there may be room now); silent again,
+    // it is not reported again.
+    async retryAudio(): Promise<void> {
+        if (!this.audioFailed || this.fRetrying || !this.moduleFaust.factory) return;
+        this.fRetrying = true;
+        this.setAudioFailed(false);
+        try {
+            await this.replaceDSP(this.moduleFaust.factory);
+        } finally {
+            this.fRetrying = false;
         }
     }
 

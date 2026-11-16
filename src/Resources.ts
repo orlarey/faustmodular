@@ -30,6 +30,12 @@ export class Resources {
     quickAddPlaceholder: string;
     quickAddRecent: string;
     quickAddHint: string;
+    audioFailed: string;
+    audioFailedOthers: string;
+    audioFailedLimit: string;
+    audioFailedOther: string;
+    audioFailedTitle: string;
+    moduleLimitWarning: string;
     microphoneIdle: string;
     microphoneOn: string;
     errorInputAPINotAvailable: string;

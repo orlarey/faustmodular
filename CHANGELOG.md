@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.58.0 (2026-11-16)
+
+- **The limit of modules is shown**: a browser tab runs about 120 Faust modules (each has a WebAssembly memory of
+  its own; Chrome reserves about 8 GB of address space for each and at most about 1 TB for a tab: about 125
+  memories, the same on Linux and macOS, whatever the machine). Past it, the audio of a new module could not start
+  and the module was silent without a word (faustwasm threw the error where nobody saw it). It is now outlined in
+  red, the failures of a moment are reported in one message (with the cause when the scene is large), and from
+  110 modules a warning comes first. A module removed gives its memory back: a silent module starts again, one
+  for each module removed (`src/audio/ModuleLimit.ts`).
+
 ## 3.57.1 (2026-11-16)
 
 - **The audio input and output modules open again where they were left**, even out of the window: a large scene,

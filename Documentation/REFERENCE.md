@@ -73,6 +73,13 @@ channels.
   drag that starts near an edge does not scroll at once). What is dragged stays under the pointer: a module moved
   goes on the stage with the scroll (and is aligned, and written once released, there), the selection rectangle
   grows, a cable follows; a magnified module moved stays magnified (`src/view/AutoScroll.ts`).
+- **About 120 Faust modules a tab.** Each module runs its Faust code in an AudioWorklet processor of its own, with
+  a WebAssembly memory of its own; Chrome reserves about 8 GB of address space for each (a few kB are used) and at
+  most about 1 TB for a tab: about 125 memories, the same on Linux and macOS, whatever the machine (the 126th
+  `new WebAssembly.Memory({ initial: 1 })` fails: "could not allocate memory"). Past it, the processor of a new
+  module fails: the module is outlined in red and silent, and the failures of a moment are reported in one message
+  (faustwasm threw them where nobody saw them). From 110 modules, a warning. A module removed gives its memory
+  back: a silent module then starts again, one for each module removed (`src/audio/ModuleLimit.ts`).
 - Ctrl/Cmd-Z undoes any change (connections, modules, positions, parameters, modulations),
   Ctrl/Cmd-Shift-Z redoes it; the ↶ ↷ buttons of the header do the same.
 

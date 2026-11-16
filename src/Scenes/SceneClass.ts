@@ -34,6 +34,7 @@ import { rewrapModuleCode, unwrapModuleCode, userCode, userError, wrapModuleCode
 import { History } from "./History";
 import { storedCode } from "../documents/DocumentFormat";
 import { SceneView } from "./SceneView";
+import { FailureBatch, LIMIT_LIKELY, MODULE_LIMIT, crossesWarning, listNames } from "../audio/ModuleLimit";
 
 export const INPUT_ID: ModuleId = "input";
 export const OUTPUT_ID: ModuleId = "output";
@@ -565,6 +566,7 @@ export class Scene {
         if (syncInputs(module.moduleFaust.getSource()).length > 0) this.sync?.probe(dsp);
         this.patchView.addModule(module);
         this.midi.moduleAdded(module);          // a MIDI to CV module: the MIDI devices asked for (once)
+        if (this.fRecalling == 0) this.checkModuleLimit(this.fModuleList.length - 1);
     }
 
     removeModule(module: ModuleClass): void {
@@ -576,6 +578,43 @@ export class Scene {
         if (module.moduleId !== undefined && this.patch.getModule(module.moduleId)) {
             this.patch.removeModule(module.moduleId);
         }
+        if (index >= 0 && !module.audioFailed) this.retryFailed();
+    }
+
+    /******************** THE LIMIT OF MODULES ************************/
+    // A tab runs about 120 Faust modules (audio/ModuleLimit.ts): past it, the audio of a module fails. The
+    // modules whose audio failed are reported together; near the limit, a warning; a module removed lets a
+    // silent one start again.
+
+    private fFailures = new FailureBatch((names) => {
+        var t = Utilitary.messageResource;
+        var count = this.fModuleList.length;
+        var text = t.audioFailed.replace("{names}", listNames(names, (n) => t.audioFailedOthers.replace("{count}", String(n))));
+        text += " " + (count >= LIMIT_LIKELY
+            ? t.audioFailedLimit.replace("{modules}", String(count)).replace("{limit}", String(MODULE_LIMIT))
+            : t.audioFailedOther);
+        new Message(text, undefined, 20000);
+    });
+
+    private fLimitTimer = 0;
+
+    reportAudioFailure(module: ModuleClass): void {
+        this.fFailures.add(module.moduleFaust.getName());
+    }
+
+    // The number of modules goes from `before` to now: the warning when it enters the band, unless modules
+    // are already silent (their message says more).
+    private checkModuleLimit(before: number): void {
+        var count = this.fModuleList.length;
+        if (!crossesWarning(before, count) || this.fModuleList.some((m) => m.audioFailed)) return;
+        new Message(Utilitary.messageResource.moduleLimitWarning.replace("{modules}", String(count)).replace("{limit}", String(MODULE_LIMIT)), undefined, 15000);
+    }
+
+    // A module was removed: the first silent module starts again (one module removed, one memory given back).
+    private retryFailed(): void {
+        if (this.fRecalling > 0) return;
+        var silent = this.fModuleList.find((m) => m.audioFailed);
+        if (silent) void silent.retryAudio();
     }
 
     // Called once a module has a new DSP (recompilation). Returns the connections removed
@@ -903,6 +942,10 @@ export class Scene {
                 this.clearScene();
                 warnings = await recall();
                 replaced = true;
+                // the failures of the processors come a moment after the modules: the warning after them, once
+                // (a scene opened just after another: the check of the last one)
+                window.clearTimeout(this.fLimitTimer);
+                this.fLimitTimer = window.setTimeout(() => this.checkModuleLimit(0), 1000);
             } finally {
                 this.fRecalling--;
                 this.fModified = false;     // a scene just opened has nothing to save

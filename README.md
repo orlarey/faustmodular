@@ -121,6 +121,8 @@ You can also:
   Each scene opens again at the zoom and place you left it.
 - Drag a module, a selection, a rectangle or a cable **to an edge of the window**: the stage scrolls, the faster
   the closer to the edge.
+- A browser tab runs **about 120 Faust modules** at most (a limit of the browser on WebAssembly memories): past it,
+  a new module stays silent, outlined in red, and you are told; remove modules and they start again.
 - Zoomed out, the module under the pointer is **magnified** to its real size: you can read and play it, or move
   it, without zooming in. While you draw a cable, it lets you aim at a precise setting.
 - Modules snap to the **edges and centres** of the others while you move them (Alt: no snapping).
