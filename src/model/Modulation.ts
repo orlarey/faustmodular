@@ -28,12 +28,16 @@
       zero: a negative frequency turns the phase backwards). With a sine of gain g on the frequency fc of
       a sine oscillator, the deviation is D·g·fc and the index of classic (Chowning) FM is
       I = D·g·fc/fm; the mean frequency stays fc;
-    - "scale" (×): w·m;
+    - "multiply" (×), for the widgets declaring [mod:mul] (a gain an envelope opens): w·(1 − D + D·m),
+      D being an amount slider of the circuit (−1..1, 1 by default), bounded to [min, max]: D = 1 gives
+      w·m (the slider the maximum gain, the signal its fraction), D = 0 leaves w, in between a partial
+      modulation (the gain goes down to (1 − D)·w at most, as the depth of a tremolo);
+    - "scale" (×, before 2.8.0, still read): w·m, without depth nor bounds;
     - "drive" (⇐): clip(m); the widget stays in the interface but has no effect; a hidden bargraph
       ([driven:<target>]) reports the value to the interface (a button lit while it is held at 1).
 */
 
-export type ModulationMode = "modulate" | "add" | "linear" | "scale" | "drive";
+export type ModulationMode = "modulate" | "add" | "linear" | "multiply" | "scale" | "drive";
 
 // A widget of a compiled module, from the JSON description of its factory.
 export interface WidgetDescription {
@@ -73,11 +77,12 @@ export const DEFAULT_DEVIATION = 1;
 
 // The modes whose circuit has a depth slider (shown and set on the modulation port).
 export function hasDepth(mode: ModulationMode): boolean {
-    return mode == "modulate" || mode == "add" || mode == "linear";
+    return mode == "modulate" || mode == "add" || mode == "linear" || mode == "multiply";
 }
 
+// The amount of a × modulation, like that of a + one, is 1 by default (its slider is named "amount").
 export function defaultDepth(mode: ModulationMode): number {
-    return mode == "add" ? DEFAULT_AMOUNT : mode == "linear" ? DEFAULT_DEVIATION : DEFAULT_DEPTH;
+    return mode == "add" || mode == "multiply" ? DEFAULT_AMOUNT : mode == "linear" ? DEFAULT_DEVIATION : DEFAULT_DEPTH;
 }
 
 // The depth slider goes from −range to range.
@@ -133,17 +138,22 @@ export function isModulable(widget: WidgetDescription): boolean {
 // minimum, depth 1); pitch sliders add the signal to their value; buttons and checkboxes are driven
 // by the signal.
 export function allowedModes(widget: WidgetDescription): ModulationMode[] {
-    return isSwitch(widget) ? ["drive"] : isLinear(widget) ? ["linear"] : isPitch(widget) ? ["add"] : ["modulate"];
+    return isSwitch(widget) ? ["drive"] : isLinear(widget) ? ["linear"] : isMultiplied(widget) ? ["multiply"] : isPitch(widget) ? ["add"] : ["modulate"];
 }
 
 // The modes accepted (patches saved before 2.8.0 may have "scale" and "drive" on sliders).
 export function supportedModes(widget: WidgetDescription): ModulationMode[] {
     if (isSwitch(widget)) return ["drive"];
-    const first: ModulationMode[] = isLinear(widget) ? ["linear"] : isPitch(widget) ? ["add"] : [];
+    const first: ModulationMode[] = isLinear(widget) ? ["linear"] : isMultiplied(widget) ? ["multiply"] : isPitch(widget) ? ["add"] : [];
     return [...first, "modulate", "scale", "drive"];
 }
 
-// The mode a slider declares: [mod:lin] (linear), [mod:add] (added, as a pitch).
+// Sliders multiplied by the signal: [mod:mul] (a gain an envelope opens).
+export function isMultiplied(widget: WidgetDescription): boolean {
+    return declaredMode(widget) == "mul";
+}
+
+// The mode a slider declares: [mod:lin] (linear), [mod:mul] (multiplied), [mod:add] (added, as a pitch).
 function declaredMode(widget: WidgetDescription): string | undefined {
     return widget.meta["mod"]?.trim().toLowerCase();
 }
@@ -239,6 +249,11 @@ export function circuit(spec: ModulationSpec): string {
             const deviation = `hslider("[${DEPTH_METADATA}:${depthKey(spec)}][style:knob]deviation ${depthKey(spec)}", ${float(DEFAULT_DEVIATION)}, -10, 10, 0.001) : si.smoo`;
             const hi = float(Math.max(Math.abs(spec.min), Math.abs(spec.max)));
             return `(_, *(${deviation}) : \\(w, u).(w * (1 + u)) : max(-${hi}) : min(${hi}))`;
+        }
+        case "multiply": {
+            // w·(1 − D + D·m): D = 1, w·m; D = 0, w
+            const amount = `hslider("[${DEPTH_METADATA}:${depthKey(spec)}][style:knob]amount ${depthKey(spec)}", ${float(DEFAULT_AMOUNT)}, -1, 1, 0.001) : si.smoo`;
+            return `(_, _, (${amount}) : \\(w, m, d).(w * (1 - d + d * m)) : ${clip})`;
         }
         case "scale":
             return "*";

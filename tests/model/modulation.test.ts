@@ -90,6 +90,15 @@ describe("widget descriptions and Faust targets", () => {
         expect(defaultDepthAt("/Osc/deviation_freq")).toBe(1);
     });
 
+    it("offers × (multiply) for the sliders declaring [mod:mul], before + and ±", async () => {
+        const widgets = await widgetsOf(wrap("VCA", `process = *(hslider("gain[mod:mul]", 1, 0, 1, 0.01)) + hslider("g2[mod:MUL][unit:pitch]", 0, -1, 1, 0.001);`));
+        const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
+        expect(allowedModes(byLabel("gain"))).toEqual(["multiply"]);
+        expect(supportedModes(byLabel("gain"))).toEqual(["multiply", "modulate", "scale", "drive"]);
+        expect(allowedModes(byLabel("g2"))).toEqual(["multiply"]);            // [mod:mul] before [unit:pitch], its value whatever its case
+        expect(defaultDepthAt("/VCA/amount_gain")).toBe(1);
+    });
+
     it("offers + for the pitch sliders ([unit:pitch]), only for them", async () => {
         const widgets = await widgetsOf(wrap("VCO", `process = hslider("pitch[unit:pitch]", 0, -1, 1, 0.001) + hslider("gain", 0.5, 0, 1, 0.01);`));
         const byLabel = (label: string) => widgets.find((w) => w.label == label)!;
@@ -174,6 +183,23 @@ describe("effective code", () => {
         const deviation = (await run(code, [0])).widgets.find((w) => w.label == "deviation freq")!;
         expect([deviation.min, deviation.max]).toEqual([-10, 10]);
         expect(isModulable(deviation)).toBe(false);
+    });
+
+    it("× multiplier: w·(1 − D + D·m), the slider the maximum gain (amount 1 by default), bounded", async () => {
+        const vca = wrap("VCA", `process = *(hslider("gain[mod:mul]", 1, 0, 1, 0.01));`);
+        const code = await modulated(vca, 1, [["gain", "multiply"]]);
+        // inputs: the audio (1), then the modulation (an envelope)
+        close((await run(code, [1, 0.5])).out[0], 0.5);                               // w = 1: the envelope
+        close((await run(code, [1, 0.5], { gain: 0.4 })).out[0], 0.2);                // w·m
+        close((await run(code, [1, 0], { gain: 0.4 })).out[0], 0);                    // closed when the envelope is
+        close((await run(code, [1, 0], { gain: 0.4, "amount gain": 0.5 })).out[0], 0.2);   // down to (1 − D)·w
+        close((await run(code, [1, 1], { gain: 0.4, "amount gain": 0.5 })).out[0], 0.4);
+        close((await run(code, [1, 0.3], { gain: 0.4, "amount gain": 0 })).out[0], 0.4);   // D = 0: the slider alone
+        close((await run(code, [1, 3], { gain: 0.8 })).out[0], 1);                    // kept in the slider's range
+        close((await run(code, [1, -1], { gain: 0.8 })).out[0], 0);
+        const amount = (await run(code, [0, 0])).widgets.find((w) => w.label == "amount gain")!;
+        expect([amount.min, amount.max, amount.meta.modulation]).toEqual([-1, 1, "gain"]);
+        expect(isModulable(amount)).toBe(false);
     });
 
     it("× doser: w·m; ⇐ piloter: clip(m), the widget staying in the interface", async () => {

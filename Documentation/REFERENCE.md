@@ -191,7 +191,9 @@ Expander*. Measured offline in `tests/library/saturation-delays.test.ts`.
 Ports carry the signals a module transforms (audio); everything that controls a module is a setting,
 driven by releasing a cable on it: a sequencer on the *Pitch* of a VCO (pitch sliders add the signal to
 their value, "+"), a clock on the *Clock* button of the sequencer, an envelope on the *Gain* of a VCA. A
-slider declaring `[mod:lin]` is modulated linearly ("~"): two *SineVCO* make classic FM.
+slider declaring `[mod:lin]` is modulated linearly ("~"): two *SineVCO* make classic FM. A slider declaring
+`[mod:mul]` is multiplied by the signal ("×", 3.60.0): w·(1 − D + D·m), the amount D (1 by default) on the port;
+an envelope on such a gain gives the gain of the slider times the envelope.
 
 The field at the top of the modules searches all of them (the families of the catalog and My modules): every
 word typed must be found, ignoring case and accents, in the name of a module, its Faust functions, its family or

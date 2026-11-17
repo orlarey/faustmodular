@@ -66,6 +66,7 @@ export class Resources {
     modulationModulate: string;
     modulationAdd: string;
     modulationLinear: string;
+    modulationMultiply: string;
     modulationDeviation: string;
     modulationScale: string;
     modulationDrive: string;

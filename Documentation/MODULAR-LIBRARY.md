@@ -75,6 +75,7 @@ Chaque sorte de widget a son mode de modulation (`allowedModes`) :
 Réglage,Mode,Effet,Exemple
 Curseur de hauteur [unit:pitch],+ additionner,w + A·m (A = 1 par défaut),séquenceur → Pitch du VCO : juste quelle que soit la position du curseur
 Curseur déclarant [mod:lin],~ FM linéaire,w·(1 + D·m) (D = 1 par défaut ; jusqu'à −max),SineVCO → Freq d'un autre SineVCO : la FM classique
+Curseur déclarant [mod:mul],× multiplier,w·(1 − D + D·m) (D = 1 par défaut : w·m),ADSR → Gain[mod:mul] : le curseur règle le niveau et l'enveloppe la forme
 Curseur de fréquence [unit:Hz] ou [scale:log],± moduler,exponentiel : en octaves,enveloppe → Cutoff du VCF
 Autre curseur,± moduler,linéaire autour du curseur (D = 0.5 par défaut),ADSR → Gain du VCA (curseur à 0 et D = 1 : le gain est l'enveloppe)
 Bouton,⇐ piloter,le signal remplace le bouton,horloge → Clock du séquenceur ; porte → Gate de l'ADSR

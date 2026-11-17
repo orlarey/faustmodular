@@ -52,6 +52,7 @@
   "modulationModulate": "modulate",
   "modulationAdd": "add (pitch)",
   "modulationLinear": "linear FM",
+  "modulationMultiply": "multiply",
   "modulationDeviation": "deviation",
   "modulationScale": "scale",
   "modulationDrive": "drive",

@@ -37,13 +37,14 @@ import { Connection, ConnectionId, ModuleId, Patch, PatchError, PatchEvent, Port
 import type { ModuleClass } from "../Modules/ModuleClass";
 import { Utilitary } from "../Utilitary";
 
-export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", add: "+", linear: "~", scale: "×", drive: "→" };
+export const MODE_SYMBOLS: Record<ModulationMode, string> = { modulate: "±", add: "+", linear: "~", multiply: "×", scale: "×", drive: "→" };
 
 // Stroke icons of the modulation types (24 x 24 viewBox, drawn with currentColor).
 export const MODE_ICONS: Record<ModulationMode, string> = {
     modulate: "M12 4v9M7.5 8.5h9M7.5 19h9",       // ±
     add: "M12 6v12M6 12h12",                       // + the signal is added to the slider (a pitch)
     linear: "M3 12c2.5-7 6.5-7 9 0s6.5 7 9 0",     // ~ linear frequency modulation
+    multiply: "M7 7l10 10M17 7L7 17",              // × the slider multiplied by the signal ([mod:mul])
     scale: "M7 7l10 10M17 7L7 17",                 // ×
     drive: "M4 12h14M13 7l5 5-5 5",                // → the signal drives the widget
 };
@@ -408,7 +409,7 @@ export class PatchView {
         const state = this.fPatch.getModule(id);
         if (!container || !state) return;
         container.querySelectorAll("[data-widget]").forEach((element) =>
-            element.classList.remove("modulated", "modulated-modulate", "modulated-add", "modulated-linear", "modulated-scale", "modulated-drive"));
+            element.classList.remove("modulated", "modulated-modulate", "modulated-add", "modulated-linear", "modulated-multiply", "modulated-scale", "modulated-drive"));
         for (const modulation of state.modulations) {
             this.widgetElement(id, modulation.widget)?.classList.add("modulated", "modulated-" + modulation.spec.mode);
         }
@@ -508,6 +509,7 @@ export class PatchView {
             modulate: Utilitary.messageResource.modulationModulate,
             add: Utilitary.messageResource.modulationAdd,
             linear: Utilitary.messageResource.modulationLinear,
+            multiply: Utilitary.messageResource.modulationMultiply,
             scale: Utilitary.messageResource.modulationScale,
             drive: Utilitary.messageResource.modulationDrive,
         };

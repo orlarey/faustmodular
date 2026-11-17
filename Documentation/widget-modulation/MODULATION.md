@@ -1,6 +1,6 @@
 ---
 title: La modulation de widgets
-subtitle: Référence de faustmodular 3.12 — le choix du mode, les formules, les ports, l'écriture des modules
+subtitle: Référence de faustmodular 3.60 — le choix du mode, les formules, les ports, l'écriture des modules
 author: Yann Orlarey
 organization: EMERAUDE (GRAME/INRIA/INSA)
 date: 2 novembre 2026
@@ -46,13 +46,14 @@ Le mode est choisi par `allowedModes` (`src/model/Modulation.ts`), dans cet ordr
 Ordre,Widget,Métadonnée,Mode
 1,"button, checkbox",(aucune n'est lue),⇐ piloter
 2,"curseur (hslider, vslider, nentry)",[mod:lin],~ FM linéaire
-3,curseur,[unit:pitch] ou [mod:add],+ additionner
-4,curseur,"[scale:log] ou [unit:Hz], avec min > 0","± moduler, exponentiel"
-5,curseur,"aucune des précédentes, ou min ≤ 0","± moduler, linéaire"
+3,curseur,[mod:mul],× multiplier
+4,curseur,[unit:pitch] ou [mod:add],+ additionner
+5,curseur,"[scale:log] ou [unit:Hz], avec min > 0","± moduler, exponentiel"
+6,curseur,"aucune des précédentes, ou min ≤ 0","± moduler, linéaire"
 ```
 
-- La casse des métadonnées est ignorée.
-- Quand un curseur porte plusieurs de ces métadonnées, la première ligne qui s'applique l'emporte : `[mod:lin]` passe avant `[unit:pitch]`.
+- La casse des **valeurs** des métadonnées est ignorée (`[mod:MUL]` vaut `[mod:mul]`), pas celle des clés : Faust distingue `[MOD:mul]` de `[mod:mul]`.
+- Quand un curseur porte plusieurs de ces métadonnées, la première ligne qui s'applique l'emporte : `[mod:lin]` passe avant `[mod:mul]`, qui passe avant `[unit:pitch]`.
 - Seules comptent `mod`, `unit` et `scale`. La métadonnée `modulation` marque les curseurs de profondeur, qui ne sont pas modulables. Les autres (`style`, `tooltip`…) n'ont pas d'effet sur la modulation.
 - `[mod:exp]` n'existe pas : le mode exponentiel se déduit de `[scale:log]` ou `[unit:Hz]`. `[scale:log]` règle aussi l'affichage du curseur ; `[unit:Hz]` seul module en exponentiel un curseur affiché linéairement.
 
@@ -94,6 +95,18 @@ w·(1 + D·m)    borné à [−M, M], M = max(|min|, |max|) ; D de −10 à 10, 
 
 Le minimum du curseur est ignoré : la fréquence peut passer par zéro, la phase repart alors en arrière (`os.osc` le permet). Avec un modulateur sinusoïdal de gain g à fm sur un porteur à fc, c'est la FM de Chowning : la déviation vaut D·g·fc, l'**indice I = D·g·fc/fm**, la fréquence moyenne reste fc, et le spectre est fc ± k·fm d'amplitudes |J_k(I)|. Exemple : la sortie d'un SineVCO sur la *Freq* d'un autre ; à fréquences égales, le Gain du modulateur est l'indice.
 
+## × multiplier
+
+Pour un gain qu'une enveloppe ouvre, déclaré `[mod:mul]` (3.60.0) :
+
+```
+w·(1 − D + D·m)    borné à [min, max] ; D de −1 à 1, 1 par défaut
+```
+
+Le curseur est le gain maximal, le signal sa fraction : avec D = 1, le gain vaut **w·m**, nul quand l'enveloppe l'est. D dose la modulation : D = 0 laisse w, et entre les deux le gain descend au plus jusqu'à (1 − D)·w, comme la profondeur d'un trémolo. Exemple : une ADSR sur le *Gain* d'un VCA déclaré `hslider("Gain[mod:mul]", 1, 0, 1, 0.01)` : le curseur règle le niveau de la note, l'enveloppe sa forme.
+
+Le ± ne multiplie pas : il part du curseur vers ses bornes (w + u·(max − w)), si bien qu'une enveloppe nulle laisse le gain à w. Le VCA de la bibliothèque, lui, n'est pas déclaré `[mod:mul]` : son curseur est à 0 et sa profondeur D, sur le port, tient lieu de niveau (g = D·e).
+
 ## ⇐ piloter
 
 ```
@@ -106,7 +119,7 @@ Le circuit ajoute un bargraphe caché, `[driven:<cible>][hidden:1]`, qui rapport
 
 ## Modes hérités
 
-Les patchs enregistrés avant la version 2.8.0 peuvent porter, sur des curseurs, **× doser** (`w·m`, sans profondeur ni bornes) et **⇐ piloter**. Ils se chargent et sonnent comme avant (`supportedModes`), mais ne sont plus proposés.
+Les patchs enregistrés avant la version 2.8.0 peuvent porter, sur des curseurs, **× doser** (`w·m`, sans profondeur ni bornes) et **⇐ piloter**. Ils se chargent et sonnent comme avant (`supportedModes`), mais ne sont plus proposés. × multiplier (`[mod:mul]`) est un mode distinct de × doser : il a une quantité et des bornes.
 
 # Les ports de modulation
 
@@ -115,6 +128,7 @@ Mode,Icône,Curseur de profondeur,Plage,Défaut,Glisser vertical (Maj : fin)
 ± moduler,±,depth <cible>,−1 à 1,0.5,"0.01 par pixel (0.001)"
 + additionner,+,amount <cible>,−1 à 1,1,"0.01 par pixel (0.001)"
 ~ FM linéaire,∿,deviation <cible>,−10 à 10,1,"0.1 par pixel (0.01)"
+× multiplier,×,amount <cible>,−1 à 1,1,"0.01 par pixel (0.001)"
 ⇐ piloter,→,—,—,—,—
 ```
 
@@ -148,6 +162,7 @@ Rôle du réglage,Déclaration,Mode obtenu
 fréquence d'un oscillateur (FM),"hslider(""Freq[unit:Hz][scale:log][mod:lin]"", 440, 20, 20000, 0.01)",~ FM linéaire
 hauteur à 0.1 par octave,"hslider(""Pitch[unit:pitch]"", 0, -1, 1, 0.001)",+ additionner
 fréquence de coupure ou vitesse,"hslider(""Cutoff[unit:Hz][scale:log]"", 1000, 20, 20000, 1)","± moduler, exponentiel"
+"gain qu'une enveloppe ouvre (curseur × enveloppe)","hslider(""Gain[mod:mul]"", 1, 0, 1, 0.01)",× multiplier
 "niveau, gain, mélange","hslider(""Gain"", 0, 0, 1, 0.01)","± moduler, linéaire"
 "porte, déclencheur, remise à zéro","button(""Gate"")",⇐ piloter
 ```
@@ -163,6 +178,6 @@ fréquence de coupure ou vitesse,"hslider(""Cutoff[unit:Hz][scale:log]"", 1000, 
 
 # Références
 
-- Code : `src/model/Modulation.ts` (`allowedModes`, `isLinear`, `isPitch`, `isExponential`, `circuit`, `modulatedCode`), `src/view/PatchView.ts` (ports), `src/audio/AudioGraph.ts` (fondu enchaîné).
+- Code : `src/model/Modulation.ts` (`allowedModes`, `isLinear`, `isMultiplied`, `isPitch`, `isExponential`, `circuit`, `modulatedCode`), `src/view/PatchView.ts` (ports), `src/audio/AudioGraph.ts` (fondu enchaîné).
 - Tests : `tests/faust/widget-modulation.test.ts` (la construction Faust), `tests/model/modulation.test.ts` (chaque formule, compilée et exécutée), `tests/library/modular.test.ts` (les modules, dont la FM comparée au spectre de Chowning), `tests/browser/audiograph.test.ts` (le fondu), `tests/e2e/app.test.ts` (le geste et les ports).
 - Histoire : `PLAN.md`.

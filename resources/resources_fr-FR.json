@@ -52,6 +52,7 @@
   "modulationModulate": "moduler",
   "modulationAdd": "additionner (hauteur)",
   "modulationLinear": "FM linéaire",
+  "modulationMultiply": "multiplier",
   "modulationDeviation": "déviation",
   "modulationScale": "doser",
   "modulationDrive": "piloter",

@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.60.0 (2026-11-17)
+
+- **`[mod:mul]`, a slider multiplied by the signal** (×): w·(1 − D + D·m), bounded to the range of the slider, the
+  amount D (−1 to 1, 1 by default) set on the port. With D = 1, the gain is the slider times the signal: an envelope
+  on `hslider("Gain[mod:mul]", 1, 0, 1, 0.01)` gives the level of the slider shaped by the envelope; D = 0 leaves the
+  slider alone, and in between the gain goes down to (1 − D)·w at most. It comes after `[mod:lin]` and before
+  `[unit:pitch]` (`Documentation/widget-modulation/MODULATION.md`). The VCA of the library is unchanged.
+
 ## 3.59.0 (2026-11-16)
 
 - **The resources of a scene** (`Documentation/SCENE-RESOURCES-SPEC.md`): a module is defined once per scene, and
