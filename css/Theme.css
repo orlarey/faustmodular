@@ -260,6 +260,23 @@ input[type="range"]::-moz-range-thumb,
 .port:hover, .port.port-target {
 	box-shadow: 0 0 0 3px var(--fp-accent);
 }
+/* A port lit by its signal (view/PortMeters.ts), discreetly: a glow inside it, its opacity following --level
+   (0 to 1, set 20 times a second); nothing else changes */
+.port::after {
+	content: "";
+	position: absolute;
+	inset: 3px;
+	border-radius: 50%;
+	background: #fff;
+	opacity: calc(var(--level, 0) * 0.4);
+	transition: opacity 80ms linear;
+	pointer-events: none;
+}
+.modulation-port::after {
+	inset: 4px;
+	background: var(--fp-mod);
+	opacity: calc(var(--level, 0) * 0.35);
+}
 .moduleFaust.bus-target {
 	box-shadow: 0 0 0 3px var(--fp-accent), 0 6px 18px rgba(0, 0, 0, 0.5);
 }

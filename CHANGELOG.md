@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.61.0 (2026-11-17)
+
+- **The ports lit by their signal, discreetly** (`src/view/PortMeters.ts`): a glow inside a port follows its level,
+  from −48 dB to 0 dB, rising at once and falling in about 150 ms; an input or a modulation port shows the strongest
+  of its sources. Light: an analyser per output, only for the modules already computed (leading to the speakers or
+  to a display), so that nothing more is computed; read 20 times a second, written only when it changes, for the
+  modules in the window, not while the tab is hidden. *Animate the ports* in the menu of the stage turns it off.
+
 ## 3.60.0 (2026-11-17)
 
 - **`[mod:mul]`, a slider multiplied by the signal** (×): w·(1 − D + D·m), bounded to the range of the slider, the

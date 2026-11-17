@@ -16,6 +16,7 @@
   "quickAddPlaceholder": "Ajouter un module…",
   "quickAddRecent": "Récents",
   "quickAddHint": "↑ ↓ choisir · Entrée l'ajoute ici · Échap",
+  "menuAnimatePorts": "Animer les ports",
   "faustcodeOpenedInTab": "{name} est ouvert dans l'onglet faustcode.",
   "faustcodeUnavailable": "faustcode n'est pas disponible ici : il doit être servi par le même site que faustmodular.",
   "resourceNameInvalid": "Un nom ne peut pas contenir \" ni \\.",

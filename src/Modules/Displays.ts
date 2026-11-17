@@ -141,6 +141,12 @@ export class ModuleDisplays {
     private fCanvas: HTMLCanvasElement | null = null;
     private fFrameBox: HTMLElement | null = null;
     private fAnalyser: AnalyserNode | null = null;
+
+    // The module shows a signal (an analyser on its output): Web Audio computes it, and what feeds it
+    // (view/PortMeters.ts).
+    get analysing(): boolean {
+        return this.fAnalyser !== null;
+    }
     private fKind: DisplayKind | null = null;
     private fFrame = 0;
     private fTime: Float32Array<ArrayBuffer> | null = null;

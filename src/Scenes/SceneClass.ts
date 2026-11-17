@@ -33,6 +33,7 @@ import { rewrapModuleCode, unwrapModuleCode, userCode, userError, wrapModuleCode
 import { History } from "./History";
 import { normalizePatch, storedCode } from "../documents/DocumentFormat";
 import { renameAddress, uniqueName } from "../model/Resources";
+import { PortMeters } from "../view/PortMeters";
 import { SceneView } from "./SceneView";
 import { FailureBatch, LIMIT_LIKELY, MODULE_LIMIT, crossesWarning, listNames } from "../audio/ModuleLimit";
 
@@ -183,6 +184,16 @@ export class Scene {
                 }
             }
         });
+        // the ports lit by their signal, discreetly (view/PortMeters.ts)
+        this.portMeters = new PortMeters({
+            meter: this.audioGraph,
+            connections: () => this.patch.getConnections(),
+            modules: () => this.patch.getModules().map((m) => m.id),
+            roots: () => [OUTPUT_ID, ...this.fModuleList.filter((m) => m.displays?.analysing).map((m) => m.moduleId)],
+            container: (id) => this.getModuleById(id)?.moduleView.getModuleContainer(),
+            running: () => Utilitary.audioContext.state == "running",
+        });
+        this.patch.subscribe(() => this.portMeters.changed());
         // selection rectangle on the empty stage, undo and redo
         this.patchView.attachStage(this.sceneView.fSceneContainer);
         // a drag near an edge scrolls the stage (view/AutoScroll.ts)
@@ -907,6 +918,9 @@ export class Scene {
     // instances have its code (R1); a resource may have no instance (the family "This scene" of the
     // Modules menu). Editing the code of a module edits its resource: all its instances follow (R4).
 
+    // the ports lit by their signal (view/PortMeters.ts)
+    portMeters!: PortMeters;
+
     private fResources: ResourceFile[] = [];
     private fReserved = new Map<string, string>();      // names given to modules being created -> their code
 
@@ -1329,6 +1343,8 @@ export class Scene {
                     "separator",
                     { label: t().menuModules, action: () => document.dispatchEvent(new CustomEvent("openmodules")) },
                     { label: t().menuNewModule, action: () => this.newModule(at) },
+                    "separator",
+                    { label: t().menuAnimatePorts, checked: this.portMeters.enabled, action: () => this.portMeters.setEnabled(!this.portMeters.enabled) },
                     { label: t().menuImportDsp, action: () => this.importDsp(at) },
                 ]);
                 return;

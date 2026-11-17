@@ -30,6 +30,7 @@ export class Resources {
     quickAddPlaceholder: string;
     quickAddRecent: string;
     quickAddHint: string;
+    menuAnimatePorts: string;
     faustcodeOpenedInTab: string;
     faustcodeUnavailable: string;
     resourceNameInvalid: string;

@@ -67,6 +67,14 @@ channels.
   magnified too, so that a widget can be aimed at. A module moved keeps its size, as when a widget is used: it
   is moved magnified (aligned at its size on the stage) and goes back when the pointer leaves it. Zooming or
   moving the stage ends it (`src/view/Magnifier.ts`).
+- **The ports lit by their signal** (3.61.0, `src/view/PortMeters.ts`), discreetly: a glow inside a port, whose
+  opacity follows its level, from −48 dB (off) to 0 dB (at most 40 % of white; 35 % of amber for a modulation port),
+  rising at once and falling in about 150 ms. An output is metered by an `AnalyserNode` of 2048 samples on its
+  splitter (`AudioGraph.setMetered`), read 20 times a second; an input (audio or modulation) shows the strongest of
+  the outputs connected to it. Only the modules Web Audio computes already are metered, those that lead to the
+  speakers or to a display: an analyser would make it compute a module nobody hears. Nothing is read while the tab is
+  hidden or the audio suspended, nor written for the modules out of the window, nor when a level changed by less than
+  4 %. *Animate the ports*, in the menu of the stage, turns it off (remembered by the browser).
 - A drag near an edge of the window scrolls the stage (a module or a selection moved, a selection rectangle
   drawn, a cable drawn): in a band of 40 px along each edge (under the toolbar at the top), the faster as the
   pointer is deeper in it, up to 1000 px/s at the edge and beyond, but not before the pointer has moved 8 px (a

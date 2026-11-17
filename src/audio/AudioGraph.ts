@@ -30,6 +30,11 @@
     The graph is kept in sync by reconciliation: after any change, every connection of
     the patch whose two ends have a node is wired, with or without delay as required,
     and every other wire is removed.
+
+    The outputs of the modules can be metered (view/PortMeters.ts, the ports lit by their signal): an
+    AnalyserNode per output, on its splitter, for the modules given (setMetered). An analyser makes Web Audio
+    compute what feeds it: only the modules already computed (they lead to the speakers or to a display) are
+    to be metered, so that the meters add no computation of DSP.
 */
 
 import { Connection, ConnectionId, ModuleId, Patch, PatchEvent, totalInputs } from "../model/Patch";
@@ -37,6 +42,9 @@ import { Connection, ConnectionId, ModuleId, Patch, PatchEvent, totalInputs } fr
 // Crossfade between the old and the new DSP of a module (s), and the delay before it starts (s).
 export const CROSSFADE = 0.05;
 export const CROSSFADE_DELAY = 0.02;
+// Samples an output meter looks at (about 43 ms at 48 kHz: the time between two reads at 20 Hz, so that a short gate
+// between them is seen).
+export const METER_SIZE = 2048;
 
 // A node being faded out, until it is retired (disconnected, then handed back to be destroyed).
 interface Fading {
@@ -77,6 +85,8 @@ export class AudioGraph {
     private fPorts = new Map<ModuleId, ModulePorts>();
     private fWires = new Map<ConnectionId, Wire>();
     private fUnsubscribe: () => void;
+    private fMeters = new Map<ModuleId, { splitter: ChannelSplitterNode; analysers: AnalyserNode[] }>();
+    private fMeterBuffer: Float32Array<ArrayBuffer> | null = null;
     private fSilence: AudioNode | null = null;
     private fReserved: (id: ModuleId) => ReservedInputs | null = () => null;
 
@@ -282,7 +292,55 @@ export class AudioGraph {
     }
 
     // Detaches the merger/splitter of a module; its wires become stale and are removed by reconcile().
+    /******************** METERS ********************/
+
+    // The modules whose outputs are metered (the others lose their analysers).
+    setMetered(ids: Set<ModuleId>): void {
+        for (const id of [...this.fMeters.keys()]) {
+            const meter = this.fMeters.get(id)!;
+            if (!ids.has(id) || this.fPorts.get(id)?.splitter !== meter.splitter) this.unmeter(id);
+        }
+        for (const id of ids) {
+            const splitter = this.fPorts.get(id)?.splitter;
+            if (!splitter || this.fMeters.has(id)) continue;
+            const analysers: AnalyserNode[] = [];
+            for (let i = 0; i < splitter.numberOfOutputs; i++) {
+                const analyser = this.fContext.createAnalyser();
+                analyser.fftSize = METER_SIZE;
+                safely(() => splitter.connect(analyser, i));
+                analysers.push(analyser);
+            }
+            this.fMeters.set(id, { splitter, analysers });
+        }
+    }
+
+    private unmeter(id: ModuleId): void {
+        const meter = this.fMeters.get(id);
+        if (!meter) return;
+        this.fMeters.delete(id);
+        meter.analysers.forEach((analyser) => { safely(() => meter.splitter.disconnect(analyser)); });
+    }
+
+    // The peak (absolute) of each metered output over the last METER_SIZE samples: module -> one per output.
+    meterPeaks(): Map<ModuleId, number[]> {
+        const peaks = new Map<ModuleId, number[]>();
+        const buffer = this.fMeterBuffer ??= new Float32Array(METER_SIZE);
+        for (const [id, meter] of this.fMeters) {
+            peaks.set(id, meter.analysers.map((analyser) => {
+                analyser.getFloatTimeDomainData(buffer);
+                let peak = 0;
+                for (let i = 0; i < buffer.length; i++) {
+                    const v = Math.abs(buffer[i]);
+                    if (v > peak) peak = v;
+                }
+                return peak;
+            }));
+        }
+        return peaks;
+    }
+
     private releasePorts(id: ModuleId): void {
+        this.unmeter(id);
         const ports = this.fPorts.get(id);
         if (!ports) return;
         this.fPorts.delete(id);

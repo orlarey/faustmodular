@@ -123,6 +123,8 @@ You can also:
 
 - **Zoom** with Ctrl/Cmd + the wheel (or a pinch), move with the wheel; ⤢ fits the whole patch in the window.
   Each scene opens again at the zoom and place you left it.
+- The **ports glow softly** with their signal, so you see what plays (right click the stage: *Animate the ports*,
+  to turn it off).
 - Drag a module, a selection, a rectangle or a cable **to an edge of the window**: the stage scrolls, the faster
   the closer to the edge.
 - A browser tab runs **about 120 Faust modules** at most (a limit of the browser on WebAssembly memories): past it,
