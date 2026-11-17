@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.63.0 (2026-11-17)
+
+- **DSP n %, the load of the audio thread** (`src/audio/DspMeter.ts`): in the toolbar, after the transport, the time
+  the Faust modules take to compute a block over the duration of that block, smoothed over about a second; amber
+  from 70 %, red for 10 s after a dropout of the audio device (`playbackStats`, Chrome); its tooltip gives the
+  dropouts, recent and since the start. Measured although the worklet has only a clock at 1 ms: the processors are
+  wrapped when they are registered, and the counts of contiguous blocks add up. Checked against an overload, where
+  the truth is known (the inverse of the pace of the context): 93 to 96 % of the time of the thread is counted.
+
 ## 3.62.0 (2026-11-17)
 
 - **The Scope triggers long durations too**: beyond 85 ms (half the buffer of its analyser), the waveform no longer

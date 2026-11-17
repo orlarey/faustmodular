@@ -127,6 +127,8 @@ You can also:
   to turn it off).
 - Drag a module, a selection, a rectangle or a cable **to an edge of the window**: the stage scrolls, the faster
   the closer to the edge.
+- **DSP n %**, in the toolbar, is the load of the audio thread by the Faust modules: amber from 70 %, red for 10 s
+  after a dropout of the audio device; its tooltip gives the dropouts. Near 100 %, the sound breaks up.
 - A browser tab runs **about 120 Faust modules** at most (a limit of the browser on WebAssembly memories): past it,
   a new module stays silent, outlined in red, and you are told; remove modules and they start again.
 - Zoomed out, the module under the pointer is **magnified** to its real size: you can read and play it, or move

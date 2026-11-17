@@ -947,6 +947,29 @@ input.transportTempo:focus {
 	to { visibility: hidden; }
 }
 
+/* The load of the audio thread by the Faust modules (view/DspMeterView.ts): quiet; amber from 70 %; red after a dropout */
+.dspMeter {
+	margin-left: 8px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font: 11px var(--fp-mono);
+	color: var(--fp-text-quiet);
+	white-space: nowrap;
+	user-select: none;
+	cursor: default;
+	font-variant-numeric: tabular-nums;
+}
+.dspMeter.suspended {
+	opacity: 0.6;
+}
+.dspMeter.high {
+	color: #e8a33a;
+}
+.dspMeter.dropouts {
+	color: #ff5a5a;
+	background: rgba(255, 90, 90, 0.12);
+}
+
 /* Library, in one view: the families (grouped), the modules of the family chosen, the description */
 #libraryPanel {
 	display: flex;

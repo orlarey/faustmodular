@@ -24,6 +24,7 @@ import { APP_TITLE } from "./Version";
 import { Documents } from "./documents/Documents";
 import { ResourceLink } from "./documents/ResourceLink";
 import { shippedEnvironment } from "./documents/Environment";
+import { DspMeter } from "./audio/DspMeter";
 
 //@ts-ignore
 declare const faust: never;
@@ -64,6 +65,7 @@ export async function init(): Promise<void> {
 }
 //callback when text is loaded. resume the initialization
 export function resumeInit(app: App) {
+    var dspMeterReady: Promise<DspMeter | null> = Promise.resolve(null);
     //create div which will contain all Messages and Confirm
     app.createDialogue();
     //create audiocontext if available, otherwise app can't work
@@ -72,6 +74,8 @@ export function resumeInit(app: App) {
         Utilitary.audioContext = new AudioContext({ latencyHint: 0.00001 });
         Utilitary.audioContext.destination.channelInterpretation = "discrete";
         Utilitary.audioContext.destination.channelCount = Utilitary.audioContext.destination.maxChannelCount;
+        // the load meter wraps the processors registered after it: loaded first (audio/DspMeter.ts)
+        dspMeterReady = DspMeter.install(Utilitary.audioContext);
     } catch (e) {
         new Message(Utilitary.messageResource.errorNoWebAudioAPI);
         Utilitary.hideFullPageLoading();
@@ -110,11 +114,15 @@ export function resumeInit(app: App) {
         var code = storedCode(name, module.moduleFaust.getSource()).code;
         app.menu.fileMenu.publishWith(detail.store, (p) => p.publishModule(detail.store, name, code));
     });
-    var access: any = { app, documents: null, stores, publishing, get scene() { return Utilitary.currentScene; } };
+    var access: any = { app, documents: null, dspMeter: null, stores, publishing, get scene() { return Utilitary.currentScene; } };
     (globalThis as any).faustmodular = (globalThis as any).faustPlayground = access;
 
-    // The documents: the scene becomes the last open document (documents/Documents.ts)
-    Documents.start(Utilitary.currentScene, {
+    // The documents: the scene becomes the last open document (documents/Documents.ts), once the load meter is in
+    // place (its modules are measured)
+    dspMeterReady.then((meter) => {
+        access.dspMeter = meter;
+        if (meter) app.menu.menuView.dspMeter.attach(meter);
+    }).then(() => Documents.start(Utilitary.currentScene, {
         environment: (store) => shippedEnvironment(faustWasmEnv.faustCompiler, store),
         legacyStorage: (() => { try { return localStorage; } catch { return null; } })(),
         untitled: Utilitary.messageResource.untitled,
@@ -127,7 +135,7 @@ export function resumeInit(app: App) {
         starter: () => starterWanted(location.search)
             ? JSON.stringify(starterPatch(Utilitary.currentScene.describePatch(), STARTER_CENTERED(Utilitary.currentScene.positionDblTapModule())))
             : null,
-    }).then((documents) => {
+    })).then((documents) => {
         access.documents = documents;
         app.menu.setDocuments(documents);
         openStoreLink(app, stores);

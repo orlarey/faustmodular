@@ -105,6 +105,10 @@ export class Resources {
     transportCorrection: string;
     transportGates: string;
     transportGate: string;
+    dspMeter: string;
+    dspDropouts: string;
+    dspNoDropouts: string;
+    dspSuspended: string;
     libraryStores: string;
     storeAdd: string;
     storePlaceholder: string;

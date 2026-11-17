@@ -75,6 +75,19 @@ channels.
   speakers or to a display: an analyser would make it compute a module nobody hears. Nothing is read while the tab is
   hidden or the audio suspended, nor written for the modules out of the window, nor when a level changed by less than
   4 %. *Animate the ports*, in the menu of the stage, turns it off (remembered by the browser).
+- **The load of the audio thread** (3.63.0, `src/audio/DspMeter.ts`, `src/view/DspMeterView.ts`): *DSP 23 %* in the
+  toolbar, the time spent by the processors of the audio worklet (the Faust modules, the limiter, the recorder…)
+  over the duration of the audio rendered, smoothed with a time constant of 1 s; quiet, amber from 70 %, red for 10 s
+  after a dropout; *DSP —* while the audio is suspended. Chrome has no render capacity and no fine clock in the
+  worklet: a module loaded before any other wraps `registerProcessor`, the `process()` of the processors registered
+  after it notes its end with `Date.now()` (1 ms), and a block of 128 frames counts from the start of its first
+  processor to the end of its last. Each count is a whole number of milliseconds, mostly 0; the blocks of a buffer
+  of the device are contiguous, so their counts add up to that of the buffer within 1 ms, and the buffers are not
+  locked to the clock: over half a second, the sum estimates the time spent. Overloaded, the thread is busy all the
+  time and the true load is the inverse of the pace of the context: the meter counts 93 to 96 % of it (the native
+  nodes outside the processors are not counted). The dropouts: `AudioContext.playbackStats.underrunEvents`
+  (Chrome), when the browser has it. The tooltip gives the load, the number of modules, the recent and total
+  dropouts.
 - A drag near an edge of the window scrolls the stage (a module or a selection moved, a selection rectangle
   drawn, a cable drawn): in a band of 40 px along each edge (under the toolbar at the top), the faster as the
   pointer is deeper in it, up to 1000 px/s at the edge and beyond, but not before the pointer has moved 8 px (a

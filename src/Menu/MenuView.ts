@@ -5,6 +5,7 @@
 /// <reference path="SaveView.ts"/>
  
 import { TransportView } from "../sync/TransportView";
+import { DspMeterView } from "../view/DspMeterView";
 import { AccelerometerEditView } from "./AccelerometerEditView";
 import { LoadView } from "./LoadView";
 import { LibraryView } from "./LibraryView";
@@ -31,6 +32,7 @@ export class MenuView {
     zoomInButton: HTMLElement;
     zoomFitButton: HTMLElement;
     transport: TransportView;
+    dspMeter: DspMeterView;
     accButton: HTMLElement;
     loadButton: HTMLElement;
     saveButton: HTMLElement;
@@ -178,6 +180,13 @@ export class MenuView {
             return { play: t.transportPlay, stop: t.transportStop, rewind: t.transportRewind, tempo: t.transportTempo, position: t.transportPosition, transport: t.transport, clocks: t.transportClocks, correction: t.transportCorrection, gates: t.transportGates, gate: t.transportGate };
         });
         buttonsMenu.appendChild(this.transport.element);
+
+        // the load of the audio thread by the Faust modules, the dropouts (audio/DspMeter.ts)
+        this.dspMeter = new DspMeterView(() => {
+            var t = Utilitary.messageResource;
+            return { dspMeter: t.dspMeter, dspDropouts: t.dspDropouts, dspNoDropouts: t.dspNoDropouts, dspSuspended: t.dspSuspended };
+        }, () => Utilitary.currentScene ? Utilitary.currentScene.getModules().length : 0);
+        buttonsMenu.appendChild(this.dspMeter.element);
 
         this.HTMLButtonsMenu.push(documentsButton, libraryButtonMenu, loadButtonMenu, saveButtonMenu, exportButtonMenu);
 
