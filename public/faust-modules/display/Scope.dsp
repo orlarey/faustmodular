@@ -6,9 +6,11 @@ declare display "scope";
 
 - Oscilloscope and spectrum analyser, inserted anywhere: the signal goes through unchanged
 - View: the waveform, or the spectrum
-- Waveform: Time is the duration shown (1 ms to 5 s, in [-1, 1]); short durations are triggered on a
-  crossing of the Threshold (Slope: rising or falling; Trigger auto: the signal is shown even without a
-  crossing, normal: the last image stays), long ones scroll (modulation sources, envelopes)
+- Waveform: Time is the duration shown (1 ms to 5 s, in [-1, 1]), triggered on a crossing of the
+  Threshold (Slope: rising or falling; Trigger auto: the signal is shown even without a crossing,
+  normal: the last image stays); long durations are swept as on an oscilloscope, from the crossing
+  (a tenth before it), and the image stays until the next one: an envelope at 60 bpm, seen over
+  900 ms, stands still
 - Spectrum: in dB of a sine (0 dB: a sine at full scale), on a logarithmic axis with a line per
   semitone (Scale: log) or a linear one; the strongest peak is written (frequency, note, level)
 - The corner at the bottom right resizes the display

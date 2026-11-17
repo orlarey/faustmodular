@@ -8,8 +8,9 @@
       declare display "scope";   or   declare display "spectrum";
       Drawn as faustcode draws them (ScopeDraw.ts). The display reads the widgets of the module by their
       label: View (waveform 0, spectrum 1; without it, the declared display), Time (ms, 20 without
-      one: up to half the buffer of the analyser the waveform is triggered, beyond it scrolls, each
-      column of pixels showing the minimum and maximum of its samples), Trigger (auto, normal), Slope
+      one: up to half the buffer of the analyser the waveform is triggered on a window of it, beyond it
+      as the sweep of an oscilloscope (Sweep), each column of pixels showing the minimum and maximum of
+      its samples), Trigger (auto, normal), Slope
       (rising, falling), Threshold, Scale (log, linear), and Width and Height (the size of the display,
       set by the grip at its bottom right corner, so saved and undone with the module). The widgets
       of the other view are hidden. The Scope module of the library (display/Scope.dsp) has them all;
@@ -110,28 +111,92 @@ const HOLD_MS = 20;            // a new triggered image at most every HOLD_MS (f
 const FFT = 8192;              // the analyser: the spectrum, and the triggered waveform up to half of it
 const ROLL_FFT = 32768;        // the scrolling waveform: 0.68 s at 48 kHz between two frames before a sample is lost
 
-// The scrolling oscilloscope: adds `lost` samples (a gap: null columns), then the samples of `data` from `from`, to
-// the columns of `perColumn` samples ([min, max] each); `column` is the one being filled, kept between frames.
-export function rollColumns(column: { lo: number; hi: number; filled: number; real: number }, roll: Array<[number, number] | null>,
-    lost: number, data: Float32Array, from: number, perColumn: number): void {
-    const close = () => {
-        roll.push(column.real > 0 && column.lo <= column.hi ? [column.lo, column.hi] : null);
-        column.lo = Infinity; column.hi = -Infinity; column.real = 0;
-        column.filled -= perColumn;
-    };
-    while (lost > 0) {
-        const take = Math.min(lost, Math.max(1, perColumn - column.filled));
-        column.filled += take;
-        lost -= take;
-        if (column.filled >= perColumn) close();
+// A long duration, triggered (as the sweep of an oscilloscope): the samples are reduced to columns of `perColumn` samples
+// ([min, max] each) as they arrive; a crossing of the threshold, with the slope, starts an image of `width` columns,
+// whose first `pre` columns are those before the crossing (the pre-trigger); the image fills from left to right, then
+// stays until the next crossing. Auto: without a crossing for a whole image, an image starts anyway (free run). A
+// crossing is detected sample by sample (rising: from at or below the threshold to above it), its image starting at the
+// column it falls in. Samples lost between two frames make a gap (null columns) and cannot trigger.
+export class Sweep {
+    image: Array<[number, number] | null> = [];         // the image shown: the sweep being filled, or the last one
+    private fHistory: Array<[number, number] | null> = [];  // the columns before a crossing (the pre-trigger)
+    private fSweeping = false;
+    private fWaited = 0;                                  // columns since the last image ended (auto: free run)
+    private fPrevious = NaN;
+    private fColumn = { lo: Infinity, hi: -Infinity, filled: 0, real: 0 };
+
+    constructor(public width: number, public perColumn: number, public pre: number = Math.round(width / 10)) { }
+
+    // The same image size and duration: kept; else started again.
+    configure(width: number, perColumn: number): void {
+        if (width == this.width && Math.abs(perColumn - this.perColumn) < 1e-9) return;
+        this.width = width;
+        this.perColumn = perColumn;
+        this.pre = Math.round(width / 10);
+        this.image = [];
+        this.fHistory = [];
+        this.fSweeping = false;
+        this.fWaited = 0;
+        this.fColumn = { lo: Infinity, hi: -Infinity, filled: 0, real: 0 };
     }
-    for (let i = from; i < data.length;) {
-        const take = Math.min(data.length - i, Math.max(1, Math.ceil(perColumn - column.filled)));
-        for (let k = i; k < i + take; k++) { column.lo = Math.min(column.lo, data[k]); column.hi = Math.max(column.hi, data[k]); }
-        column.real += take;
-        column.filled += take;
-        i += take;
-        if (column.filled >= perColumn) close();
+
+    get sweeping(): boolean {
+        return this.fSweeping;
+    }
+
+    // `lost` samples missed (a gap), then the samples of `data` from `from`.
+    push(lost: number, data: ArrayLike<number>, from: number, threshold: number, slope: "rising" | "falling", auto: boolean): void {
+        const column = this.fColumn;
+        while (lost > 0) {
+            const take = Math.min(lost, Math.max(1, Math.ceil(this.perColumn - column.filled)));
+            column.filled += take;
+            lost -= take;
+            this.fPrevious = NaN;
+            if (column.filled >= this.perColumn) this.close(auto);
+        }
+        for (let i = from; i < data.length; i++) {
+            const x = data[i], a = this.fPrevious;
+            this.fPrevious = x;
+            if (!this.fSweeping && (slope == "rising" ? a <= threshold && x > threshold : a >= threshold && x < threshold)) this.start();
+            column.lo = Math.min(column.lo, x);
+            column.hi = Math.max(column.hi, x);
+            column.real += 1;
+            column.filled += 1;
+            if (column.filled >= this.perColumn) this.close(auto);
+        }
+    }
+
+    // A sweep starts: the pre-trigger, then the columns to come, from the crossing (the columns start again on it, so
+    // that the images of a periodic signal are the same, without a jitter of a column).
+    private start(): void {
+        const c = this.fColumn;
+        if (c.real > 0 && c.lo <= c.hi) {
+            this.fHistory.push([c.lo, c.hi]);
+            if (this.fHistory.length > this.pre) this.fHistory.splice(0, this.fHistory.length - this.pre);
+        }
+        c.lo = Infinity; c.hi = -Infinity; c.real = 0; c.filled = 0;
+        this.fSweeping = true;
+        this.image = this.fHistory.slice(-this.pre);
+    }
+
+    private close(auto: boolean): void {
+        const c = this.fColumn;
+        const value: [number, number] | null = c.real > 0 && c.lo <= c.hi ? [c.lo, c.hi] : null;
+        c.lo = Infinity; c.hi = -Infinity; c.real = 0;
+        c.filled -= this.perColumn;
+        if (this.fSweeping) {
+            this.image.push(value);
+            if (this.image.length >= this.width) {
+                this.fSweeping = false;
+                this.fWaited = 0;
+                this.fHistory = [];
+            }
+            return;
+        }
+        this.fHistory.push(value);
+        if (this.fHistory.length > this.pre) this.fHistory.splice(0, this.fHistory.length - this.pre);
+        this.fWaited += 1;
+        if (auto && this.fWaited >= this.width) this.start();
     }
 }
 
@@ -154,8 +219,7 @@ export class ModuleDisplays {
     private fElements: HTMLElement[] = [];
     private fAddress = new Map<ScopeWidget, string>();
     // scrolling oscilloscope: [min, max] per column, null for samples lost (frames too far apart)
-    private fRoll: Array<[number, number] | null> = [];
-    private fColumn = { lo: Infinity, hi: -Infinity, filled: 0, real: 0 };  // the column being filled
+    private fSweep: Sweep | null = null;                // a long duration: the sweep, triggered
     private fLastFrame = 0;
     private fLastWindow: Float32Array | null = null;    // the last triggered image (normal mode)
     private fLastTrigger = 0;
@@ -305,7 +369,7 @@ export class ModuleDisplays {
                 this.fContainer.querySelector(`[data-widget="${CSS.escape(address)}"]`)?.classList.toggle("display-off", hide.has(name));
             }
             this.fCanvas?.classList.toggle("display-spectrum", view == "spectrum");
-            this.fRoll = [];
+            this.fSweep = null;
             this.fLastWindow = null;
         }
         return view;
@@ -358,7 +422,7 @@ export class ModuleDisplays {
     private drawScope(c: { g: CanvasRenderingContext2D; width: number; height: number }): void {
         const analyser = this.fAnalyser!;
         const samples = Math.max(16, Math.round((this.param("time", 20) / 1000) * analyser.context.sampleRate));
-        if (samples <= FFT / 2) this.drawTriggered(c, samples); else this.drawRolling(c, samples);
+        if (samples <= FFT / 2) this.drawTriggered(c, samples); else this.drawSweep(c, samples);
     }
 
     // The analyser at the size of the view (the scrolling waveform keeps more samples between two frames).
@@ -376,7 +440,7 @@ export class ModuleDisplays {
         this.analyserSize(FFT);
         const data = this.fTime!;
         this.fAnalyser!.getFloatTimeDomainData(data);
-        this.fRoll = [];
+        this.fSweep = null;
         this.fLastFrame = 0;
         const threshold = this.param("threshold", 0);
         const normal = this.param("trigger", 0) >= 0.5;
@@ -396,10 +460,12 @@ export class ModuleDisplays {
         drawWave(c.g, c.width, c.height, window!, this.colors(), threshold);
     }
 
-    // A long duration scrolls: the samples that arrived since the last frame are reduced to the
-    // minimum and maximum of each column of pixels. Samples older than the buffer of the analyser (frames
+    // A long duration is triggered as the sweep of an oscilloscope (Sweep): the samples that arrived since the last frame
+    // are reduced to columns of pixels (the minimum and maximum of each); a crossing of the threshold starts an image,
+    // with a pre-trigger of a tenth of it, which fills from left to right and stays until the next crossing (auto: an
+    // image starts anyway after a whole image without one). Samples older than the buffer of the analyser (frames
     // further apart than 0.68 s) are lost: a gap of their duration, so that the time stays right.
-    private drawRolling(c: { g: CanvasRenderingContext2D; width: number; height: number }, duration: number): void {
+    private drawSweep(c: { g: CanvasRenderingContext2D; width: number; height: number }, duration: number): void {
         const { g, width, height } = c;
         this.analyserSize(ROLL_FFT);
         const data = this.fTime!;
@@ -409,23 +475,36 @@ export class ModuleDisplays {
         const elapsed = this.fLastFrame > 0 ? Math.max(0, now - this.fLastFrame) : 0;
         this.fLastFrame = now;
         const columns = Math.max(1, Math.round(width));
-        const perColumn = duration / columns;                     // samples per column
+        const sweep = this.fSweep ??= new Sweep(columns, duration / columns);
+        sweep.configure(columns, duration / columns);
         const fresh = Math.round(elapsed * analyser.context.sampleRate);
         const available = Math.min(data.length, fresh);
-        rollColumns(this.fColumn, this.fRoll, Math.min(fresh - available, duration + perColumn), data, data.length - available, perColumn);
-        if (this.fRoll.length > columns) this.fRoll.splice(0, this.fRoll.length - columns);
+        const threshold = this.param("threshold", 0);
+        const normal = this.param("trigger", 0) >= 0.5;
+        const slope = this.param("slope", 0) >= 0.5 ? "falling" : "rising";
+        sweep.push(Math.min(fresh - available, duration), data, data.length - available, threshold, slope, !normal);
         const colors = this.colors();
         drawScopeGrid(g, width, height, colors);
+        // the threshold, and the instant of the crossing (after the pre-trigger)
+        g.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        g.setLineDash([3, 3]);
+        g.beginPath();
+        g.moveTo(0, yOfSample(threshold, height));
+        g.lineTo(width, yOfSample(threshold, height));
+        const xTrigger = (sweep.pre / columns) * width;
+        g.moveTo(xTrigger, 0);
+        g.lineTo(xTrigger, height);
+        g.stroke();
+        g.setLineDash([]);
         g.strokeStyle = colors.line;
         g.lineWidth = 1.5;
         g.beginPath();
-        const offset = columns - this.fRoll.length;
         // one line, through the extent of each column, broken where samples were lost
         let broken = true;
-        this.fRoll.forEach((column, i) => {
+        sweep.image.forEach((column, i) => {
             if (!column) { broken = true; return; }
             const [lo, hi] = column;
-            const x = ((offset + i + 0.5) / columns) * width;
+            const x = ((i + 0.5) / columns) * width;
             if (broken) g.moveTo(x, yOfSample(hi, height)); else g.lineTo(x, yOfSample(hi, height));
             g.lineTo(x, yOfSample(lo, height));
             broken = false;

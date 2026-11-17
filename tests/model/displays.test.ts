@@ -1,6 +1,6 @@
 // What a module shows of its signals (Modules/Displays.ts): bargraphs, declared oscilloscope or spectrum.
 import { describe, expect, it } from "vitest";
-import { barFraction, bargraphsOf, declaredDisplay, rollColumns } from "../../src/Modules/Displays";
+import { barFraction, bargraphsOf, declaredDisplay, Sweep } from "../../src/Modules/Displays";
 
 describe("displays", () => {
     it("finds the bargraphs of a module, in nested groups", () => {
@@ -27,22 +27,40 @@ describe("displays", () => {
         expect(barFraction(1, 1, 1)).toBe(0);
     });
 
-    // A gate of 100 samples every 400, scrolled at 10 samples per column: frames far apart lose samples, shown as
-    // a gap of their duration; the gates after it stay in place (a squeezed trace would move them).
-    it("scrolls the waveform: lost samples make a gap of their duration, the time stays right", () => {
-        const gate = (n: number) => (n % 400 < 100 ? 1 : 0);
-        const column = { lo: Infinity, hi: -Infinity, filled: 0, real: 0 };
-        const roll: Array<[number, number] | null> = [];
-        const frame = (start: number, fresh: number, buffer: number) => {
-            const data = Float32Array.from({ length: buffer }, (_, i) => gate(start + fresh - buffer + i));
-            const available = Math.min(buffer, fresh);
-            rollColumns(column, roll, fresh - available, data, buffer - available, 10);
-        };
-        frame(0, 800, 1000);           // 80 columns
-        frame(800, 1600, 1000);        // 600 lost (60 null columns), then 1000 samples (100 columns)
-        expect(roll.length).toBe(240);
-        expect(roll.slice(80, 140).every((c) => c === null)).toBe(true);
-        // every column at its time: a gate of 10 columns every 40
-        roll.forEach((c, i) => { if (c) expect(c[1]).toBe(i % 40 < 10 ? 1 : 0); });
+    // An envelope triggered at 60 bpm (a decay of 0.3 s every second, from 0), seen over 1 s: each image starts at the
+    // same place on the attack, whatever the frames (the image is stable, it does not scroll).
+    it("triggers a long duration: each image starts on the crossing, after the pre-trigger, and stays until the next", () => {
+        const rate = 1000;                                             // samples per second, for the test
+        const env = (n: number) => { const t = (n % rate) / rate; return t < 0.3 ? 1 - t / 0.3 : 0; };
+        const sweep = new Sweep(100, 9);                               // 100 columns of 9 samples: 0.9 s, pre-trigger 10
+        let n = 0;
+        const images: string[] = [];
+        for (let frame = 0; frame < 60; frame++) {                     // frames of irregular length
+            const fresh = 40 + (frame * 37) % 70;
+            const data = Float32Array.from({ length: fresh }, (_, i) => env(n + i));
+            n += fresh;
+            sweep.push(0, data, 0, 0.5, "rising", false);
+            if (!sweep.sweeping && sweep.image.length == 100) images.push(JSON.stringify(sweep.image));
+        }
+        expect(images.length).toBeGreaterThan(0);
+        // every complete image the same: the pre-trigger (at 0), then the attack at column 10
+        expect(new Set(images).size).toBe(1);
+        const image = JSON.parse(images[0]);
+        expect(image.slice(0, 10).every((c: [number, number]) => c[1] == 0)).toBe(true);
+        expect(image[10][1]).toBe(1);
+    });
+
+    it("runs free in auto mode without a crossing, and waits in normal mode", () => {
+        const flat = new Float32Array(500).fill(0.2);
+        const auto = new Sweep(20, 5);
+        auto.push(0, flat, 0, 0.5, "rising", true);
+        expect(auto.image.length).toBeGreaterThan(0);
+        const normal = new Sweep(20, 5);
+        normal.push(0, flat, 0, 0.5, "rising", false);
+        expect(normal.image.length).toBe(0);
+        // a falling crossing with the falling slope
+        const down = new Sweep(20, 5);
+        down.push(0, Float32Array.from([1, 1, 1, 0, 0]), 0, 0.5, "falling", false);
+        expect(down.sweeping).toBe(true);
     });
 });

@@ -1,6 +1,6 @@
 {
  "format": "faustmodular-library-index",
- "version": "3.54.0",
+ "version": "3.61.0",
  "modules": {
   "faust-modules/combined/AtonalSoftHarp.dsp": "59b720b0182dcb8620051f144b53fdff18413e8b",
   "faust-modules/combined/Birds.dsp": "6258c885677f1c2ebb6396c48aa4ff536927f279",
@@ -29,7 +29,7 @@
   "faust-modules/combined/Whistles.dsp": "d44ee896fad9760827f7a3f5936403afce274546",
   "faust-modules/combined/WoodenKeyboard.dsp": "9cceb5e17f1b863876eb53ff3a518c707dbcd84e",
   "faust-modules/display/Level.dsp": "4c209c3251737eaca0f23a054d05a7fcca7e03b8",
-  "faust-modules/display/Scope.dsp": "6f164a9965149e56403416128d8c2f1a22ff0515",
+  "faust-modules/display/Scope.dsp": "7ba7d9250347900f42b4649871101d2aa4aa370e",
   "faust-modules/display/StereoLevel.dsp": "b21e230d1f95b62eac3e53acecb40147175e5e5b",
   "faust-modules/display/Value.dsp": "2461c36fc153c457592fc2b96da9b9d25cf27487",
   "faust-modules/effects/ASREnvelope.dsp": "8e82e97834378abceabf3c43c0e124b1a588e532",
@@ -339,6 +339,10 @@
   "6e5437ef9992be7e74805a2eff0448f40143db3f": {
    "path": "faust-modules/faustlib/GuitarModel.dsp",
    "until": "3.21.0"
+  },
+  "6f164a9965149e56403416128d8c2f1a22ff0515": {
+   "path": "faust-modules/display/Scope.dsp",
+   "until": "3.61.0"
   },
   "72a961d594b48a62b2c8e41b4de8561da5feb1f9": {
    "path": "faust-modules/faustlib/NylonGuitarModel.dsp",

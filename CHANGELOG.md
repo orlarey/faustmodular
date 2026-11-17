@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.62.0 (2026-11-17)
+
+- **The Scope triggers long durations too**: beyond 85 ms (half the buffer of its analyser), the waveform no longer
+  scrolls; it is swept as on an oscilloscope (`Sweep`, `src/Modules/Displays.ts`). A crossing of the Threshold, with
+  the Slope, starts an image, with a pre-trigger of a tenth of it (a dotted line marks the crossing); the image fills
+  from left to right and stays until the next crossing; the columns start again on the crossing, so that the images
+  of a periodic signal are the same. Trigger auto: without a crossing for a whole image, an image starts anyway;
+  normal: the last image stays. An envelope fired at 60 bpm, seen over 900 ms with the threshold at 0.5, stands
+  still. The description of the Scope says so (its former code is a past version of the library).
+
 ## 3.61.0 (2026-11-17)
 
 - **The ports lit by their signal, discreetly** (`src/view/PortMeters.ts`): a glow inside a port follows its level,
