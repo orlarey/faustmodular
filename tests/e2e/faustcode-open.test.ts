@@ -249,4 +249,58 @@ describe.skipIf(!present)("faustcode: Open… and Revert to saved", () => {
         expect(errors).toEqual([]);
         await context.close();
     }, 180_000);
+
+    it("two tabs: a save in one reloads the document in the other; modified there, the banner", async () => {
+        const context = await browser.newContext({ viewport: { width: 1300, height: 850 } });
+        const errors: string[] = [];
+        const open = async () => {
+            const p = await context.newPage();
+            p.on("pageerror", (e) => errors.push(e.message));
+            p.on("dialog", (d) => void d.accept());
+            await p.goto(url + "faustcode/");
+            await expect.poll(() => label(p), { timeout: 60_000 }).toMatch(/\.dsp/);
+            if (!(await p.locator("#view-container .cm-content").count())) await p.selectOption("#view-select", "dsp");
+            await expect.poll(() => editorText(p), { timeout: 20_000 }).not.toBe("");
+            return p;
+        };
+        const a = await open();
+        const b = await open();          // the document open last: the same one
+        const name = await label(a);
+        expect(await label(b)).toBe(name);
+        const replace = async (p: Page, text: string) => {
+            await p.bringToFront();
+            await p.click("#view-container .cm-content");
+            await p.keyboard.press("Control+a");
+            await p.keyboard.type(text);
+        };
+
+        // saved in A, not modified in B: reloaded in B
+        await replace(a, "process = _ * 0.5;");
+        await a.keyboard.press("Control+s");
+        await expect.poll(() => label(a), { timeout: 20_000 }).toBe(name);
+        await expect.poll(() => editorText(b), { timeout: 20_000 }).toBe("process = _ * 0.5;");
+        expect(await label(b)).toBe(name);
+
+        // modified in B, saved in A: the banner in B; Keep mine keeps B's text, ● stays
+        await replace(b, "process = _ * 0.1;");
+        await expect.poll(() => label(b)).toContain("●");
+        await replace(a, "process = _ * 0.25;");
+        await a.keyboard.press("Control+s");
+        await b.waitForSelector(".app-banner", { timeout: 20_000 });
+        expect(await b.textContent(".app-banner")).toContain("saved in another tab");
+        await b.locator(".app-banner button", { hasText: "Keep mine" }).click();
+        expect(await editorText(b)).toBe("process = _ * 0.1;");
+        expect(await label(b)).toContain("●");
+
+        // again; Reload takes A's text, ● goes
+        await replace(a, "process = _ * 0.75;");
+        await a.keyboard.press("Control+s");
+        await b.waitForSelector(".app-banner", { timeout: 20_000 });
+        await b.locator(".app-banner button", { hasText: "Reload" }).click();
+        await expect.poll(() => editorText(b), { timeout: 20_000 }).toBe("process = _ * 0.75;");
+        await expect.poll(() => label(b)).toBe(name);
+
+        expect(errors).toEqual([]);
+        await context.close();
+    }, 180_000);
 });
