@@ -118,7 +118,7 @@ describe.skipIf(!present)("faustcode: Open… and Revert to saved", () => {
         await fc.click(".open-volume[data-volume=stores]");
         await expect.poll(() => fc.textContent(".open-dialog .open-list")).toContain("No store followed");
         await fc.click(".open-volume[data-volume=disk]");
-        expect(await fc.textContent(".open-dialog .open-actions")).toContain("Open a file of the device…");
+        await expect.poll(() => fc.textContent(".open-dialog .open-actions")).toContain("Open a file of the device…");
         await fc.keyboard.press("Escape");
 
         expect(errors).toEqual([]);
@@ -154,5 +154,99 @@ describe.skipIf(!present)("faustcode: Open… and Revert to saved", () => {
         await p.waitForSelector("#audio-gate.hidden", { state: "attached", timeout: 30_000 });
         await expect.poll(() => p.evaluate(() => document.getElementById("run-audio-toggle")?.className ?? ""), { timeout: 30_000 }).toContain("is-on");
         await phone.close();
+    }, 180_000);
+
+    it("mounts a folder: browsed in Open…, a file opened in place with the .lib of its folder, saved, reloaded when changed outside", async () => {
+        const context = await browser.newContext({ viewport: { width: 1300, height: 850 } });
+        const fc = await context.newPage();
+        const errors: string[] = [];
+        fc.on("pageerror", (e) => errors.push(e.message));
+        fc.on("dialog", (d) => void d.accept());
+        await fc.goto(url + "faustcode/");
+        await expect.poll(() => label(fc), { timeout: 60_000 }).toMatch(/\.dsp/);
+        // a folder of the device, played by a folder of the private storage (the same interface): fx/echo.dsp
+        // imports fx/mylib.lib, which no document of the Library has
+        await fc.evaluate(async () => {
+            const root = await (await navigator.storage.getDirectory()).getDirectoryHandle("test-folder", { create: true });
+            const fx = await root.getDirectoryHandle("fx", { create: true });
+            const put = async (dir: any, name: string, text: string) => { const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
+            await put(root, "top.dsp", "process = _;");
+            await put(fx, "mylib.lib", "half = *(0.5);");
+            await put(fx, "echo.dsp", 'm = library("mylib.lib");\nprocess = m.half;');
+            (window as any).showDirectoryPicker = async () => root;
+        });
+        const fileText = (path: string[]) => fc.evaluate(async (parts) => {
+            let dir: any = await (await navigator.storage.getDirectory()).getDirectoryHandle("test-folder");
+            for (const p of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(p);
+            return (await (await dir.getFileHandle(parts[parts.length - 1])).getFile()).text();
+        }, path);
+        const writeOutside = (text: string) => fc.evaluate(async (t) => {
+            await new Promise((r) => setTimeout(r, 30));
+            const fx = await (await (await navigator.storage.getDirectory()).getDirectoryHandle("test-folder")).getDirectoryHandle("fx");
+            const w = await (await fx.getFileHandle("echo.dsp")).createWritable(); await w.write(t); await w.close();
+            window.dispatchEvent(new Event("focus"));
+        }, text);
+        const compileErrors = () => fc.evaluate(async () => {
+            const st = await (await fetch("/api/state")).json();
+            return (await (await fetch(`/api/${st.sha1}/errors.log`)).text()).trim();
+        });
+
+        // Open… ▸ Disk ▸ Mount a folder…: its content; fx/ browsed
+        await fc.keyboard.press("Control+o");
+        await fc.click(".open-volume[data-volume=disk]");
+        await fc.locator(".open-actions button", { hasText: "Mount a folder…" }).click();
+        await expect.poll(() => rows(fc)).toEqual(["fx/", "top.dsp"]);
+        expect(await crumbs(fc)).toBe("Disk ▸ test-folder");
+        await fc.locator(".open-dialog .open-row", { hasText: "fx/" }).click();
+        await expect.poll(() => rows(fc)).toEqual(["echo.dsp", "mylib.lib"]);
+        expect(await crumbs(fc)).toBe("Disk ▸ test-folder ▸ fx");
+
+        // echo.dsp opened in place; it compiles with the mylib.lib of its folder
+        await fc.locator(".open-dialog .open-row", { hasText: "echo.dsp" }).click();
+        await expect.poll(() => label(fc), { timeout: 30_000 }).toBe("echo.dsp — Disk ▸ test-folder/fx/echo.dsp");
+        expect(await compileErrors()).toBe("");
+        // the folder in the root of Disk, the dialog opened where the document is
+        await fc.click("#session-label");
+        await expect.poll(() => crumbs(fc)).toBe("Disk ▸ test-folder ▸ fx");
+        await expect.poll(() => rows(fc)).toEqual(["✓ echo.dsp", "mylib.lib"]);
+        await fc.keyboard.press("Escape");
+
+        // Save writes the file of the folder
+        if (!(await fc.locator("#view-container .cm-content").count())) await fc.selectOption("#view-select", "dsp");
+        await fc.click("#view-container .cm-content");
+        await fc.keyboard.press("Control+a");
+        await fc.keyboard.type('m = library("mylib.lib");\nprocess = m.half : m.half;');
+        await fc.keyboard.press("Control+s");
+        await expect.poll(() => fileText(["fx", "echo.dsp"]), { timeout: 20_000 }).toBe('m = library("mylib.lib");\nprocess = m.half : m.half;');
+        await expect.poll(() => label(fc)).toBe("echo.dsp — Disk ▸ test-folder/fx/echo.dsp");
+
+        // changed outside, the document not modified: reloaded
+        await writeOutside('m = library("mylib.lib");\nprocess = m.half, m.half;');
+        await expect.poll(() => editorText(fc), { timeout: 20_000 }).toBe('m = library("mylib.lib");process = m.half, m.half;');
+        expect(await label(fc)).not.toContain("●");
+
+        // changed outside, the document modified: the banner; Reload takes the file
+        await fc.click("#view-container .cm-content");
+        await fc.keyboard.press("End");
+        await fc.keyboard.type(" // mine");
+        await expect.poll(() => label(fc)).toContain("●");
+        await writeOutside("process = _ * 0.25;");
+        await fc.waitForSelector(".app-banner", { timeout: 20_000 });
+        await fc.locator(".app-banner button", { hasText: "Reload" }).click();
+        await expect.poll(() => editorText(fc), { timeout: 20_000 }).toBe("process = _ * 0.25;");
+        await expect.poll(() => label(fc)).toBe("echo.dsp — Disk ▸ test-folder/fx/echo.dsp");
+
+        // the folder of the open document cannot be unmounted
+        await fc.keyboard.press("Control+o");
+        await fc.click(".open-volume[data-volume=disk]");
+        await expect.poll(() => rows(fc)).toContain("test-folder/");
+        await fc.locator(".open-dialog .open-row", { hasText: "test-folder/" }).click();
+        await fc.locator(".open-actions button", { hasText: "Unmount" }).click();
+        await fc.waitForTimeout(300);
+        expect(await crumbs(fc)).toBe("Disk ▸ test-folder");
+        await fc.keyboard.press("Escape");
+
+        expect(errors).toEqual([]);
+        await context.close();
     }, 180_000);
 });
