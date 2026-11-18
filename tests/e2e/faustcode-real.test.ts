@@ -19,7 +19,7 @@ beforeAll(async () => {
     server = await createServer({ root: path.resolve(__dirname, "../.."), server: { port: 0 }, logLevel: "error" });
     await server.listen();
     url = server.resolvedUrls!.local[0];
-    browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+    browser = await chromium.launch();     // the autoplay policy of a real browser: faustcode opens without a gesture
 }, 60_000);
 
 afterAll(async () => {
@@ -47,7 +47,6 @@ describe.skipIf(!present)("faustmodular and the real faustcode (same origin)", (
         const [fc] = await Promise.all([context.waitForEvent("page"), page.evaluate((id) => { const s = (globalThis as any).faustPlayground.scene; s.editInFaustcode(s.getModuleById(id)); }, ids[0])]);
         fc.on("pageerror", (e) => errors.push("faustcode: " + e.message));
         expect(fc.url()).toMatch(/\/faustcode\/\?open=faustmodular%3A/);
-        await fc.locator("#audio-gate:not(.hidden) #audio-gate-button").click({ timeout: 60_000 });
         const label = () => fc.evaluate(() => document.getElementById("session-label")?.textContent ?? "");
         await expect.poll(label, { timeout: 30_000 }).toBe("Gain.dsp — faustmodular ▸ Untitled ▸ Gain");
         await expect.poll(() => fc.evaluate(() => document.querySelector("#view-container .cm-content")?.textContent), { timeout: 20_000 }).toBe(GAIN.replace("\n", ""));
@@ -70,7 +69,6 @@ describe.skipIf(!present)("faustmodular and the real faustcode (same origin)", (
 
         // faustcode reloaded: the document is still linked, a save still updates the scene
         await fc.reload();
-        await fc.locator("#audio-gate:not(.hidden) #audio-gate-button").click({ timeout: 60_000 });
         await expect.poll(label, { timeout: 30_000 }).toBe("Gain.dsp — faustmodular ▸ Untitled ▸ Gain");
         await fc.click("#view-container .cm-content");
         await fc.keyboard.press("Control+a");

@@ -6,6 +6,7 @@ import { chromium, Browser, Page } from "playwright";
 import { createServer, ViteDevServer } from "vite";
 import fs from "fs";
 import path from "path";
+import zlib from "zlib";
 
 const FAUSTCODE = path.join(process.env.FAUSTCODE_DIR ?? path.resolve(__dirname, "../../../faustcode"), "webapp", "index.html");
 const present = fs.existsSync(FAUSTCODE);
@@ -19,7 +20,7 @@ beforeAll(async () => {
     server = await createServer({ root: path.resolve(__dirname, "../.."), server: { port: 0 }, logLevel: "error" });
     await server.listen();
     url = server.resolvedUrls!.local[0];
-    browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+    browser = await chromium.launch();     // the autoplay policy of a real browser: faustcode opens without a gesture
 }, 60_000);
 
 afterAll(async () => {
@@ -53,7 +54,9 @@ describe.skipIf(!present)("faustcode: Open… and Revert to saved", () => {
         fc.on("pageerror", (e) => errors.push("faustcode: " + e.message));
         fc.on("dialog", (d) => void d.accept());
         await fc.goto(url + "faustcode/");
-        await fc.locator("#audio-gate:not(.hidden) #audio-gate-button").click({ timeout: 60_000 });
+        // no ENTER screen: faustcode lands on a document (a blank one, the first time)
+        await expect.poll(() => label(fc), { timeout: 60_000 }).toMatch(/\.dsp/);
+        expect(await fc.locator("#audio-gate:not(.hidden)").count()).toBe(0);
 
         // a document of the Library: New file, saved
         await menu(fc, "New file");
@@ -120,5 +123,36 @@ describe.skipIf(!present)("faustcode: Open… and Revert to saved", () => {
 
         expect(errors).toEqual([]);
         await context.close();
+    }, 180_000);
+
+    it("opens without ENTER; the speaker of the Run view starts the sound; a shared link on a phone keeps Tap to play", async () => {
+        const code = zlib.deflateRawSync(Buffer.from('import("stdfaust.lib");\nprocess = os.osc(440) * hslider("gain", 0.1, 0, 1, 0.01);')).toString("base64url");
+        const link = url + `faustcode/?code=${code}&name=Sine.dsp&view=run`;
+        const context = await browser.newContext({ viewport: { width: 1300, height: 850 } });
+        const fc = await context.newPage();
+        const errors: string[] = [];
+        fc.on("pageerror", (e) => errors.push(e.message));
+        await fc.goto(link);
+        await expect.poll(() => label(fc), { timeout: 60_000 }).toBe("Sine.dsp");
+        expect(await fc.locator("#audio-gate:not(.hidden)").count()).toBe(0);
+        const speaker = () => fc.evaluate(() => document.getElementById("run-audio-toggle")?.className ?? "");
+        await expect.poll(speaker, { timeout: 30_000 }).toContain("is-off");
+        await expect.poll(speaker, { timeout: 10_000 }).toContain("awaits-gesture");
+        await fc.click("#run-audio-toggle");
+        await expect.poll(speaker, { timeout: 20_000 }).toContain("is-on");
+        expect(await speaker()).not.toContain("awaits-gesture");
+        expect(errors).toEqual([]);
+        await context.close();
+
+        // a phone: the shared link shows Tap to play (the sound and the motion sensors in one tap)
+        const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+        const p = await phone.newPage();
+        await p.goto(link);
+        await p.waitForSelector("#audio-gate:not(.hidden)", { timeout: 60_000 });
+        expect(await p.textContent("#audio-gate-button")).toBe("Tap to play");
+        await p.tap("#audio-gate-button");
+        await p.waitForSelector("#audio-gate.hidden", { state: "attached", timeout: 30_000 });
+        await expect.poll(() => p.evaluate(() => document.getElementById("run-audio-toggle")?.className ?? ""), { timeout: 30_000 }).toContain("is-on");
+        await phone.close();
     }, 180_000);
 });
